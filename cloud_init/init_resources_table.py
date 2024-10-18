@@ -1,4 +1,11 @@
 from google.cloud import bigquery
+from google.cloud import logging as cloud_logging
+
+# Initialize Google Cloud Logging client
+logging_client = cloud_logging.Client()
+
+# Get the default logger
+logger = logging_client.logger('resources_table_creation')
 
 # Initialize a BigQuery client
 client = bigquery.Client()
@@ -47,10 +54,11 @@ schema = [
 ]
 
 # Set up the table reference
-table_id = "your_project.your_dataset.resources"
+table_id = "cropsprices.your_dataset.resources"
 table = bigquery.Table(table_id, schema=schema)
 
 # Create the table
 table = client.create_table(table)
 
-print(f"Created table {table.project}.{table.dataset_id}.{table.table_id}")
+# Log the table creation
+logger.log_text(f"Created table {table.project}.{table.dataset_id}.{table.table_id}")

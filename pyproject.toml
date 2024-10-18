@@ -10,6 +10,8 @@ package-mode = false
 python = "^3.12"
 requests = "^2.32.3"
 pydantic = "^2.9.2"
+google-cloud-bigquery = "^3.26.0"
+google-cloud-logging = "^3.11.3"
 
 
 [build-system]
