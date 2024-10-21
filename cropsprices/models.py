@@ -1,22 +1,26 @@
-from typing import List, Optional
-from pydantic import BaseModel, Field, HttpUrl
 from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, HttpUrl
 
 __all__ = [
     "Region",
     "File",
     "RelationshipData",
+    "MainLinks",
     "RelationshipLinks",
     "Relationship",
     "ResourceAttributes",
     "ResourceRelationships",
-    "Resource"
+    "Resource",
 ]
+
 
 class Region(BaseModel):
     region_id: str
     hierarchy_label: str
     name: str
+
 
 class File(BaseModel):
     file_size: int
@@ -24,16 +28,24 @@ class File(BaseModel):
     openness_score: int
     download_url: HttpUrl
 
+
 class RelationshipData(BaseModel):
     type: str
     id: str
 
+
 class RelationshipLinks(BaseModel):
     related: HttpUrl
+
+
+class MainLinks(BaseModel):
+    self: HttpUrl
+
 
 class Relationship(BaseModel):
     data: RelationshipData
     links: RelationshipLinks
+
 
 class ResourceAttributes(BaseModel):
     format: str
@@ -69,14 +81,15 @@ class ResourceAttributes(BaseModel):
     created: datetime
     file_url: HttpUrl
 
+
 class ResourceRelationships(BaseModel):
     institution: Relationship
     dataset: Relationship
+
 
 class Resource(BaseModel):
     type: str
     attributes: ResourceAttributes
     relationships: ResourceRelationships
     id: str
-    links: RelationshipLinks
-
+    links: MainLinks

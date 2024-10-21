@@ -1,3 +1,5 @@
+import logging
+from functools import reduce
 from typing import Any, Dict, List
 
 import requests
@@ -13,7 +15,8 @@ from cropsprices.models import Resource
 class ResourceManager:
     def __init__(self):
         self.logging_client = cloud_logging.Client()
-        self.logger = self.logging_client.logger("Bulk Data Load")
+        self.logging_client.setup_logging()
+        self.logger = logging.getLogger("Bulk Data Load")
         self.bq_client = bigquery.Client()
         self.storage_client = storage.Client()
         self.secret_client = secretmanager.SecretManagerServiceClient()
@@ -33,6 +36,11 @@ class ResourceManager:
         bucket_name = response.payload.data.decode("UTF-8")
         return self.storage_client.bucket(bucket_name)
 
+    def extract_data(self, responses: List[Dict[str, Any]]):
+        return reduce(
+            lambda x, y: x + y, map(lambda page: page.get("data", []), responses), []
+        )
+
     def filter_and_validate_resources(
         self, resources: List[Dict[str, Any]]
     ) -> List[Resource]:
@@ -46,10 +54,12 @@ class ResourceManager:
         return filtered_resources
 
     def write_to_bigquery(self, resources: List[Resource]):
-        rows_to_insert = [resource.model_dump() for resource in resources]
+        rows_to_insert = [resource.model_dump(mode="json") for resource in resources]
+        self.logger.info(f"Planned to insert {len(rows_to_insert)} rows.")
         errors = self.bq_client.insert_rows_json(self.table_ref, rows_to_insert)
         if errors:
             self.logger.error(f"Encountered errors while inserting rows: {errors}")
+            exit(-1)
         else:
             self.logger.info(
                 f"Successfully inserted {len(rows_to_insert)} rows into BigQuery"
@@ -82,13 +92,16 @@ class ResourceManager:
         return response
 
     def _upload_to_gcs(self, file, content):
-        blob_name = f"wholesale_prices_workbooks/{file.download_url.split('/')[-2]}"
+        blob_name = (
+            f"wholesale_prices_workbooks/{str(file.download_url).split('/')[-2]}.xlsx"
+        )
         blob = self.bucket.blob(blob_name)
         blob.upload_from_string(content)
-        self.logger.info(f"Uploaded {file.url} to GCS at {blob.public_url}")
+        self.logger.info(f"Uploaded {file.download_url} to GCS at {blob.public_url}")
 
     def process_resources(self, url: str, params: Dict[str, str]):
-        all_resources = query_paged_api(url, params)
+        all_responses = query_paged_api(url, params)
+        all_resources = self.extract_data(all_responses)
         filtered_resources = self.filter_and_validate_resources(all_resources)
 
         self.write_to_bigquery(filtered_resources)
@@ -98,7 +111,7 @@ class ResourceManager:
 def main():
     url = "https://api.dane.gov.pl/1.4/datasets/912,zintegrowany-system-rolniczej-informacji-rynkowej-biuletyny-informacyjne-rynek-owocow-i-warzyw-swiezych/resources"
     params = {
-        "sort": "-modified",
+        "sort": "modified",
         "title[prefix]": "ceny hurtowe i targowiskowe",
     }
     resource_manager = ResourceManager()
