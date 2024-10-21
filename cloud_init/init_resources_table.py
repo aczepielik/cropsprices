@@ -26,7 +26,7 @@ schema = [
             bigquery.SchemaField("openness_score", "INTEGER"),
             bigquery.SchemaField("contains_protected_data", "BOOLEAN"),
             bigquery.SchemaField("supplements", "STRING", mode="REPEATED"),
-            bigquery.SchemaField("data_date", "DATE"),
+            bigquery.SchemaField("data_date", "TIMESTAMP"),
             bigquery.SchemaField("has_high_value_data", "BOOLEAN"),
             bigquery.SchemaField("has_dynamic_data", "BOOLEAN"),
             bigquery.SchemaField("link", "STRING"),
