@@ -1,9 +1,13 @@
+import logging
 from datetime import datetime
 from typing import Any, List, Tuple
 
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel, field_validator
+
+# Get a logger for this module
+logger = logging.getLogger(__name__)
 
 
 class ExcelHeader(BaseModel):
@@ -12,29 +16,45 @@ class ExcelHeader(BaseModel):
     @field_validator("df")
     @classmethod
     def validate_header(cls, v: pd.DataFrame) -> pd.DataFrame:
-        if v.shape[0] != 2 or v.shape[1] < 4:
-            raise ValueError("Header must have 2 rows and at least 4 columns")
+        if v.shape[0] != 3 or v.shape[1] < 4:
+            raise ValueError("Header must have 3 rows and at least 4 columns")
 
         locations = v.iloc[0, 3:].dropna().tolist()
         dates = v.iloc[1, 3:].dropna().tolist()
+        min_max = v.iloc[2, 3:].dropna().tolist()
 
         if not dates or not locations:
             raise ValueError("No dates or locations found in the header")
 
         for date in dates:
-            try:
-                datetime.strptime(date, "%Y-%m-%d")
-            except ValueError:
-                raise ValueError(
-                    f"Invalid date format: {date}. Expected format: YYYY-MM-DD"
-                )
+            if not isinstance(date, datetime):
+                date_str = str(date)
+                try:
+                    datetime.strptime(date_str, "%m/%d/%Y")
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid date format: {date_str}. Expected format: MM/DD/YYYY"
+                    )
 
-        if len(dates) != len(locations) * 2:
+        # Check that the third row consists of pairs "Min" "Max" for each place
+        if len(min_max) != len(locations) * 2:
             raise ValueError(
-                "Each location should have exactly two price-statistic columns"
+                "The number of Min/Max entries doesn't match the number of locations"
             )
 
+        for i in range(0, len(min_max), 2):
+            if (min_max[i], min_max[i + 1]) != ("Min", "Max") and (
+                min_max[i],
+                min_max[i + 1],
+            ) != ("Max", "Min"):
+                raise ValueError(
+                    f"Invalid Min/Max pair at position {i}: {min_max[i]}, {min_max[i+1]}"
+                )
+
         return v
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class ExcelData(BaseModel):
@@ -52,14 +72,12 @@ class ExcelData(BaseModel):
             raise ValueError(
                 "Data must contain 'KRAJOWE' and 'IMPORTOWANE' in the first column"
             )
-
         for index, row in v.iterrows():
             product_name = row.iloc[0]
-            if not isinstance(product_name, str):
+            if not isinstance(product_name, str) and pd.notna(product_name):
                 raise ValueError(
                     f"Product name at row {index} is not a string: {product_name}"
                 )
-
             price_stats = row.iloc[3:]
             for col, value in price_stats.items():
                 if pd.notna(value):
@@ -69,7 +87,6 @@ class ExcelData(BaseModel):
                         raise ValueError(
                             f"Price-statistic at row {index}, column {col} is not a valid float: {value}"
                         )
-
         return v
 
     class Config:
@@ -93,8 +110,8 @@ class ExcelParser:
             header=None,
             **self.excel_read_kwargs,
         )
-        ExcelHeader(df=df.iloc[:2])
-        ExcelData(df=df.iloc[2:])
+        ExcelHeader(df=df.iloc[:3])
+        ExcelData(df=df.iloc[3:])
         return df
 
     def extract_dates_and_places(self) -> Tuple[List[str], List[str]]:
@@ -113,6 +130,16 @@ class ExcelParser:
                 f"{place}_{stat}" for place in places for stat in ["Max", "Min"]
             ]
 
+        # Check and swap Min and Max if necessary
+        for place in places:
+            min_col = f"{place}_Min"
+            max_col = f"{place}_Max"
+            if min_col in data_rows.columns and max_col in data_rows.columns:
+                mask = data_rows[min_col] > data_rows[max_col]
+                data_rows.loc[mask, [min_col, max_col]] = data_rows.loc[
+                    mask, [max_col, min_col]
+                ].values
+
         data_rows["Origin"] = ""
         domestic_start = data_rows[data_rows["Product"] == "KRAJOWE"].index[0]
         imported_start = data_rows[data_rows["Product"] == "IMPORTOWANE"].index[0]
@@ -121,10 +148,22 @@ class ExcelParser:
         data_rows.loc[imported_start + 1 :, "Origin"] = "IMPORTOWANE"
 
         if self.is_fruit:
+            notna_or_empty = lambda x: x if pd.notna(x) else ""  # noqa: E731
+            last_product = ""
+            for i, row in data_rows.iterrows():
+                if pd.isna(row["Product"]) and pd.notna(row["Variety"]):
+                    data_rows.at[i, "Product"] = last_product
+                else:
+                    last_product = row["Product"]
+
             data_rows["Product"] = data_rows.apply(
-                lambda row: f"{row['Product']} {row['Variety']}".strip(), axis=1
+                lambda row: f"{notna_or_empty(row['Product'])} {notna_or_empty(row['Variety'])}".strip(),
+                axis=1,
             )
             data_rows = data_rows.drop("Variety", axis=1)
+
+        # Remove unnamed columns
+        data_rows = data_rows.loc[:, ~data_rows.columns.str.contains("^Unnamed")]
 
         return data_rows
 
@@ -148,7 +187,24 @@ class ExcelParser:
             "_", expand=True
         )
         melted_df = melted_df.drop("Place_Stat", axis=1)
-        melted_df["Date"] = melted_df["Place"].map(dict(zip(places, dates)))
+
+        # Convert dates to datetime objects if they're not already
+        dates = [
+            date
+            if isinstance(date, datetime)
+            else datetime.strptime(str(date), "%m/%d/%Y")
+            for date in dates
+        ]
+
+        # Create a dictionary mapping places to datetime objects
+        date_dict = dict(zip(places, dates))
+
+        # Map the dates and convert to datetime
+        melted_df["Date"] = melted_df["Place"].map(date_dict)
+
+        # Ensure Date is in datetime format
+        melted_df["Date"] = pd.to_datetime(melted_df["Date"]).dt.date
+
         return melted_df[
             ["Product", "Unit", "Place", "Date", "Statistic", "Price", "Origin"]
         ]
@@ -163,41 +219,35 @@ class ExcelParser:
         ]
         return result_df.replace("", np.nan)
 
-    def convert_excel(self, output_file: str) -> None:
+    def convert_excel(self) -> List[dict]:
         try:
             dates, places = self.extract_dates_and_places()
             data_rows = self.prepare_data_rows(places)
             melted_df = self.melt_dataframe(data_rows)
             result_df = self.process_melted_df(melted_df, places, dates)
             result_df = self.clean_result_df(result_df)
-            result_df.to_excel(output_file, index=False, engine="openpyxl")
+
+            # Ensure proper types first
+            for column in result_df.columns:
+                if result_df[column].dtype == np.int64:
+                    result_df[column] = result_df[column].astype(int)
+                elif result_df[column].dtype == np.float64:
+                    result_df[column] = result_df[column].astype(float)
+
+            # Convert DataFrame to list of dictionaries
+            result_list = result_df.dropna().to_dict("records")
+
+            return result_list
         except ValueError as e:
-            print(f"Error: {e}")
+            logger.error(f"Error occurred: {e}", exc_info=True)
             raise
 
 
-def convert_excel_pandas(
+def parse_excel(
     input_file: str,
     sheet_name: str,
-    output_file: str,
     is_fruit: bool = False,
     **kwargs: Any,
-) -> None:
+) -> List[dict]:
     parser = ExcelParser(input_file, sheet_name, is_fruit, **kwargs)
-    parser.convert_excel(output_file)
-
-
-# Usage example (can be commented out or removed if not needed)
-# try:
-#     input_file = '/home/adam/Lab/cropsprices/.notes/input.xlsx'
-#     output_file = '/home/adam/Lab/cropsprices/.notes/converted_output.xlsx'
-#
-#     # For vegetables, with additional arguments for pd.read_excel
-#     convert_excel_pandas(input_file, 'Sheet1', output_file, is_fruit=False,
-#                          skiprows=1, usecols="A:K")
-#
-#     # For fruits, with different additional arguments
-#     convert_excel_pandas(input_file, 'Sheet2', output_file, is_fruit=True,
-#                          engine='openpyxl', na_values=['N/A', 'NA'])
-# except Exception as e:
-#     print(f"An error occurred: {e}")
+    return parser.convert_excel()
