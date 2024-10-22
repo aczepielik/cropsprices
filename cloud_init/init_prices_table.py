@@ -21,13 +21,20 @@ schema = [
     bigquery.SchemaField("Price", "FLOAT"),
     bigquery.SchemaField("Origin", "STRING"),
 ]
+# Set up the table references
+fruit_table_id = "cropsprices.cropsprices_core.wholesale_prices_fruits"
+vegetable_table_id = "cropsprices.cropsprices_core.wholesale_prices_vegetables"
+fruit_table = bigquery.Table(fruit_table_id, schema=schema)
+vegetable_table = bigquery.Table(vegetable_table_id, schema=schema)
 
-# Set up the table reference
-table_id = "cropsprices.cropsprices_core.prices"
-table = bigquery.Table(table_id, schema=schema)
+# Create the tables
+fruit_table = client.create_table(fruit_table)
+vegetable_table = client.create_table(vegetable_table)
 
-# Create the table
-table = client.create_table(table)
-
-# Log the table creation
-logger.info(f"Created table {table.project}.{table.dataset_id}.{table.table_id}")
+# Log the table creations
+logger.info(
+    f"Created fruit prices table {fruit_table.project}.{fruit_table.dataset_id}.{fruit_table.table_id}"
+)
+logger.info(
+    f"Created vegetable prices table {vegetable_table.project}.{vegetable_table.dataset_id}.{vegetable_table.table_id}"
+)
