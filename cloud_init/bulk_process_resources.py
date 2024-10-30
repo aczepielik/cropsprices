@@ -41,18 +41,33 @@ class DataManager:
         return self.storage_client.bucket(bucket_name)
 
     def process_xlsx_files(self):
-        blobs = list(self.bucket.list_blobs(prefix="wholesale_prices_workbooks/"))
+        blobs = list(
+            self.bucket.list_blobs(
+                prefix="wholesale_prices_workbooks/", include_folders_as_prefixes=False
+            )
+        )
         for blob in tqdm(blobs, desc="Processing Excel files", unit="file"):
             self._process_single_file(blob)
 
     def _process_single_file(self, blob):
         try:
             excel_file = self._download_file(blob)
-            self._process_sheet(
-                excel_file, "vegetables", "ceny hurt_warz", False, blob.name
-            )
+            try:
+                self._process_sheet(
+                    excel_file, "vegetables", "ceny hurt_warz", False, blob.name
+                )
+            except Exception:
+                excel_file.seek(0)
+                self._process_sheet(excel_file, "vegetables", "WK", False, blob.name)
+
             excel_file.seek(0)
-            self._process_sheet(excel_file, "fruits", "ceny hurt_owoc", True, blob.name)
+            try:
+                self._process_sheet(
+                    excel_file, "fruits", "ceny hurt_owoc", True, blob.name
+                )
+            except Exception:
+                excel_file.seek(0)
+                self._process_sheet(excel_file, "fruits", "OK", True, blob.name)
         except Exception as e:
             self.logger.error(f"Error processing file {blob.name}: {str(e)}")
 
@@ -71,6 +86,8 @@ class DataManager:
         data = self._parse_sheet(excel_file, sheet_name, is_fruit, file_name)
         if data:
             self._insert_data(data, product_type, file_name)
+        else:
+            raise ValueError(f"Couldn't parse {sheet_name} from {file_name}.")
 
     def _parse_sheet(
         self, excel_file: io.BytesIO, sheet_name: str, is_fruit: bool, file_name: str

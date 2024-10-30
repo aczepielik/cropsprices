@@ -1,4 +1,5 @@
 import logging
+import warnings
 from datetime import datetime
 from typing import Any, List, Tuple
 
@@ -21,10 +22,13 @@ class ExcelHeader(BaseModel):
 
         locations = v.iloc[0, 3:].dropna().tolist()
         dates = v.iloc[1, 3:].dropna().tolist()
-        min_max = v.iloc[2, 3:].dropna().tolist()
 
         if not dates or not locations:
             raise ValueError("No dates or locations found in the header")
+
+        # Check that locations fill half of the v.iloc[0,3:]
+        if len(locations) * 2 != v.shape[1] - 3:
+            raise ValueError("Each location should have exactly two columns.")
 
         for date in dates:
             if not isinstance(date, datetime):
@@ -35,21 +39,6 @@ class ExcelHeader(BaseModel):
                     raise ValueError(
                         f"Invalid date format: {date_str}. Expected format: MM/DD/YYYY"
                     )
-
-        # Check that the third row consists of pairs "Min" "Max" for each place
-        if len(min_max) != len(locations) * 2:
-            raise ValueError(
-                "The number of Min/Max entries doesn't match the number of locations"
-            )
-
-        for i in range(0, len(min_max), 2):
-            if (min_max[i], min_max[i + 1]) != ("Min", "Max") and (
-                min_max[i],
-                min_max[i + 1],
-            ) != ("Max", "Min"):
-                raise ValueError(
-                    f"Invalid Min/Max pair at position {i}: {min_max[i]}, {min_max[i+1]}"
-                )
 
         return v
 
@@ -67,10 +56,10 @@ class ExcelData(BaseModel):
             raise ValueError("Data must have at least 1 row and 4 columns")
         if (
             "KRAJOWE" not in v.iloc[:, 0].values
-            or "IMPORTOWANE" not in v.iloc[:, 0].values
+            and "IMPORTOWANE" not in v.iloc[:, 0].values
         ):
             raise ValueError(
-                "Data must contain 'KRAJOWE' and 'IMPORTOWANE' in the first column"
+                "Data must contain 'KRAJOWE' or 'IMPORTOWANE' in the first column"
             )
         for index, row in v.iterrows():
             product_name = row.iloc[0]
@@ -104,14 +93,19 @@ class ExcelParser:
         self.df = self._read_excel_file()
 
     def _read_excel_file(self) -> pd.DataFrame:
-        df = pd.read_excel(
-            self.input_file,
-            sheet_name=self.sheet_name,
-            header=None,
-            **self.excel_read_kwargs,
-        )
-        ExcelHeader(df=df.iloc[:3])
-        ExcelData(df=df.iloc[3:])
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter("always")
+
+            df = pd.read_excel(
+                self.input_file,
+                sheet_name=self.sheet_name,
+                header=None,
+                **self.excel_read_kwargs,
+            )
+
+        ExcelHeader(df=df.iloc[:3]).df
+        ExcelData(df=df.iloc[3:]).df
+
         return df
 
     def extract_dates_and_places(self) -> Tuple[List[str], List[str]]:
@@ -141,11 +135,18 @@ class ExcelParser:
                 ].values
 
         data_rows["Origin"] = ""
-        domestic_start = data_rows[data_rows["Product"] == "KRAJOWE"].index[0]
-        imported_start = data_rows[data_rows["Product"] == "IMPORTOWANE"].index[0]
+        domestic_indices = data_rows[data_rows["Product"] == "KRAJOWE"].index
+        imported_indices = data_rows[data_rows["Product"] == "IMPORTOWANE"].index
 
-        data_rows.loc[domestic_start + 1 : imported_start - 1, "Origin"] = "KRAJOWE"
-        data_rows.loc[imported_start + 1 :, "Origin"] = "IMPORTOWANE"
+        if len(domestic_indices) > 0 and len(imported_indices) > 0:
+            domestic_start = domestic_indices[0]
+            imported_start = imported_indices[0]
+            data_rows.loc[domestic_start + 1 : imported_start - 1, "Origin"] = "KRAJOWE"
+            data_rows.loc[imported_start + 1 :, "Origin"] = "IMPORTOWANE"
+        elif len(domestic_indices) > 0:
+            data_rows.loc[:, "Origin"] = "KRAJOWE"
+        elif len(imported_indices) > 0:
+            data_rows.loc[:, "Origin"] = "IMPORTOWANE"
 
         if self.is_fruit:
             notna_or_empty = lambda x: x if pd.notna(x) else ""  # noqa: E731
@@ -203,7 +204,10 @@ class ExcelParser:
         melted_df["Date"] = melted_df["Place"].map(date_dict)
 
         # Ensure Date is in datetime format
-        melted_df["Date"] = pd.to_datetime(melted_df["Date"]).dt.date
+        melted_df["Date"] = pd.to_datetime(melted_df["Date"])
+        melted_df["Date"] = melted_df["Date"].dt.date.apply(
+            lambda x: x.isoformat() if pd.notnull(x) else None
+        )
 
         return melted_df[
             ["Product", "Unit", "Place", "Date", "Statistic", "Price", "Origin"]
@@ -233,6 +237,10 @@ class ExcelParser:
                     result_df[column] = result_df[column].astype(int)
                 elif result_df[column].dtype == np.float64:
                     result_df[column] = result_df[column].astype(float)
+                elif pd.api.types.is_datetime64_any_dtype(result_df[column]):
+                    result_df[column] = result_df[column].dt.date.apply(
+                        lambda x: x.isoformat() if pd.notnull(x) else None
+                    )
 
             # Convert DataFrame to list of dictionaries
             result_list = result_df.dropna().to_dict("records")
