@@ -16,18 +16,23 @@ class ExcelHeader(BaseModel):
 
     @field_validator("df")
     @classmethod
-    def validate_header(cls, v: pd.DataFrame) -> pd.DataFrame:
-        if v.shape[0] != 3 or v.shape[1] < 4:
-            raise ValueError("Header must have 3 rows and at least 4 columns")
+    def validate_header(cls, v: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
+        if v.shape[0] != 3 or v.shape[1] < 3:
+            raise ValueError("Header must have 3 rows and at least 3 columns")
 
-        locations = v.iloc[0, 3:].dropna().tolist()
-        dates = v.iloc[1, 3:].dropna().tolist()
+        # Determine the starting column for locations and dates
+        #   If empty column between name and unit is ommited
+        #   there is only one NA in first row, first three places
+        #   If it is not (hence dates and location start from 3), there are two
+        start_col: int = 2 if v.iloc[0, :3].isna().sum() == 1 else 3
+        locations = v.iloc[0, start_col:].dropna().tolist()
+        dates = v.iloc[1, start_col:].dropna().tolist()
 
         if not dates or not locations:
             raise ValueError("No dates or locations found in the header")
 
-        # Check that locations fill half of the v.iloc[0,3:]
-        if len(locations) * 2 != v.shape[1] - 3:
+        # Check that locations fill half of the v.iloc[0,start_col:]
+        if len(locations) * 2 != v.shape[1] - start_col:
             raise ValueError("Each location should have exactly two columns.")
 
         for date in dates:
@@ -40,7 +45,7 @@ class ExcelHeader(BaseModel):
                         f"Invalid date format: {date_str}. Expected format: MM/DD/YYYY"
                     )
 
-        return v
+        return v, start_col
 
     class Config:
         arbitrary_types_allowed = True
@@ -90,9 +95,9 @@ class ExcelParser:
         self.sheet_name = sheet_name
         self.is_fruit = is_fruit
         self.excel_read_kwargs = kwargs
-        self.df = self._read_excel_file()
+        self.df, self.start_col = self._read_excel_file()
 
-    def _read_excel_file(self) -> pd.DataFrame:
+    def _read_excel_file(self) -> Tuple[pd.DataFrame, int]:
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
 
@@ -103,37 +108,124 @@ class ExcelParser:
                 **self.excel_read_kwargs,
             )
 
-        ExcelHeader(df=df.iloc[:3]).df
+        _, start_col = ExcelHeader(df=df.iloc[:3]).df
         ExcelData(df=df.iloc[3:]).df
 
-        return df
+        return df, start_col  # type: ignore
+
+    def parse_price_changes(self, sheet_name) -> List[dict]:
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                df = pd.read_excel(
+                    self.input_file,
+                    sheet_name=sheet_name,
+                    header=None,
+                )
+
+            # Find the row with column headers
+            header_row = df[df.iloc[:, 0] == "Produkt"].index[0]
+
+            # Set the header and reset index
+            df.columns = df.iloc[header_row]
+            df = df.iloc[header_row + 1 :].reset_index(drop=True)
+
+            # Extract only the 'Produkt' and 'Jedn.' columns
+            result_df = df[["Produkt", "Jedn."]].copy()
+
+            # Remove rows where 'Produkt' is NaN or empty
+            result_df = result_df[
+                result_df["Produkt"].notna() & (result_df["Produkt"] != "")
+            ]
+
+            # Remove rows with headers like "Warzywa krajowe", "Owoce krajowe", etc.
+            result_df = result_df[
+                ~result_df["Produkt"].str.contains(
+                    "krajowe|importowane", case=False, na=False
+                )
+            ]
+
+            # Rename columns
+            result_df = result_df.rename(
+                columns={"Produkt": "Product", "Jedn.": "Unit"}
+            )
+
+            # Ensure product is unique by keeping the first occurrence
+            result_df = result_df.drop_duplicates(subset=["Product"], keep="first")
+
+            # Convert DataFrame to list of dictionaries
+            result_list = result_df.to_dict("records")
+
+            return result_list
+
+        except Exception as e:
+            logger.error(
+                f"Error occurred while parsing price changes: {e}", exc_info=True
+            )
+            raise
 
     def extract_dates_and_places(self) -> Tuple[List[str], List[str]]:
-        dates = self.df.iloc[1, 3:].dropna().tolist()
-        places = self.df.iloc[0, 3:].dropna().tolist()
+        dates = self.df.iloc[1, self.start_col :].dropna().tolist()
+        places = self.df.iloc[0, self.start_col :].dropna().tolist()
         return dates, places
 
     def prepare_data_rows(self, places: List[str]) -> pd.DataFrame:
         data_rows = self.df.iloc[3:].reset_index(drop=True)
-        if self.is_fruit:
-            data_rows.columns = ["Product", "Variety", "Unit"] + [
-                f"{place}_{stat}" for place in places for stat in ["Min", "Max"]
-            ]
-        else:
-            data_rows.columns = ["Product", "", "Unit"] + [
-                f"{place}_{stat}" for place in places for stat in ["Max", "Min"]
-            ]
+        data_rows = self._set_data_rows_columns(data_rows, places)
+        data_rows = self._fill_product_names(data_rows)
+        data_rows = self._fill_empty_units(data_rows)
+        data_rows = self._swap_min_max_if_necessary(data_rows, places)
+        data_rows = self._set_origin(data_rows)
 
-        # Check and swap Min and Max if necessary
+        if self.is_fruit:
+            data_rows = self._process_fruit_data(data_rows)
+
+        return data_rows.loc[:, ~data_rows.columns.str.contains("^Unnamed")]
+
+    def _set_data_rows_columns(
+        self, data_rows: pd.DataFrame, places: List[str]
+    ) -> pd.DataFrame:
+        if self.is_fruit:
+            data_rows.columns = pd.Index(
+                ["Product", "Variety", "Unit"]
+                + [f"{place}_{stat}" for place in places for stat in ["Min", "Max"]]
+            )
+        else:
+            id_cols = (
+                ["Product", "", "Unit"] if self.start_col == 3 else ["Product", "Unit"]
+            )
+            data_rows.columns = pd.Index(
+                id_cols
+                + [f"{place}_{stat}" for place in places for stat in ["Max", "Min"]]
+            )
+        return data_rows
+
+    def _fill_product_names(self, data_rows: pd.DataFrame) -> pd.DataFrame:
+        data_rows.loc[:, "Product"] = data_rows.loc[:, "Product"].ffill()
+        return data_rows
+
+    def _fill_empty_units(self, data_rows: pd.DataFrame) -> pd.DataFrame:
+        if data_rows["Unit"].isna().all():
+            price_changes_data = self.parse_price_changes("zmiany cen hurt")
+            product_unit_map = {
+                item["Product"]: item["Unit"] for item in price_changes_data
+            }
+            data_rows["Unit"] = data_rows["Product"].map(product_unit_map)
+        return data_rows
+
+    def _swap_min_max_if_necessary(
+        self, data_rows: pd.DataFrame, places: List[str]
+    ) -> pd.DataFrame:
         for place in places:
-            min_col = f"{place}_Min"
-            max_col = f"{place}_Max"
+            min_col, max_col = f"{place}_Min", f"{place}_Max"
             if min_col in data_rows.columns and max_col in data_rows.columns:
-                mask = data_rows[min_col] > data_rows[max_col]
+                mask = data_rows[min_col].gt(data_rows[max_col], fill_value=False)
                 data_rows.loc[mask, [min_col, max_col]] = data_rows.loc[
                     mask, [max_col, min_col]
                 ].values
+        return data_rows
 
+    def _set_origin(self, data_rows: pd.DataFrame) -> pd.DataFrame:
         data_rows["Origin"] = ""
         domestic_indices = data_rows[data_rows["Product"] == "KRAJOWE"].index
         imported_indices = data_rows[data_rows["Product"] == "IMPORTOWANE"].index
@@ -148,23 +240,22 @@ class ExcelParser:
         elif len(imported_indices) > 0:
             data_rows.loc[:, "Origin"] = "IMPORTOWANE"
 
-        if self.is_fruit:
-            notna_or_empty = lambda x: x if pd.notna(x) else ""  # noqa: E731
-            last_product = ""
-            for i, row in data_rows.iterrows():
-                if pd.isna(row["Product"]) and pd.notna(row["Variety"]):
-                    data_rows.at[i, "Product"] = last_product
-                else:
-                    last_product = row["Product"]
+        return data_rows
 
-            data_rows["Product"] = data_rows.apply(
-                lambda row: f"{notna_or_empty(row['Product'])} {notna_or_empty(row['Variety'])}".strip(),
-                axis=1,
-            )
-            data_rows = data_rows.drop("Variety", axis=1)
+    def _process_fruit_data(self, data_rows: pd.DataFrame) -> pd.DataFrame:
+        notna_or_empty = lambda x: x if pd.notna(x) else ""  # noqa: E731
+        last_product = ""
+        for i, row in data_rows.iterrows():
+            if pd.isna(row["Product"]) and pd.notna(row["Variety"]):
+                data_rows.at[i, "Product"] = last_product
+            else:
+                last_product = row["Product"]
 
-        # Remove unnamed columns
-        data_rows = data_rows.loc[:, ~data_rows.columns.str.contains("^Unnamed")]
+        data_rows["Product"] = data_rows.apply(
+            lambda row: f"{notna_or_empty(row['Product'])} {notna_or_empty(row['Variety'])}".strip(),
+            axis=1,
+        )
+        data_rows = data_rows.drop("Variety", axis=1)
 
         return data_rows
 
@@ -182,7 +273,7 @@ class ExcelParser:
 
     @staticmethod
     def process_melted_df(
-        melted_df: pd.DataFrame, places: List[str], dates: List[str]
+        melted_df: pd.DataFrame, places: List[str], dates: List[str] | List[datetime]
     ) -> pd.DataFrame:
         melted_df[["Place", "Statistic"]] = melted_df["Place_Stat"].str.split(
             "_", expand=True
@@ -223,6 +314,19 @@ class ExcelParser:
         ]
         return result_df.replace("", np.nan)
 
+    @staticmethod
+    def _ensure_proper_types(df: pd.DataFrame) -> pd.DataFrame:
+        for column in df.columns:
+            if df[column].dtype == np.int64:
+                df[column] = df[column].astype(int)
+            elif df[column].dtype == np.float64:
+                df[column] = df[column].astype(float)
+            elif pd.api.types.is_datetime64_any_dtype(df[column]):
+                df[column] = df[column].dt.date.apply(
+                    lambda x: x.isoformat() if pd.notnull(x) else None
+                )
+        return df
+
     def convert_excel(self) -> List[dict]:
         try:
             dates, places = self.extract_dates_and_places()
@@ -230,17 +334,7 @@ class ExcelParser:
             melted_df = self.melt_dataframe(data_rows)
             result_df = self.process_melted_df(melted_df, places, dates)
             result_df = self.clean_result_df(result_df)
-
-            # Ensure proper types first
-            for column in result_df.columns:
-                if result_df[column].dtype == np.int64:
-                    result_df[column] = result_df[column].astype(int)
-                elif result_df[column].dtype == np.float64:
-                    result_df[column] = result_df[column].astype(float)
-                elif pd.api.types.is_datetime64_any_dtype(result_df[column]):
-                    result_df[column] = result_df[column].dt.date.apply(
-                        lambda x: x.isoformat() if pd.notnull(x) else None
-                    )
+            result_df = self._ensure_proper_types(result_df)
 
             # Convert DataFrame to list of dictionaries
             result_list = result_df.dropna().to_dict("records")

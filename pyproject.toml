@@ -21,6 +21,7 @@ pyyaml = "^6.0.2"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"
+pandas-stubs = "^2.2.3.241009"
 
 [build-system]
 requires = ["poetry-core"]
