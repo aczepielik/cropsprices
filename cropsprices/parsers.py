@@ -1,3 +1,4 @@
+import io
 import logging
 import warnings
 from datetime import datetime
@@ -5,7 +6,7 @@ from typing import Any, List, Tuple
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ValidationInfo, field_validator
 
 # Get a logger for this module
 logger = logging.getLogger(__name__)
@@ -20,20 +21,29 @@ class ExcelHeader(BaseModel):
         if v.shape[0] != 3 or v.shape[1] < 3:
             raise ValueError("Header must have 3 rows and at least 3 columns")
 
-        # Determine the starting column for locations and dates
-        #   If empty column between name and unit is ommited
-        #   there is only one NA in first row, first three places
-        #   If it is not (hence dates and location start from 3), there are two
-        start_col: int = 2 if v.iloc[0, :3].isna().sum() == 1 else 3
+        # Find the first occurrence of a date in row 1 (index 1)
+        start_col = None
+        for col in range(v.shape[1]):
+            cell_value = v.iloc[1, col]
+            if pd.notna(cell_value):
+                try:
+                    if isinstance(cell_value, datetime):
+                        start_col = col
+                        break
+                    date_str = str(cell_value)
+                    datetime.strptime(date_str, "%m/%d/%Y")
+                    start_col = col
+                    break
+                except ValueError:
+                    continue
+
+        if start_col is None:
+            raise ValueError("No valid date found in row 1")
         locations = v.iloc[0, start_col:].dropna().tolist()
         dates = v.iloc[1, start_col:].dropna().tolist()
 
         if not dates or not locations:
             raise ValueError("No dates or locations found in the header")
-
-        # Check that locations fill half of the v.iloc[0,start_col:]
-        if len(locations) * 2 != v.shape[1] - start_col:
-            raise ValueError("Each location should have exactly two columns.")
 
         for date in dates:
             if not isinstance(date, datetime):
@@ -52,11 +62,13 @@ class ExcelHeader(BaseModel):
 
 
 class ExcelData(BaseModel):
+    start_col: int = 3
     df: pd.DataFrame
 
     @field_validator("df")
     @classmethod
-    def validate_data(cls, v: pd.DataFrame) -> pd.DataFrame:
+    def validate_data(cls, v: pd.DataFrame, info: ValidationInfo) -> pd.DataFrame:
+        start_col = info.data.get("start_col", 3)
         if v.shape[0] < 1 or v.shape[1] < 4:
             raise ValueError("Data must have at least 1 row and 4 columns")
         if (
@@ -72,7 +84,7 @@ class ExcelData(BaseModel):
                 raise ValueError(
                     f"Product name at row {index} is not a string: {product_name}"
                 )
-            price_stats = row.iloc[3:]
+            price_stats = row.iloc[start_col:]
             for col, value in price_stats.items():
                 if pd.notna(value):
                     try:
@@ -89,7 +101,11 @@ class ExcelData(BaseModel):
 
 class ExcelParser:
     def __init__(
-        self, input_file: str, sheet_name: str, is_fruit: bool = False, **kwargs: Any
+        self,
+        input_file: io.BytesIO | str,
+        sheet_name: str,
+        is_fruit: bool = False,
+        **kwargs: Any,
     ):
         self.input_file = input_file
         self.sheet_name = sheet_name
@@ -109,7 +125,7 @@ class ExcelParser:
             )
 
         _, start_col = ExcelHeader(df=df.iloc[:3]).df
-        ExcelData(df=df.iloc[3:]).df
+        ExcelData(df=df.iloc[3:], start_col=start_col).df  # type: ignore
 
         return df, start_col  # type: ignore
 
@@ -123,8 +139,16 @@ class ExcelParser:
                     header=None,
                 )
 
-            # Find the row with column headers
-            header_row = df[df.iloc[:, 0] == "Produkt"].index[0]
+            # Find the row with column headers by checking all columns
+            header_row = None
+            for col in df.columns:
+                header_indices = df[df.iloc[:, col] == "Produkt"].index
+                if len(header_indices) > 0:
+                    header_row = header_indices[0]
+                    break
+
+            if header_row is None:
+                raise ValueError("Could not find header row with 'Produkt' column")
 
             # Set the header and reset index
             df.columns = df.iloc[header_row]
@@ -186,18 +210,21 @@ class ExcelParser:
         self, data_rows: pd.DataFrame, places: List[str]
     ) -> pd.DataFrame:
         if self.is_fruit:
-            data_rows.columns = pd.Index(
-                ["Product", "Variety", "Unit"]
-                + [f"{place}_{stat}" for place in places for stat in ["Min", "Max"]]
-            )
+            id_cols = ["Product", "Variety", "Unit"]
         else:
-            id_cols = (
-                ["Product", "", "Unit"] if self.start_col == 3 else ["Product", "Unit"]
-            )
-            data_rows.columns = pd.Index(
-                id_cols
-                + [f"{place}_{stat}" for place in places for stat in ["Max", "Min"]]
-            )
+            empty_cols = [""] * (self.start_col - 2) if self.start_col > 2 else []
+            id_cols = ["Product"] + empty_cols + ["Unit"]
+
+        expected_cols = len(id_cols) + len(places) * 2
+
+        # Check if there's an extra column
+        if data_rows.shape[1] == expected_cols + 1:
+            # Drop the last column
+            data_rows = data_rows.iloc[:, :-1]
+
+        data_rows.columns = pd.Index(
+            id_cols + [f"{place}_{stat}" for place in places for stat in ["Max", "Min"]]
+        )
         return data_rows
 
     def _fill_product_names(self, data_rows: pd.DataFrame) -> pd.DataFrame:
@@ -346,7 +373,7 @@ class ExcelParser:
 
 
 def parse_excel(
-    input_file: str,
+    input_file: io.BytesIO | str,
     sheet_name: str,
     is_fruit: bool = False,
     **kwargs: Any,

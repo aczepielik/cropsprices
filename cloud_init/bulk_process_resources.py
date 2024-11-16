@@ -1,10 +1,12 @@
 import io
 import logging
+import warnings
 from typing import Dict, List, Optional
 
-from google.cloud import bigquery, secretmanager, storage
+import openpyxl  # type: ignore
+from google.cloud import bigquery, secretmanager, storage  # type: ignore
 from google.cloud import logging as cloud_logging
-from tqdm import tqdm
+from tqdm import tqdm  # type: ignore
 
 from cropsprices.parsers import parse_excel
 
@@ -52,22 +54,30 @@ class DataManager:
     def _process_single_file(self, blob):
         try:
             excel_file = self._download_file(blob)
-            try:
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                workbook = openpyxl.load_workbook(excel_file, data_only=True)
+
+            if "ceny hurt_warz" in workbook.sheetnames:
                 self._process_sheet(
                     excel_file, "vegetables", "ceny hurt_warz", False, blob.name
                 )
-            except Exception:
-                excel_file.seek(0)
+            elif "WK" in workbook.sheetnames:
                 self._process_sheet(excel_file, "vegetables", "WK", False, blob.name)
+            else:
+                self.logger.warning(f"No valid vegetable sheet found in {blob.name}")
 
             excel_file.seek(0)
-            try:
+            if "ceny hurt_owoc" in workbook.sheetnames:
                 self._process_sheet(
                     excel_file, "fruits", "ceny hurt_owoc", True, blob.name
                 )
-            except Exception:
-                excel_file.seek(0)
+            elif "OK" in workbook.sheetnames:
                 self._process_sheet(excel_file, "fruits", "OK", True, blob.name)
+            else:
+                self.logger.warning(f"No valid fruit sheet found in {blob.name}")
+
         except Exception as e:
             self.logger.error(f"Error processing file {blob.name}: {str(e)}")
 
@@ -90,7 +100,12 @@ class DataManager:
             raise ValueError(f"Couldn't parse {sheet_name} from {file_name}.")
 
     def _parse_sheet(
-        self, excel_file: io.BytesIO, sheet_name: str, is_fruit: bool, file_name: str
+        self,
+        excel_file: io.BytesIO | str,
+        sheet_name: str,
+        is_fruit: bool,
+        file_name: str,
+        **kwargs,
     ) -> Optional[List[Dict]]:
         for skiprows in range(5):
             try:
@@ -99,6 +114,7 @@ class DataManager:
                     sheet_name=sheet_name,
                     is_fruit=is_fruit,
                     skiprows=skiprows,
+                    **kwargs,
                 )
                 self.logger.info(
                     f"Successfully parsed {sheet_name} data with skiprows={skiprows}"
