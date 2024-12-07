@@ -7,5 +7,14 @@
           },
         "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.rulers": [88]
-  }
+  },
+  "sqltools.useNodeRuntime": true,
+  "sqltools.connections": [
+    {
+      "previewLimit": 50,
+      "driver": "DuckDB",
+      "name": "LocalDuckDBConn",
+      "database": ".data/local.db"
+    }
+  ]
 }
