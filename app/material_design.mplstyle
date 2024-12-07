@@ -1,0 +1,52 @@
+# Colors
+axes.prop_cycle: cycler('color', ['#6200EE', '#03DAC6', '#BB86FC', '#3700B3', '#03DAC5', '#018786', '#B00020'])
+text.color: #000000  # Black text
+axes.edgecolor: #E0E0E0  # Light gray for axes
+axes.facecolor: #FFFFFF  # White background
+figure.facecolor: #FFFFFF  # White figure background
+grid.color: #E0E0E0  # Light gray gridlines
+
+# Font
+font.family: sans-serif
+font.sans-serif: Roboto, DejaVu Sans, Liberation Sans, Arial, sans-serif
+font.size: 12
+
+# Axes
+axes.labelsize: 14
+axes.labelweight: normal
+axes.titleweight: medium
+axes.titlepad: 12
+axes.titlesize: 16
+axes.grid: True
+axes.spines.top: False
+axes.spines.right: False
+axes.linewidth: 0.8
+
+# Grid
+grid.linewidth: 0.6
+grid.alpha: 0.7
+grid.linestyle: --
+
+# Ticks
+xtick.color: #000000
+ytick.color: #000000
+xtick.labelsize: 12
+ytick.labelsize: 12
+xtick.major.size: 5
+ytick.major.size: 5
+
+# Legend
+legend.fontsize: 12
+legend.frameon: False
+legend.loc: best
+legend.fancybox: True
+
+# Lines
+lines.linewidth: 2
+lines.markersize: 6
+
+# Figure
+figure.dpi: 100
+savefig.dpi: 300
+savefig.transparent: True
+savefig.format: png
