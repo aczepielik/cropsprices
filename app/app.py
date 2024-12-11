@@ -13,6 +13,7 @@ class CropsPricesApp:
     def __init__(self):
         self.conn = duckdb.connect(".data/local.db", read_only=True)
         self.current_table: TableType = "vegetables"
+        self._initial_market = self.get_markets()[0]
         self.setup_layout()
 
     def setup_layout(self):
