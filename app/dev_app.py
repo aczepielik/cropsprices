@@ -43,6 +43,9 @@ class CropsPricesApp:
                 self.date.props(f':options="{self.date_filter}"')
                 self.date.update()
 
+                # update prices table
+                self.update_prices_table()
+
             # Fruits or vegetables toggle
             (
                 ui.toggle(
@@ -61,10 +64,7 @@ class CropsPricesApp:
                 self.date.props(f':options="{self.date_filter}"')
                 self.date.update()
 
-                self.debug_label.text = (
-                    f"Place: {self.place.value}, Date: {self.date.value}"
-                )
-                self.debug_label.update()
+                self.update_prices_table()
 
             self.place = ui.select(
                 options=self.get_markets(),
@@ -76,10 +76,7 @@ class CropsPricesApp:
             self.date_filter = self.get_allowed_dates()
 
             def on_date_change(date_value):
-                self.debug_label.text = (
-                    f"Place: {self.place.value}, Date: {self.date.value}"
-                )
-                self.debug_label.update()
+                self.update_prices_table()
 
             self.date = (
                 ui.date(value="2023-06-05")
@@ -91,13 +88,32 @@ class CropsPricesApp:
                 .on("update:model-value", on_date_change)
             )
 
-        with ui.row().classes("flex-grow p-4 gap-4 w-full"):
+        with ui.row().classes("flex-grow p-4 gap-10 w-full"):
             # Left column
             with ui.column().classes("flex-1"):
-                ui.label("Left Column Content").classes("text-h6")
-                self.debug_label = ui.label(
-                    f"Place: {self.place.value}, Date: {self.date.value}"
-                )
+                ui.label("Ceny produktów").classes("text-h6")
+
+                self.prices_table = ui.table(
+                    columns=[
+                        {"name": "product", "label": "Produkt", "field": "product"},
+                        {
+                            "name": "price_min",
+                            "label": "Cena min",
+                            "field": "price_min",
+                        },
+                        {
+                            "name": "price_max",
+                            "label": "Cena max",
+                            "field": "price_max",
+                        },
+                        {
+                            "name": "price_avg",
+                            "label": "Cena średnia",
+                            "field": "price_avg",
+                        },
+                    ],
+                    rows=self.get_prices_data(),
+                ).classes("w-full")
 
             # Right column
             with ui.column().classes("flex-1"):
@@ -139,6 +155,37 @@ class CropsPricesApp:
             ) as sub
         """
         return [row[0] for row in self.conn.execute(query).fetchall()]
+
+    def get_prices_data(self) -> List[dict]:
+        date_str = self.date.value.replace(
+            "/", "-"
+        )  # Convert date format for SQL query
+        query = f"""
+            SELECT 
+                Product || ' ' || Unit || ' (' || Origin || ')' as product,
+                MIN(Price) as price_min,
+                MAX(Price) as price_max,
+                AVG(Price) as price_avg
+            FROM {self.current_table}
+            WHERE Place = '{self.place.value}'
+            AND Date = '{date_str}'
+            GROUP BY Product, Unit, Origin
+            ORDER BY Product
+        """
+        results = self.conn.execute(query).fetchall()
+        return [
+            {
+                "product": row[0],
+                "price_min": f"{row[1]:.2f}",
+                "price_max": f"{row[2]:.2f}",
+                "price_avg": f"{row[3]:.2f}",
+            }
+            for row in results
+        ]
+
+    def update_prices_table(self):
+        self.prices_table.rows = self.get_prices_data()
+        self.prices_table.update()
 
 
 def main():
