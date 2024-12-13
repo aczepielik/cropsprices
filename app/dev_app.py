@@ -11,13 +11,14 @@ class CropsPricesApp:
         self.conn = duckdb.connect(".data/local.db", read_only=True)
         # setup colors
         ui.colors(
-            primary="#33691e",
-            secondary="#983a1b",
-            accent="#d84315",
+            primary="#606c38",
+            secondary="#dda15e",
+            accent="#bc6c25",
             positive="#4caf50",
             negative="#b71c1c",
             info="#29b6f6",
             warning="#f9a825",
+            light="fffae0",
         )
         self.current_table = "vegetables"
         self.setup_layout()
@@ -27,13 +28,20 @@ class CropsPricesApp:
         with ui.header().classes("bg-primary text-white"):
             ui.label("Ceny hurtowe owoców i warzyw").classes("text-h4 q-px-md q-py-sm")
 
-        with ui.left_drawer(fixed=True).classes("w-96 p-4 bg-white shadow-xl"):
+        with ui.left_drawer(fixed=True).classes("w-96 p-4 bg-light shadow-xl"):
 
             def on_toggle_change(e):
                 self.current_table = e.value
+
+                # update products list
                 products = self.get_products()
                 self.product.options = products
                 self.product.update()
+
+                # update allowable dates
+                self.date_filter = self.get_allowed_dates()
+                self.date.props(f':options="{self.date_filter}"')
+                self.date.update()
 
             # Fruits or vegetables toggle
             (
@@ -50,8 +58,13 @@ class CropsPricesApp:
             def on_place_change(e):
                 # Update allowed dates when place changes
                 self.date_filter = self.get_allowed_dates()
-                self.date.props(f'options="{self.date_filter}"')
+                self.date.props(f':options="{self.date_filter}"')
                 self.date.update()
+
+                self.debug_label.text = (
+                    f"Place: {self.place.value}, Date: {self.date.value}"
+                )
+                self.debug_label.update()
 
             self.place = ui.select(
                 options=self.get_markets(),
@@ -63,7 +76,10 @@ class CropsPricesApp:
             self.date_filter = self.get_allowed_dates()
 
             def on_date_change(date_value):
-                pass
+                self.debug_label.text = (
+                    f"Place: {self.place.value}, Date: {self.date.value}"
+                )
+                self.debug_label.update()
 
             self.date = (
                 ui.date(value="2023-06-05")
@@ -79,6 +95,9 @@ class CropsPricesApp:
             # Left column
             with ui.column().classes("flex-1"):
                 ui.label("Left Column Content").classes("text-h6")
+                self.debug_label = ui.label(
+                    f"Place: {self.place.value}, Date: {self.date.value}"
+                )
 
             # Right column
             with ui.column().classes("flex-1"):
@@ -88,12 +107,21 @@ class CropsPricesApp:
                 ).classes("w-full")
 
     def get_allowed_dates(self) -> List[str]:
-        query = f"SELECT DISTINCT strftime(Date, '%Y/%m/%d') FROM {self.current_table} WHERE Place = '{self.place.value}' ORDER BY DATE"
+        query = f"""
+            SELECT DISTINCT strftime(Date, '%Y/%m/%d')
+            FROM {self.current_table}
+            WHERE Place = '{self.place.value}'
+            ORDER BY DATE
+        """
         return [row[0] for row in self.conn.execute(query).fetchall()]
         # return ["2023/01/10", "2023/01/12", "2023/01/15", "2023/01/18"]
 
     def get_products(self) -> List[str]:
-        query = f"SELECT DISTINCT Product || ' ' || Unit FROM {self.current_table} ORDER BY Product"
+        query = f"""
+        SELECT DISTINCT Product || ' ' || Unit || ' (' || Origin || ')'
+        FROM {self.current_table}
+        ORDER BY Product
+        """
         return [row[0] for row in self.conn.execute(query).fetchall()]
 
     def get_markets(self) -> List[str]:
