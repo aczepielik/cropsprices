@@ -202,35 +202,34 @@ class CropsPricesApp:
             .classes("w-full")
         )
 
-        # Add slots for year-ago price columns with conditional formatting
         self.prices_table.add_slot(
-            "body-cell-year_ago_min",
+            "body-cell-price_min",
             """
-            <q-td key="year_ago_min" :props="props">
-                <span :style="{
-                    color: props.row.price_min !== 'N/A' && props.value !== 'N/A' ? 
-                        (parseFloat(props.row.price_min) < parseFloat(props.value) * 0.95 ? '#4caf50' :
-                         parseFloat(props.row.price_min) > parseFloat(props.value) * 1.05 ? '#b71c1c' : 'black')
-                        : 'black'
-                }">
-                    {{ props.value }}
-                </span>
+            <q-td key="price_min" :props="props">
+                {{ props.value }}
+                <q-icon v-if="props.row.price_min !== 'N/A' && props.row.year_ago_min !== 'N/A'"
+                    :name="parseFloat(props.row.price_min) < parseFloat(props.row.year_ago_min) ? 'arrow_downward' : 
+                           parseFloat(props.row.price_min) > parseFloat(props.row.year_ago_min) ? 'arrow_upward' : ''"
+                    :color="parseFloat(props.row.price_min) < parseFloat(props.row.year_ago_min) ? 'positive' :
+                            parseFloat(props.row.price_min) > parseFloat(props.row.year_ago_min) ? 'negative' : ''"
+                    size="xs"
+                />
             </q-td>
         """,
         )
 
         self.prices_table.add_slot(
-            "body-cell-year_ago_max",
+            "body-cell-price_max",
             """
-            <q-td key="year_ago_max" :props="props">
-                <span :style="{
-                    color: props.row.price_max !== 'N/A' && props.value !== 'N/A' ? 
-                        (parseFloat(props.row.price_max) < parseFloat(props.value) * 0.95 ? '#4caf50' :
-                         parseFloat(props.row.price_max) > parseFloat(props.value) * 1.05 ? '#b71c1c' : 'black')
-                        : 'black'
-                }">
-                    {{ props.value }}
-                </span>
+            <q-td key="price_max" :props="props">
+                {{ props.value }}
+                <q-icon v-if="props.row.price_max !== 'N/A' && props.row.year_ago_max !== 'N/A'"
+                    :name="parseFloat(props.row.price_max) < parseFloat(props.row.year_ago_max) ? 'arrow_downward' : 
+                           parseFloat(props.row.price_max) > parseFloat(props.row.year_ago_max) ? 'arrow_upward' : ''"
+                    :color="parseFloat(props.row.price_max) < parseFloat(props.row.year_ago_max) ? 'positive' :
+                            parseFloat(props.row.price_max) > parseFloat(props.row.year_ago_max) ? 'negative' : ''"
+                    size="xs"
+                />
             </q-td>
         """,
         )
