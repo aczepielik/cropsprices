@@ -183,34 +183,67 @@ class CropsPricesApp:
 
     def setup_main_content(self):
         with ui.row().classes("flex-grow p-4 gap-10 w-full"):
-            self._setup_prices_table()
-            self._setup_product_selection()
+            with ui.column().classes("flex-1 w-1/2 pr-2"):
+                self._setup_prices_table()
+            with ui.column().classes("flex-1 w-1/2 pr-2"):
+                self._setup_product_selection()
 
     def _setup_prices_table(self):
-        with ui.column().classes("flex-1"):
-            self.prices_table = (
-                ui.table(
-                    columns=self.config.TABLE_COLUMNS,
-                    rows=self.get_prices_data(),
-                    pagination=10,
-                    selection="single",  # Enable single row selection
-                    row_key="product",  # Specify which field to use as the unique identifier
-                    on_select=self.handle_row_selection,
-                )
-                .props("virtual-scroll")
-                .classes("w-[550px]")
+        self.prices_table = (
+            ui.table(
+                columns=self.config.TABLE_COLUMNS,
+                rows=self.get_prices_data(),
+                pagination=10,
+                selection="single",  # Enable single row selection
+                row_key="product",  # Specify which field to use as the unique identifier
+                on_select=self.handle_row_selection,
             )
+            .props("virtual-scroll")
+            .classes("w-full")
+        )
+
+        # Add slots for year-ago price columns with conditional formatting
+        self.prices_table.add_slot(
+            "body-cell-year_ago_min",
+            """
+            <q-td key="year_ago_min" :props="props">
+                <span :style="{
+                    color: props.row.price_min !== 'N/A' && props.value !== 'N/A' ? 
+                        (parseFloat(props.row.price_min) < parseFloat(props.value) * 0.95 ? '#4caf50' :
+                         parseFloat(props.row.price_min) > parseFloat(props.value) * 1.05 ? '#b71c1c' : 'black')
+                        : 'black'
+                }">
+                    {{ props.value }}
+                </span>
+            </q-td>
+        """,
+        )
+
+        self.prices_table.add_slot(
+            "body-cell-year_ago_max",
+            """
+            <q-td key="year_ago_max" :props="props">
+                <span :style="{
+                    color: props.row.price_max !== 'N/A' && props.value !== 'N/A' ? 
+                        (parseFloat(props.row.price_max) < parseFloat(props.value) * 0.95 ? '#4caf50' :
+                         parseFloat(props.row.price_max) > parseFloat(props.value) * 1.05 ? '#b71c1c' : 'black')
+                        : 'black'
+                }">
+                    {{ props.value }}
+                </span>
+            </q-td>
+        """,
+        )
 
     def _setup_product_selection(self):
-        with ui.column().classes("flex-1"):
-            self.product = ui.select(
-                options=self.db.get_products(self.current_table, self.current_origin),
-                label="Produkt",
-                on_change=self.handle_product_selection,  # Add on_change handler
-            ).classes("w-full")
+        self.product = ui.select(
+            options=self.db.get_products(self.current_table, self.current_origin),
+            label="Produkt",
+            on_change=self.handle_product_selection,  # Add on_change handler
+        ).classes("w-full")
 
-            # Add label to show selected product
-            self.selected_product_label = ui.label("").classes("text-h6 q-mt-md")
+        # Add label to show selected product
+        self.selected_product_label = ui.label("").classes("text-h6 q-mt-md")
 
     def handle_product_selection(self, event):
         """Handle product selection from dropdown"""
