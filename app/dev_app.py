@@ -185,6 +185,9 @@ class CropsPricesApp:
                 columns=self.config.TABLE_COLUMNS,
                 rows=self.get_prices_data(),
                 pagination=10,
+                selection="single",  # Enable single row selection
+                row_key="product",  # Specify which field to use as the unique identifier
+                on_select=self.handle_row_selection,
             ).classes("w-full")
 
     def _setup_product_selection(self):
@@ -192,7 +195,33 @@ class CropsPricesApp:
             self.product = ui.select(
                 options=self.db.get_products(self.current_table, self.current_origin),
                 label="Produkt",
+                on_change=self.handle_product_selection,  # Add on_change handler
             ).classes("w-full")
+
+            # Add label to show selected product
+            self.selected_product_label = ui.label("").classes("text-h6 q-mt-md")
+
+    def handle_product_selection(self, event):
+        """Handle product selection from dropdown"""
+        if event.value:
+            self.selected_product_label.text = f"Wybrany produkt: {event.value}"
+            # Clear table selection
+            self.prices_table.selected = []
+            self.prices_table.update()
+        else:
+            self.selected_product_label.text = ""
+        self.selected_product_label.update()
+
+    def handle_row_selection(self, event):
+        """Handle row selection in prices table"""
+        if event.selection:
+            selected_row = event.selection[0]  # Get first (and only) selected row
+            self.selected_product_label.text = (
+                f'Wybrany produkt: {selected_row["product"]}'
+            )
+        else:
+            self.selected_product_label.text = ""
+        self.selected_product_label.update()
 
     def setup_layout(self):
         self.setup_header()
@@ -216,9 +245,10 @@ class CropsPricesApp:
 
     def get_prices_data(self) -> List[Dict[str, Any]]:
         date_str = self.date.value.replace("/", "-")
-        return self.db.get_prices_data(
+        results = self.db.get_prices_data(
             self.current_table, self.place.value, date_str, self.current_origin
         )
+        return results
 
     def update_prices_table(self):
         self.prices_table.rows = self.get_prices_data()
