@@ -76,7 +76,7 @@ class DatabaseManager:
             SELECT 
                 Product || ', ' || Unit as product,
                 MIN(Price) as price_min,
-                MAX(Price) as price_max,
+                MAX(Price) as price_max
             FROM {table}
             WHERE Place = ?
             AND Date = ?
@@ -184,6 +184,7 @@ class CropsPricesApp:
             self.prices_table = ui.table(
                 columns=self.config.TABLE_COLUMNS,
                 rows=self.get_prices_data(),
+                pagination=10,
             ).classes("w-full")
 
     def _setup_product_selection(self):
