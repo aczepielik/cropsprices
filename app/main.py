@@ -1,0 +1,195 @@
+from typing import Any, Dict, List
+
+from nicegui import ui
+
+from app.config import AppConfig
+from app.database import DatabaseManager
+from app.ui_components import UIComponents
+
+
+class CropsPricesApp:
+    """Main application class handling the wholesale prices dashboard"""
+
+    def __init__(self):
+        """Initialize the application with database, config, and UI components"""
+        self.db = DatabaseManager(".data/local.db")
+        self.config = AppConfig()
+        self.state = {
+            "current_table": "vegetables",
+            "current_origin": "KRAJOWE",
+        }
+        self.ui = UIComponents()
+
+        # Initialize UI components references
+        self.table_toggle = None
+        self.origin_toggle = None
+        self.place = None
+        self.date = None
+        self.prices_table = None
+        self.product = None
+        self.selected_product_label = None
+        self.date_filter = None
+
+        # Initialize UI
+        ui.colors(**self.config.COLORS)
+        self._init_ui()
+
+    def _init_ui(self) -> None:
+        """Initialize all UI components"""
+        self._setup_layout()
+
+    def _setup_layout(self) -> None:
+        """Setup main application layout"""
+        self._setup_header()
+        self._setup_left_drawer()
+        self._setup_main_content()
+
+    def _setup_header(self) -> None:
+        """Setup application header"""
+        self.ui.create_header()
+
+    def _setup_left_drawer(self) -> None:
+        """Setup left drawer with filters and controls"""
+        with self.ui.create_left_drawer():
+            self._setup_table_toggle()
+            self._setup_origin_toggle()
+            self._setup_place_select()
+            self._setup_date_picker()
+
+    def _setup_table_toggle(self) -> None:
+        """Setup toggle for switching between vegetables and fruits"""
+        self.table_toggle = self.ui.create_table_toggle(
+            on_change=self._on_table_toggle, initial_value=self.state["current_table"]
+        )
+
+    def _setup_origin_toggle(self) -> None:
+        """Setup toggle for switching between domestic and imported products"""
+        self.origin_toggle = self.ui.create_origin_toggle(
+            on_change=self._on_origin_toggle, initial_value=self.state["current_origin"]
+        )
+
+    def _setup_place_select(self) -> None:
+        """Setup market place selection dropdown"""
+        self.place = self.ui.create_place_select(
+            options=self.db.get_markets(self.state["current_table"]),
+            on_change=self._on_place_change,
+        )
+
+    def _setup_date_picker(self) -> None:
+        """Setup date picker with available dates"""
+        self.date_filter = self.db.get_allowed_dates(
+            self.state["current_table"], self.place.value, self.state["current_origin"]
+        )
+        self.date = self.ui.create_date_picker(
+            on_change=self._on_date_change, date_filter=self.date_filter
+        )
+
+    def _setup_main_content(self) -> None:
+        """Setup main content area with prices table and product selection"""
+        with self.ui.create_main_content_layout():
+            with self.ui.create_column_layout():
+                self._setup_prices_table()
+            with self.ui.create_column_layout():
+                self._setup_product_selection()
+
+    def _setup_prices_table(self) -> None:
+        """Setup prices comparison table"""
+        self.prices_table = self.ui.create_prices_table(
+            columns=self.config.TABLE_COLUMNS,
+            rows=self.get_prices_data(),
+            on_select=self._handle_row_selection,
+        )
+
+    def _setup_product_selection(self) -> None:
+        """Setup product selection dropdown and label"""
+        self.product = self.ui.create_product_select(
+            options=self.db.get_products(
+                self.state["current_table"], self.state["current_origin"]
+            ),
+            on_change=self._handle_product_selection,
+        )
+        self.selected_product_label = self.ui.create_product_label()
+
+    def _handle_product_selection(self, event: Any) -> None:
+        """Handle product selection from dropdown"""
+        if event.value:
+            self.selected_product_label.text = f"Wybrany produkt: {event.value}"
+            # Clear table selection
+            self.prices_table.selected = []
+            self.prices_table.update()
+        else:
+            self.selected_product_label.text = ""
+        self.selected_product_label.update()
+
+    def _handle_row_selection(self, event: Any) -> None:
+        """Handle row selection in prices table"""
+        if event.selection:
+            selected_row = event.selection[0]
+            self.selected_product_label.text = (
+                f'Wybrany produkt: {selected_row["product"]}'
+            )
+        else:
+            self.selected_product_label.text = ""
+        self.selected_product_label.update()
+
+    def _on_table_toggle(self, event: Any) -> None:
+        """Handle table type toggle change"""
+        self.state["current_table"] = event.value
+        self._refresh_ui_components()
+
+    def _on_origin_toggle(self, event: Any) -> None:
+        """Handle origin toggle change"""
+        self.state["current_origin"] = event.value
+        self._refresh_ui_components()
+
+    def _on_place_change(self, event: Any) -> None:
+        """Handle market place selection change"""
+        self._refresh_ui_components()
+
+    def _on_date_change(self, date_value: str) -> None:
+        """Handle date selection change"""
+        self.update_prices_table()
+
+    def _refresh_ui_components(self) -> None:
+        """Update all UI components that depend on current selection"""
+        self.product.options = self.db.get_products(
+            self.state["current_table"], self.state["current_origin"]
+        )
+        self.product.update()
+
+        self.date_filter = self.db.get_allowed_dates(
+            self.state["current_table"], self.place.value, self.state["current_origin"]
+        )
+        self.date.props(f':options="{self.date_filter}"')
+        self.date.update()
+
+        self.update_prices_table()
+
+    def get_prices_data(self) -> List[Dict[str, Any]]:
+        """Get prices data from database"""
+        date_str = self.date.value.replace("/", "-")
+        return self.db.get_prices_data(
+            self.state["current_table"],
+            self.place.value,
+            date_str,
+            self.state["current_origin"],
+        )
+
+    def update_prices_table(self) -> None:
+        """Update prices table with new data"""
+        self.prices_table.rows = self.get_prices_data()
+        self.prices_table.update()
+
+
+def main() -> None:
+    """Application entry point"""
+    app = CropsPricesApp()  # noqa: F841
+    ui.run(
+        title="Ceny hurtowe owoców i warzyw",
+        port=8080,
+        language="pl",
+    )
+
+
+if __name__ in {"__main__", "__mp_main__"}:
+    main()
