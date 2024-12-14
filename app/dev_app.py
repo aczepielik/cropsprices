@@ -26,6 +26,8 @@ class AppConfig:
         {"name": "product", "label": "Produkt", "field": "product"},
         {"name": "price_min", "label": "Cena min", "field": "price_min"},
         {"name": "price_max", "label": "Cena max", "field": "price_max"},
+        {"name": "year_ago_min", "label": "Rok temu min", "field": "year_ago_min"},
+        {"name": "year_ago_max", "label": "Rok temu max", "field": "year_ago_max"},
     ]
 
 
@@ -72,24 +74,29 @@ class DatabaseManager:
     def get_prices_data(
         self, table: str, place: str, date: str, origin_type: str
     ) -> List[Dict[str, Any]]:
+        view_name = f"{table}_year_over_year"
         query = f"""
             SELECT 
                 Product || ', ' || Unit as product,
-                MIN(Price) as price_min,
-                MAX(Price) as price_max
-            FROM {table}
+                MIN(CASE WHEN Statistic = 'Min' THEN current_price END) as price_min,
+                MAX(CASE WHEN Statistic = 'Max' THEN current_price END) as price_max,
+                MIN(CASE WHEN Statistic = 'Min' THEN year_ago_price END) as year_ago_min,
+                MAX(CASE WHEN Statistic = 'Max' THEN year_ago_price END) as year_ago_max
+            FROM {view_name}
             WHERE Place = ?
-            AND Date = ?
+            AND current_date = ?
             AND Origin = ?
-            GROUP BY Product, Unit, Origin
+            GROUP BY Product, Unit
             ORDER BY Product
         """
         results = self.conn.execute(query, [place, date, origin_type]).fetchall()
         return [
             {
                 "product": row[0],
-                "price_min": f"{row[1]:.2f}",
-                "price_max": f"{row[2]:.2f}",
+                "price_min": f"{row[1]:.2f}" if row[1] is not None else "N/A",
+                "price_max": f"{row[2]:.2f}" if row[2] is not None else "N/A",
+                "year_ago_min": f"{row[3]:.2f}" if row[3] is not None else "N/A",
+                "year_ago_max": f"{row[4]:.2f}" if row[4] is not None else "N/A",
             }
             for row in results
         ]
@@ -181,14 +188,18 @@ class CropsPricesApp:
 
     def _setup_prices_table(self):
         with ui.column().classes("flex-1"):
-            self.prices_table = ui.table(
-                columns=self.config.TABLE_COLUMNS,
-                rows=self.get_prices_data(),
-                pagination=10,
-                selection="single",  # Enable single row selection
-                row_key="product",  # Specify which field to use as the unique identifier
-                on_select=self.handle_row_selection,
-            ).classes("w-full")
+            self.prices_table = (
+                ui.table(
+                    columns=self.config.TABLE_COLUMNS,
+                    rows=self.get_prices_data(),
+                    pagination=10,
+                    selection="single",  # Enable single row selection
+                    row_key="product",  # Specify which field to use as the unique identifier
+                    on_select=self.handle_row_selection,
+                )
+                .props("virtual-scroll")
+                .classes("w-[550px]")
+            )
 
     def _setup_product_selection(self):
         with ui.column().classes("flex-1"):
