@@ -1,4 +1,5 @@
-from typing import List, Literal
+from dataclasses import dataclass
+from typing import Any, Dict, List, Literal
 
 import duckdb
 from nicegui import ui
@@ -6,149 +7,58 @@ from nicegui import ui
 TableType = Literal["fruits", "vegetables"]
 
 
-class CropsPricesApp:
-    def __init__(self):
-        self.conn = duckdb.connect(".data/local.db", read_only=True)
-        # setup colors
-        ui.colors(
-            primary="#606c38",
-            secondary="#dda15e",
-            accent="#bc6c25",
-            positive="#4caf50",
-            negative="#b71c1c",
-            info="#29b6f6",
-            warning="#f9a825",
-            light="fffae0",
-        )
-        self.current_table = "vegetables"
-        self.setup_layout()
+@dataclass
+class AppConfig:
+    """Configuration settings for the application"""
 
-    def setup_layout(self):
-        # Header
-        with ui.header().classes("bg-primary text-white"):
-            ui.label("Ceny hurtowe owoców i warzyw").classes("text-h4 q-px-md q-py-sm")
+    COLORS = {
+        "primary": "#606c38",
+        "secondary": "#dda15e",
+        "accent": "#bc6c25",
+        "positive": "#4caf50",
+        "negative": "#b71c1c",
+        "info": "#29b6f6",
+        "warning": "#f9a825",
+        "light": "fffae0",
+    }
 
-        with ui.left_drawer(fixed=True).classes("w-96 p-4 bg-light shadow-xl"):
+    TABLE_COLUMNS = [
+        {"name": "product", "label": "Produkt", "field": "product"},
+        {"name": "price_min", "label": "Cena min", "field": "price_min"},
+        {"name": "price_max", "label": "Cena max", "field": "price_max"},
+        {"name": "price_avg", "label": "Cena średnia", "field": "price_avg"},
+    ]
 
-            def on_toggle_change(e):
-                self.current_table = e.value
 
-                # update products list
-                products = self.get_products()
-                self.product.options = products
-                self.product.update()
+class DatabaseManager:
+    """Handles all database operations"""
 
-                # update allowable dates
-                self.date_filter = self.get_allowed_dates()
-                self.date.props(f':options="{self.date_filter}"')
-                self.date.update()
+    def __init__(self, db_path: str):
+        self.conn = duckdb.connect(db_path, read_only=True)
 
-                # update prices table
-                self.update_prices_table()
-
-            # Fruits or vegetables toggle
-            (
-                ui.toggle(
-                    {"vegetables": "Warzywa", "fruits": "Owoce"},
-                    value="vegetables",
-                    on_change=on_toggle_change,
-                )
-                .classes("text-h7 w-full")
-                .props('toggle-color="secondary" spread no-caps')
-            )
-
-            # place select
-            def on_place_change(e):
-                # Update allowed dates when place changes
-                self.date_filter = self.get_allowed_dates()
-                self.date.props(f':options="{self.date_filter}"')
-                self.date.update()
-
-                self.update_prices_table()
-
-            self.place = ui.select(
-                options=self.get_markets(),
-                label="Giełda",
-                value="Bronisze",
-                on_change=on_place_change,
-            ).classes("w-full q-py-sm")
-
-            self.date_filter = self.get_allowed_dates()
-
-            def on_date_change(date_value):
-                self.update_prices_table()
-
-            self.date = (
-                ui.date(value="2023-06-05")
-                .classes("w-80")
-                .props(
-                    f'color="secondary" default-year-month=2023/06 :options="{self.date_filter}"'
-                )
-                .style("min-width: 240px !important")
-                .on("update:model-value", on_date_change)
-            )
-
-        with ui.row().classes("flex-grow p-4 gap-10 w-full"):
-            # Left column
-            with ui.column().classes("flex-1"):
-                ui.label("Ceny produktów").classes("text-h6")
-
-                self.prices_table = ui.table(
-                    columns=[
-                        {"name": "product", "label": "Produkt", "field": "product"},
-                        {
-                            "name": "price_min",
-                            "label": "Cena min",
-                            "field": "price_min",
-                        },
-                        {
-                            "name": "price_max",
-                            "label": "Cena max",
-                            "field": "price_max",
-                        },
-                        {
-                            "name": "price_avg",
-                            "label": "Cena średnia",
-                            "field": "price_avg",
-                        },
-                    ],
-                    rows=self.get_prices_data(),
-                ).classes("w-full")
-
-            # Right column
-            with ui.column().classes("flex-1"):
-                ui.label("Right Column Content").classes("text-h6")
-                self.product = ui.select(
-                    options=self.get_products(), label="Produkt"
-                ).classes("w-full")
-
-    def get_allowed_dates(self) -> List[str]:
+    def get_allowed_dates(self, table: str, place: str) -> List[str]:
         query = f"""
             SELECT DISTINCT strftime(Date, '%Y/%m/%d')
-            FROM {self.current_table}
-            WHERE Place = '{self.place.value}'
+            FROM {table}
+            WHERE Place = ?
             ORDER BY DATE
         """
-        return [row[0] for row in self.conn.execute(query).fetchall()]
-        # return ["2023/01/10", "2023/01/12", "2023/01/15", "2023/01/18"]
+        return [row[0] for row in self.conn.execute(query, [place]).fetchall()]
 
-    def get_products(self) -> List[str]:
+    def get_products(self, table: str) -> List[str]:
         query = f"""
         SELECT DISTINCT Product || ' ' || Unit || ' (' || Origin || ')'
-        FROM {self.current_table}
+        FROM {table}
         ORDER BY Product
         """
         return [row[0] for row in self.conn.execute(query).fetchall()]
 
-    def get_markets(self) -> List[str]:
-        if self.current_table not in ["fruits", "vegetables"]:
-            self.current_table = "vegetables"
-
+    def get_markets(self, table: str) -> List[str]:
         query = f"""
             SELECT Place
             FROM (
                 SELECT Place, count(*) as freq
-                FROM {self.current_table}
+                FROM {table}
                 WHERE Place IS NOT NULL
                 GROUP BY Place
                 ORDER BY freq DESC
@@ -156,23 +66,22 @@ class CropsPricesApp:
         """
         return [row[0] for row in self.conn.execute(query).fetchall()]
 
-    def get_prices_data(self) -> List[dict]:
-        date_str = self.date.value.replace(
-            "/", "-"
-        )  # Convert date format for SQL query
+    def get_prices_data(
+        self, table: str, place: str, date: str
+    ) -> List[Dict[str, Any]]:
         query = f"""
             SELECT 
                 Product || ' ' || Unit || ' (' || Origin || ')' as product,
                 MIN(Price) as price_min,
                 MAX(Price) as price_max,
                 AVG(Price) as price_avg
-            FROM {self.current_table}
-            WHERE Place = '{self.place.value}'
-            AND Date = '{date_str}'
+            FROM {table}
+            WHERE Place = ?
+            AND Date = ?
             GROUP BY Product, Unit, Origin
             ORDER BY Product
         """
-        results = self.conn.execute(query).fetchall()
+        results = self.conn.execute(query, [place, date]).fetchall()
         return [
             {
                 "product": row[0],
@@ -182,6 +91,110 @@ class CropsPricesApp:
             }
             for row in results
         ]
+
+
+class CropsPricesApp:
+    def __init__(self):
+        self.db = DatabaseManager(".data/local.db")
+        self.config = AppConfig()
+        self.current_table = "vegetables"
+
+        # Initialize UI colors
+        ui.colors(**self.config.COLORS)
+
+        # Setup main layout
+        self.setup_layout()
+
+    def setup_header(self):
+        with ui.header().classes("bg-primary text-white"):
+            ui.label("Ceny hurtowe owoców i warzyw").classes("text-h4 q-px-md q-py-sm")
+
+    def setup_left_drawer(self):
+        with ui.left_drawer(fixed=True).classes("w-96 p-4 bg-light shadow-xl"):
+            self._setup_table_toggle()
+            self._setup_place_select()
+            self._setup_date_picker()
+
+    def _setup_table_toggle(self):
+        def on_toggle_change(e):
+            self.current_table = e.value
+            self._refresh_ui_components()
+
+        ui.toggle(
+            {"vegetables": "Warzywa", "fruits": "Owoce"},
+            value="vegetables",
+            on_change=on_toggle_change,
+        ).classes("text-h7 w-full").props('toggle-color="secondary" spread no-caps')
+
+    def _setup_place_select(self):
+        def on_place_change(e):
+            self._refresh_ui_components()
+
+        self.place = ui.select(
+            options=self.db.get_markets(self.current_table),
+            label="Giełda",
+            value="Bronisze",
+            on_change=on_place_change,
+        ).classes("w-full q-py-sm")
+
+    def _setup_date_picker(self):
+        def on_date_change(date_value):
+            self.update_prices_table()
+
+        self.date_filter = self.db.get_allowed_dates(
+            self.current_table, self.place.value
+        )
+        self.date = (
+            ui.date(value="2023-06-05")
+            .classes("w-80")
+            .props(
+                f'color="secondary" default-year-month=2023/06 :options="{self.date_filter}"'
+            )
+            .style("min-width: 240px !important")
+            .on("update:model-value", on_date_change)
+        )
+
+    def setup_main_content(self):
+        with ui.row().classes("flex-grow p-4 gap-10 w-full"):
+            self._setup_prices_table()
+            self._setup_product_selection()
+
+    def _setup_prices_table(self):
+        with ui.column().classes("flex-1"):
+            ui.label("Ceny produktów").classes("text-h6")
+            self.prices_table = ui.table(
+                columns=self.config.TABLE_COLUMNS,
+                rows=self.get_prices_data(),
+            ).classes("w-full")
+
+    def _setup_product_selection(self):
+        with ui.column().classes("flex-1"):
+            ui.label("Right Column Content").classes("text-h6")
+            self.product = ui.select(
+                options=self.db.get_products(self.current_table), label="Produkt"
+            ).classes("w-full")
+
+    def setup_layout(self):
+        self.setup_header()
+        self.setup_left_drawer()
+        self.setup_main_content()
+
+    def _refresh_ui_components(self):
+        """Update all UI components that depend on current selection"""
+        self.product.options = self.db.get_products(self.current_table)
+        self.product.update()
+
+        self.date_filter = self.db.get_allowed_dates(
+            self.current_table, self.place.value
+        )
+        self.date.props(f':options="{self.date_filter}"')
+        self.date.update()
+
+        self.update_prices_table()
+
+    def get_prices_data(self) -> List[Dict[str, Any]]:
+        date_str = self.date.value.replace("/", "-")
+        return self.db.get_prices_data(self.current_table, self.place.value, date_str)
 
     def update_prices_table(self):
         self.prices_table.rows = self.get_prices_data()
