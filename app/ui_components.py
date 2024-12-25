@@ -190,7 +190,13 @@ class UIComponents:
     @staticmethod
     def create_left_drawer() -> ui.left_drawer:
         """Create left drawer container"""
-        return ui.left_drawer(fixed=True).classes("w-96 p-4 bg-light shadow-xl")
+        return ui.left_drawer(fixed=True).classes(
+            "p-4 bg-light shadow-xl "
+            + "md:w-96 sm:w-full xs:w-full "  # Responsive widths
+            + "md:static sm:fixed xs:fixed "  # Position handling
+            + "md:transform-none "  # Prevent transform on medium screens
+            + "sm:translate-x-0 xs:translate-x-[-100%]"  # Slide handling for mobile
+        )
 
     @staticmethod
     def create_main_content_layout() -> ui.row:

@@ -24,6 +24,7 @@ class CropsPricesApp:
         self.ui = UIComponents()
 
         # Initialize UI components references
+        self.drawer = None
         self.table_toggle = None
         self.origin_toggle = None
         self.place = None
@@ -50,15 +51,38 @@ class CropsPricesApp:
 
     def _setup_header(self) -> None:
         """Setup application header"""
-        self.ui.create_header()
+        with ui.header().classes("bg-primary text-white flex flex-row items-center"):
+            with ui.row().classes("w-full items-center justify-start q-px-sm no-wrap"):
+                ui.button(icon="menu", on_click=self._toggle_drawer).classes(
+                    "sm:block lg:hidden text-h6 w-16 h-16 flex items-center justify-center"
+                )
+                ui.label("Ceny hurtowe owoców i warzyw").classes(
+                    "text-h4 q-px-md q-py-sm"
+                )
 
     def _setup_left_drawer(self) -> None:
         """Setup left drawer with filters and controls"""
-        with self.ui.create_left_drawer():
+        # Store the drawer reference
+        self.drawer = self.ui.create_left_drawer()
+
+        with self.drawer:
+            # Add responsive classes
+            ui.query(".left-drawer").classes(
+                replace="w-96 p-4 bg-light shadow-xl "
+                + "md:w-96 sm:w-full xs:w-full "  # Responsive widths
+                + "md:static sm:fixed xs:fixed "  # Position handling
+                + "md:transform-none "  # Prevent transform on medium screens
+                + "sm:translate-x-0 xs:translate-x-[-100%]"  # Slide handling for mobile
+            )
+
             self._setup_table_toggle()
             self._setup_origin_toggle()
             self._setup_place_select()
             self._setup_date_picker()
+
+    def _toggle_drawer(self) -> None:
+        """Toggle the drawer open/closed state"""
+        self.drawer.toggle()
 
     def _setup_table_toggle(self) -> None:
         """Setup toggle for switching between vegetables and fruits"""
