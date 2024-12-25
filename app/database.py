@@ -24,7 +24,7 @@ class DatabaseManager:
 
     def get_products(self, table: str, origin_type: str) -> List[str]:
         query = f"""
-        SELECT DISTINCT Product || ' ' || Unit
+        SELECT DISTINCT Product || ', ' || Unit
         FROM {table}
         WHERE Origin = ?
         ORDER BY Product

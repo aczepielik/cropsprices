@@ -202,14 +202,18 @@ class CropsPricesApp:
 
     def get_chart_data(self) -> Tuple[List[Any], ...]:
         date_str = self.date.value.replace("/", "-")
-        return self.db.get_prices_data_for_product(
+        start_date = datetime.strptime(date_str, "%Y-%m-%d") - timedelta(weeks=50)
+        end_date = datetime.strptime(date_str, "%Y-%m-%d") + timedelta(weeks=2)
+        data = self.db.get_prices_data_for_product(
             table=self.state["current_table"],
             product_unit=self.state["selected_product"],
             place=self.place.value,
             origin_type=self.state["current_origin"],
-            start_date=datetime.strptime(date_str, "%Y-%m-%d") - timedelta(weeks=50),
-            end_date=datetime.strptime(date_str, "%Y-%m-%d") + timedelta(weeks=2),
+            start_date=start_date,
+            end_date=end_date,
         )
+
+        return data if data else tuple([] for _ in range(5))
 
     def update_prices_table(self) -> None:
         """Update prices table with new data"""
