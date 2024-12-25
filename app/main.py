@@ -92,15 +92,15 @@ class CropsPricesApp:
         """Setup main content area with prices table and product selection"""
         with (
             ui.grid()
-            .classes("w-full gap-4 p-4")
-            .style("grid-template-columns: 1fr 1fr;")
+            .classes("w-full gap-4 pl-0 pr-4 pt-4 pb-4 overflow-hidden")
+            .style("grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);")
         ):
             # Left column - prices table
-            with ui.column().classes("w-full"):
+            with ui.column().classes("w-full min-w-0 overflow-hidden"):
                 self._setup_prices_table()
 
             # Right column - product selection and chart
-            with ui.column().classes("w-full"):
+            with ui.column().classes("w-full min-w-0"):
                 self._setup_product_selection()
                 self.chart_container = ui.matplotlib(figsize=(6, 5)).classes(
                     "w-full mt-4"
