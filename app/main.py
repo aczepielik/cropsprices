@@ -1,5 +1,7 @@
-from typing import Any, Dict, List
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Tuple
 
+import matplotlib.pyplot as plt
 from nicegui import ui
 
 from app.config import AppConfig
@@ -17,6 +19,7 @@ class CropsPricesApp:
         self.state = {
             "current_table": "vegetables",
             "current_origin": "KRAJOWE",
+            "selected_product": None,
         }
         self.ui = UIComponents()
 
@@ -27,12 +30,13 @@ class CropsPricesApp:
         self.date = None
         self.prices_table = None
         self.product = None
-        self.selected_product_label = None
+        self.chart_container = None
         self.date_filter = None
 
         # Initialize UI
         ui.colors(**self.config.COLORS)
         self._init_ui()
+        plt.style.use(["app/material_design2.mplstyle", "fast"])
 
     def _init_ui(self) -> None:
         """Initialize all UI components"""
@@ -86,11 +90,21 @@ class CropsPricesApp:
 
     def _setup_main_content(self) -> None:
         """Setup main content area with prices table and product selection"""
-        with self.ui.create_main_content_layout():
-            with self.ui.create_column_layout():
+        with (
+            ui.grid()
+            .classes("w-full gap-4 p-4")
+            .style("grid-template-columns: 1fr 1fr;")
+        ):
+            # Left column - prices table
+            with ui.column().classes("w-full"):
                 self._setup_prices_table()
-            with self.ui.create_column_layout():
+
+            # Right column - product selection and chart
+            with ui.column().classes("w-full"):
                 self._setup_product_selection()
+                self.chart_container = ui.matplotlib(figsize=(6, 5)).classes(
+                    "w-full mt-4"
+                )
 
     def _setup_prices_table(self) -> None:
         """Setup prices comparison table"""
@@ -108,29 +122,40 @@ class CropsPricesApp:
             ),
             on_change=self._handle_product_selection,
         )
-        self.selected_product_label = self.ui.create_product_label()
 
     def _handle_product_selection(self, event: Any) -> None:
         """Handle product selection from dropdown"""
         if event.value:
-            self.selected_product_label.text = f"Wybrany produkt: {event.value}"
+            self.state["selected_product"] = event.value
             # Clear table selection
             self.prices_table.selected = []
             self.prices_table.update()
-        else:
-            self.selected_product_label.text = ""
-        self.selected_product_label.update()
+            # Update chart with new data
+            with self.chart_container.figure as fig:
+                fig.clear()
+                self.ui.create_prices_chart(
+                    fig=fig,
+                    data=self.get_chart_data(),
+                    title=" | ".join(
+                        (self.state["selected_product"], self.place.value)
+                    ),
+                )
 
     def _handle_row_selection(self, event: Any) -> None:
         """Handle row selection in prices table"""
         if event.selection:
             selected_row = event.selection[0]
-            self.selected_product_label.text = (
-                f'Wybrany produkt: {selected_row["product"]}'
-            )
-        else:
-            self.selected_product_label.text = ""
-        self.selected_product_label.update()
+            self.state["selected_product"] = selected_row["product"]
+            # Update chart with new data
+            with self.chart_container.figure as fig:
+                fig.clear()
+                self.ui.create_prices_chart(
+                    fig=fig,
+                    data=self.get_chart_data(),
+                    title=" | ".join(
+                        (self.state["selected_product"], self.place.value)
+                    ),
+                )
 
     def _on_table_toggle(self, event: Any) -> None:
         """Handle table type toggle change"""
@@ -173,6 +198,17 @@ class CropsPricesApp:
             self.place.value,
             date_str,
             self.state["current_origin"],
+        )
+
+    def get_chart_data(self) -> Tuple[List[Any], ...]:
+        date_str = self.date.value.replace("/", "-")
+        return self.db.get_prices_data_for_product(
+            table=self.state["current_table"],
+            product_unit=self.state["selected_product"],
+            place=self.place.value,
+            origin_type=self.state["current_origin"],
+            start_date=datetime.strptime(date_str, "%Y-%m-%d") - timedelta(weeks=50),
+            end_date=datetime.strptime(date_str, "%Y-%m-%d") + timedelta(weeks=2),
         )
 
     def update_prices_table(self) -> None:

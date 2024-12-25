@@ -1,4 +1,5 @@
-from typing import Any, Dict, List
+from datetime import datetime
+from typing import Any, Dict, List, Tuple
 
 import duckdb
 
@@ -72,3 +73,33 @@ class DatabaseManager:
             }
             for row in results
         ]
+
+    def get_prices_data_for_product(
+        self,
+        table: str,
+        product_unit: str,
+        place: str,
+        origin_type: str,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> Tuple[List[Any], ...]:
+        view_name = f"{table}_year_over_year"
+        query = f"""
+            SELECT 
+                current_date as Date,
+                MIN(CASE WHEN Statistic = 'Min' THEN current_price END) as price_min,
+                MAX(CASE WHEN Statistic = 'Max' THEN current_price END) as price_max,
+                MIN(CASE WHEN Statistic = 'Min' THEN year_ago_price END) as year_ago_min,
+                MAX(CASE WHEN Statistic = 'Max' THEN year_ago_price END) as year_ago_max
+            FROM {view_name}
+            WHERE Place = ?
+            AND Product || ', ' || Unit = ?
+            AND Origin = ?
+            AND current_date BETWEEN ? AND ?
+            GROUP BY Date
+            ORDER BY Date
+        """
+        results = self.conn.execute(
+            query, [place, product_unit, origin_type, start_date, end_date]
+        ).fetchall()
+        return tuple(map(list, zip(*results)))

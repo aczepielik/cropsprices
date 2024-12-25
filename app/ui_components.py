@@ -1,5 +1,8 @@
-from typing import Callable, Dict, List
+from datetime import timedelta
+from typing import Any, Callable, Dict, List, Tuple
 
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 from nicegui import ui
 
 
@@ -137,6 +140,48 @@ class UIComponents:
         return ui.label("").classes("text-h6 q-mt-md")
 
     @staticmethod
+    def create_prices_chart(
+        fig: Figure,
+        data: Tuple[List[Any], List[Any], List[Any], List[Any], List[Any]],
+        title: str,
+    ):
+        """Create prices chart with year-over-year comparison"""
+        dates, price_min, price_max, year_ago_min, year_ago_max = data
+        ax = fig.gca()
+
+        palette = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+        ax.vlines(
+            dates,
+            price_min,
+            price_max,
+            color=palette[0],
+            alpha=0.7,
+            label="Zakres cen",
+        )
+        ax.scatter(dates, price_min, color=palette[0], s=10)
+        ax.scatter(dates, price_max, color=palette[0], s=10)
+
+        dates_shifted = [date - timedelta(days=2) for date in dates]
+        ax.vlines(
+            dates_shifted,
+            year_ago_min,
+            year_ago_max,
+            linestyles="-",
+            color=palette[6],
+            alpha=0.3,
+            label="Zakres cen rok wcześniej",
+        )
+        ax.scatter(dates_shifted, year_ago_min, color=palette[6], s=10)
+        ax.scatter(dates_shifted, year_ago_max, color=palette[6], s=10)
+
+        # Adding titles and labels
+        ax.set_title(title)
+        ax.set_ylabel("Cena [PLN]")
+        fig.subplots_adjust(bottom=0.2)
+        ax.legend(loc="lower center", bbox_to_anchor=(0.5, -0.3), ncol=2)
+
+    @staticmethod
     def create_header() -> None:
         """Create application header"""
         with ui.header().classes("bg-primary text-white"):
@@ -150,9 +195,9 @@ class UIComponents:
     @staticmethod
     def create_main_content_layout() -> ui.row:
         """Create main content row layout"""
-        return ui.row().classes("flex-grow p-4 gap-10 w-full")
+        return ui.row().classes("flex p gap-10 w-full")
 
     @staticmethod
     def create_column_layout() -> ui.column:
         """Create column layout for content sections"""
-        return ui.column().classes("flex-1 w-1/2 pr-2")
+        return ui.column().classes("flex-1")
