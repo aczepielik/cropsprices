@@ -130,9 +130,9 @@ class UIComponents:
         """Create product selection dropdown"""
         return ui.select(
             options=options,
-            label="Produkt",
+            label="Inny Produkt",
             on_change=on_change,
-        ).classes("w-full")
+        ).classes("w-4/5")
 
     @staticmethod
     def create_product_label() -> ui.label:
