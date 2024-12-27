@@ -1,10 +1,10 @@
 from typing import Any, Dict, List, Optional
 
-import requests
+import requests  # type: ignore
 
 
 class PagedAPIQuery:
-    def __init__(self, base_url: str, params: Dict[str, Any] = None):
+    def __init__(self, base_url: str, params: Optional[Dict[str, Any]] = None):
         self.base_url = base_url
         self.params = params or {}
 
