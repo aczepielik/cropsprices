@@ -130,7 +130,7 @@ class CropsPricesApp:
             with chart_column:
                 self._setup_product_selection()
                 self.chart_container = ui.matplotlib(figsize=(6, 5)).classes(
-                    "w-full mt-4"
+                    "w-full mt-4 nicegui-pyplot"
                 )
 
     def _setup_prices_table(self) -> None:
