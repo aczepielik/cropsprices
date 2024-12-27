@@ -1,5 +1,11 @@
+import os
 from dataclasses import dataclass
 from typing import Literal
+
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 TableType = Literal["fruits", "vegetables"]
 EnvironmentType = Literal["dev", "staging", "prod"]
@@ -10,13 +16,13 @@ class DatabaseConfig:
     dev = {"type": "duckdb", "path": ".data/local.db"}
     staging = {
         "type": "bigquery",
-        "project": "your-staging-project",
-        "dataset": "staging_dataset",
+        "project": os.getenv("STAGING_PROJECT_ID"),
+        "dataset": os.getenv("STAGING_DATASET"),
     }
     prod = {
         "type": "bigquery",
-        "project": "your-prod-project",
-        "dataset": "prod_dataset",
+        "project": os.getenv("PROD_PROJECT_ID"),
+        "dataset": os.getenv("PROD_DATASET"),
     }
 
 

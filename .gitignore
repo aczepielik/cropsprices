@@ -5,3 +5,4 @@ dev.ipynb
 logs/
 .data/
 .secrets/
+.env
