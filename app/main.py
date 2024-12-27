@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Tuple
@@ -7,6 +8,7 @@ from nicegui import ui
 
 from app.config import AppConfig, EnvironmentType
 from app.database import DatabaseManager
+from app.debug import setup_logging
 from app.ui_components import UIComponents
 
 
@@ -250,12 +252,20 @@ def main() -> None:
     if env not in ("dev", "staging", "prod"):
         raise ValueError(f"Invalid environment: {env}")
 
-    app = CropsPricesApp(env=env)  # noqa: F841
-    ui.run(
-        title="Ceny hurtowe owoców i warzyw",
-        port=8080,
-        language="pl",
-    )
+    # Setup logging before initializing the app
+    setup_logging(env)
+    logging.info(f"Starting application in {env} environment")
+
+    try:
+        app = CropsPricesApp(env=env)  # noqa: F841
+        ui.run(
+            title="Ceny hurtowe owoców i warzyw",
+            port=8080,
+            language="pl",
+        )
+    except Exception as e:
+        logging.error(f"Application failed to start: {str(e)}", exc_info=True)
+        raise
 
 
 if __name__ in {"__main__", "__mp_main__"}:

@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -29,6 +30,11 @@ class DatabaseConnector(ABC):
     def case_when(
         self, condition: str, then_value: str, else_value: str = "NULL"
     ) -> str:
+        pass
+
+    @abstractmethod
+    def escape_column(self, column_name: str) -> str:
+        """Escape column name according to database syntax"""
         pass
 
 
@@ -65,6 +71,9 @@ class DuckDBConnector(DatabaseConnector):
     ) -> str:
         return f"CASE WHEN {condition} THEN {then_value} ELSE {else_value} END"
 
+    def escape_column(self, column_name: str) -> str:
+        return f'"{column_name}"'
+
 
 class BigQueryConnector(DatabaseConnector):
     def __init__(self, project: str, dataset: str):
@@ -96,6 +105,9 @@ class BigQueryConnector(DatabaseConnector):
     ) -> str:
         return f"IF({condition}, {then_value}, {else_value})"
 
+    def escape_column(self, column_name: str) -> str:
+        return f"`{column_name}`"
+
     def _get_bq_type(self, value: Any) -> str:
         type_map = {
             str: "STRING",
@@ -112,6 +124,8 @@ class DatabaseManager:
 
     def __init__(self, env: EnvironmentType = "dev", db_config: Optional[dict] = None):
         self.db_config = db_config or AppConfig.get_db_config(env)
+        logging.debug(f"Initializing DatabaseManager with environment: {env}")
+        logging.debug(f"Database config type: {self.db_config['type']}")
         self.connector = self._create_connector()
 
     def _create_connector(self) -> DatabaseConnector:
@@ -126,11 +140,11 @@ class DatabaseManager:
     def get_allowed_dates(self, table: str, place: str, origin_type: str) -> List[str]:
         formatted_date = self.connector.format_date("Date", "%Y/%m/%d")
         query = f"""
-            SELECT DISTINCT {formatted_date}
+            SELECT DISTINCT {formatted_date} AS YMD
             FROM {self._get_table_ref(table)}
             WHERE Place = @place
             AND Origin = @origin
-            ORDER BY DATE
+            ORDER BY YMD
         """
         results = self.connector.execute_query(
             query, {"place": place, "origin": origin_type}
@@ -140,10 +154,10 @@ class DatabaseManager:
     def get_products(self, table: str, origin_type: str) -> List[str]:
         product_unit = self.connector.concat("Product", "', '", "Unit")
         query = f"""
-            SELECT DISTINCT {product_unit}
+            SELECT DISTINCT {product_unit} AS ProductUnit
             FROM {self._get_table_ref(table)}
             WHERE Origin = @origin
-            ORDER BY Product
+            ORDER BY ProductUnit
         """
         results = self.connector.execute_query(query, {"origin": origin_type})
         return [row[0] for row in results]
@@ -167,6 +181,7 @@ class DatabaseManager:
     ) -> List[Dict[str, Any]]:
         view_name = f"{table}_year_over_year"
         product_unit = self.connector.concat("Product", "', '", "Unit")
+        current_date_col = self.connector.escape_column("current_date")
 
         min_case = self.connector.case_when("Statistic = 'Min'", "current_price")
         max_case = self.connector.case_when("Statistic = 'Max'", "current_price")
@@ -182,20 +197,26 @@ class DatabaseManager:
                 MAX({max_year_ago}) as year_ago_max
             FROM {self._get_table_ref(view_name)}
             WHERE Place = @place
-            AND current_date = @date
+            AND {current_date_col} = @date
             AND Origin = @origin
             GROUP BY Product, Unit
-            ORDER BY Product
+            ORDER BY product
         """
+
+        params = {
+            "place": place,
+            "date": date,
+            "origin": origin_type,
+        }
+        logging.debug(f"Executing get_prices_data with params: {params}")
+        logging.debug(f"Using view: {view_name}")
+        logging.debug(f"Full query: {query}")
 
         results = self.connector.execute_query(
             query,
-            {
-                "place": place,
-                "date": date,
-                "origin": origin_type,
-            },
+            params,
         )
+        logging.debug(f"Query returned {len(results)} results")
 
         return [
             {
@@ -225,6 +246,7 @@ class DatabaseManager:
     ) -> Tuple[List[Any], ...]:
         view_name = f"{table}_year_over_year"
         product_unit_expr = self.connector.concat("Product", "', '", "Unit")
+        current_date_col = self.connector.escape_column("current_date")
 
         min_case = self.connector.case_when("Statistic = 'Min'", "current_price")
         max_case = self.connector.case_when("Statistic = 'Max'", "current_price")
@@ -233,7 +255,7 @@ class DatabaseManager:
 
         query = f"""
             SELECT 
-                current_date as Date,
+                {current_date_col} as Date,
                 MIN({min_case}) as price_min,
                 MAX({max_case}) as price_max,
                 MIN({min_year_ago}) as year_ago_min,
@@ -242,20 +264,24 @@ class DatabaseManager:
             WHERE Place = @place
             AND {product_unit_expr} = @product_unit
             AND Origin = @origin
-            AND current_date BETWEEN @start_date AND @end_date
+            AND {current_date_col} BETWEEN @start_date AND @end_date
             GROUP BY Date
             ORDER BY Date
         """
+        params = {
+            "place": place,
+            "product_unit": product_unit,
+            "origin": origin_type,
+            "start_date": datetime.strftime(start_date, "%Y-%m-%d"),
+            "end_date": datetime.strftime(end_date, "%Y-%m-%d"),
+        }
 
-        results = self.connector.execute_query(
-            query,
-            {
-                "place": place,
-                "product_unit": product_unit,
-                "origin": origin_type,
-                "start_date": start_date,
-                "end_date": end_date,
-            },
-        )
+        logging.debug(f"Executing get_prices_data_for_product with params: {params}")
+        logging.debug(f"Using view: {view_name}")
+        logging.debug(f"Full query: {query}")
+
+        results = self.connector.execute_query(query, params)
+
+        logging.debug(f"Query returned {len(results)} results")
 
         return tuple(map(list, zip(*results)))
