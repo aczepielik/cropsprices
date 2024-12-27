@@ -1,10 +1,11 @@
+import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 from nicegui import ui
 
-from app.config import AppConfig
+from app.config import AppConfig, EnvironmentType
 from app.database import DatabaseManager
 from app.ui_components import UIComponents
 
@@ -12,10 +13,13 @@ from app.ui_components import UIComponents
 class CropsPricesApp:
     """Main application class handling the wholesale prices dashboard"""
 
-    def __init__(self):
+    def __init__(self, env: EnvironmentType = "dev"):
         """Initialize the application with database, config, and UI components"""
-        self.db = DatabaseManager(".data/local.db")
+        self.env = env
         self.config = AppConfig()
+        db_config = self.config.get_db_config(env)
+        self.db = DatabaseManager(env=env, db_config=db_config)
+
         self.state = {
             "current_table": "vegetables",
             "current_origin": "KRAJOWE",
@@ -241,7 +245,12 @@ class CropsPricesApp:
 
 def main() -> None:
     """Application entry point"""
-    app = CropsPricesApp()  # noqa: F841
+    # Get environment from ENV variable, default to 'dev'
+    env = os.getenv("APP_ENV", "dev")
+    if env not in ("dev", "staging", "prod"):
+        raise ValueError(f"Invalid environment: {env}")
+
+    app = CropsPricesApp(env=env)  # noqa: F841
     ui.run(
         title="Ceny hurtowe owoców i warzyw",
         port=8080,

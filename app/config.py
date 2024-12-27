@@ -2,6 +2,22 @@ from dataclasses import dataclass
 from typing import Literal
 
 TableType = Literal["fruits", "vegetables"]
+EnvironmentType = Literal["dev", "staging", "prod"]
+
+
+@dataclass
+class DatabaseConfig:
+    dev = {"type": "duckdb", "path": ".data/local.db"}
+    staging = {
+        "type": "bigquery",
+        "project": "your-staging-project",
+        "dataset": "staging_dataset",
+    }
+    prod = {
+        "type": "bigquery",
+        "project": "your-prod-project",
+        "dataset": "prod_dataset",
+    }
 
 
 @dataclass
@@ -26,3 +42,7 @@ class AppConfig:
         {"name": "year_ago_min", "label": "Rok temu min", "field": "year_ago_min"},
         {"name": "year_ago_max", "label": "Rok temu max", "field": "year_ago_max"},
     ]
+
+    @staticmethod
+    def get_db_config(env: EnvironmentType = "dev") -> dict:
+        return getattr(DatabaseConfig, env)
