@@ -114,17 +114,20 @@ class CropsPricesApp:
 
     def _setup_main_content(self) -> None:
         """Setup main content area with prices table and product selection"""
-        with (
-            ui.grid()
-            .classes("w-full gap-4 pl-0 pr-4 pt-4 pb-4 overflow-hidden")
-            .style("grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);")
+        with ui.grid().classes(
+            """
+            w-full gap-4 pl-0 pr-4 pt-4 pb-4
+            xl:grid-cols-2 grid-cols-1
+            xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]
+            """
         ):
             # Left column - prices table
-            with ui.column().classes("w-full min-w-0 overflow-hidden"):
+            with ui.column().classes("w-full min-w-0"):
                 self._setup_prices_table()
 
             # Right column - product selection and chart
-            with ui.column().classes("w-full min-w-0"):
+            chart_column = ui.column().classes("w-full min-w-0 overflow-hidden")
+            with chart_column:
                 self._setup_product_selection()
                 self.chart_container = ui.matplotlib(figsize=(6, 5)).classes(
                     "w-full mt-4"
@@ -154,32 +157,14 @@ class CropsPricesApp:
             # Clear table selection
             self.prices_table.selected = []
             self.prices_table.update()
-            # Update chart with new data
-            with self.chart_container.figure as fig:
-                fig.clear()
-                self.ui.create_prices_chart(
-                    fig=fig,
-                    data=self.get_chart_data(),
-                    title=" | ".join(
-                        (self.state["selected_product"], self.place.value)
-                    ),
-                )
+            self.update_chart()
 
     def _handle_row_selection(self, event: Any) -> None:
         """Handle row selection in prices table"""
         if event.selection:
             selected_row = event.selection[0]
             self.state["selected_product"] = selected_row["product"]
-            # Update chart with new data
-            with self.chart_container.figure as fig:
-                fig.clear()
-                self.ui.create_prices_chart(
-                    fig=fig,
-                    data=self.get_chart_data(),
-                    title=" | ".join(
-                        (self.state["selected_product"], self.place.value)
-                    ),
-                )
+            self.update_chart()
 
     def _on_table_toggle(self, event: Any) -> None:
         """Handle table type toggle change"""
@@ -243,6 +228,15 @@ class CropsPricesApp:
         """Update prices table with new data"""
         self.prices_table.rows = self.get_prices_data()
         self.prices_table.update()
+
+    def update_chart(self) -> None:
+        with self.chart_container.figure as fig:
+            fig.clear()
+            self.ui.create_prices_chart(
+                fig=fig,
+                data=self.get_chart_data(),
+                title=" | ".join((self.state["selected_product"], self.place.value)),
+            )
 
 
 def main() -> None:
