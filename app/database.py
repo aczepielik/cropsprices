@@ -1,9 +1,11 @@
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import duckdb
+import yaml
 from google.cloud import bigquery
 
 from .config import AppConfig, EnvironmentType
@@ -35,6 +37,10 @@ class DatabaseConnector(ABC):
     @abstractmethod
     def escape_column(self, column_name: str) -> str:
         """Escape column name according to database syntax"""
+        pass
+
+    @abstractmethod
+    def cast_date_to_compare(self, date):
         pass
 
 
@@ -74,6 +80,56 @@ class DuckDBConnector(DatabaseConnector):
     def escape_column(self, column_name: str) -> str:
         return f'"{column_name}"'
 
+    def cast_date_to_compare(self, date):
+        return date
+
+
+class CloudDuckDBConnector(DuckDBConnector):
+    def __init__(self, bucket: str, path: str, materialize: bool = False):
+        self.conn = duckdb.connect(":memory:")
+        self._init_views(bucket, path, materialize)
+
+    def _init_views(self, bucket: str, path: str, materialize: bool = False):
+        """Initialize views from parquet files"""
+        base_path = f"gs://{bucket}/{path}"
+        collection_type = "TABLE" if materialize else "VIEW"
+
+        # Load httpfs extension and set credentials
+        logging.debug("Installing and loading https.")
+        self.conn.execute("INSTALL httpfs;")
+        self.conn.execute("LOAD httpfs;")
+        logging.debug("Loaded https.")
+
+        logging.debug("Starting authentication to Cloud Strorage")
+        # Load HMAC credentials from yaml file
+        secrets_path = Path(__file__).parent.parent / ".secrets" / "hmac.yaml"
+        with secrets_path.open("r") as f:
+            credentials = yaml.safe_load(f)
+
+        # Create GCS secret with HMAC credentials
+        self.conn.execute(f"""
+            CREATE SECRET (
+                TYPE GCS,
+                KEY_ID '{credentials['AccessKey']}',
+                SECRET '{credentials['Secret']}'
+            );
+        """)
+        logging.debug("Authenticated to Cloud Storage.")
+
+        logging.debug("Creating local copy of data.")
+        self.conn.execute(f"""
+            CREATE {collection_type} vegetables AS 
+            SELECT * FROM read_parquet('{base_path}/vegetables.parquet');
+            
+            CREATE {collection_type} fruits AS 
+            SELECT * FROM read_parquet('{base_path}/fruits.parquet');
+        """)
+        sql_path = Path(__file__).parent / "db_views.sql"
+        with open(sql_path, "r") as f:
+            view_queries = f.read()
+            self.conn.execute(view_queries)
+        logging.debug("Local copy of data created.")
+
 
 class BigQueryConnector(DatabaseConnector):
     def __init__(self, project: str, dataset: str):
@@ -108,6 +164,9 @@ class BigQueryConnector(DatabaseConnector):
     def escape_column(self, column_name: str) -> str:
         return f"`{column_name}`"
 
+    def cast_date_to_compare(self, date):
+        return datetime.strftime(date, "%Y-%m-%d")
+
     def _get_bq_type(self, value: Any) -> str:
         type_map = {
             str: "STRING",
@@ -130,11 +189,11 @@ class DatabaseManager:
 
     def _create_connector(self) -> DatabaseConnector:
         if self.db_config["type"] == "duckdb":
-            return DuckDBConnector(self.db_config["path"])
+            return DuckDBConnector(**self.db_config["args"])
+        elif self.db_config["type"] == "cloudduckdb":
+            return CloudDuckDBConnector(**self.db_config["args"])
         elif self.db_config["type"] == "bigquery":
-            return BigQueryConnector(
-                self.db_config["project"], self.db_config["dataset"]
-            )
+            return BigQueryConnector(**self.db_config["args"])
         raise ValueError(f"Unsupported database type: {self.db_config['type']}")
 
     def get_allowed_dates(self, table: str, place: str, origin_type: str) -> List[str]:
@@ -151,15 +210,18 @@ class DatabaseManager:
         )
         return [row[0] for row in results]
 
-    def get_products(self, table: str, origin_type: str) -> List[str]:
+    def get_products(self, table: str, origin_type: str, place: str) -> List[str]:
+        view_name = f"{table}_year_over_year"
         product_unit = self.connector.concat("Product", "', '", "Unit")
         query = f"""
             SELECT DISTINCT {product_unit} AS ProductUnit
-            FROM {self._get_table_ref(table)}
-            WHERE Origin = @origin
+            FROM {self._get_table_ref(view_name)}
+            WHERE Origin = @origin AND Place = @place
             ORDER BY ProductUnit
         """
-        results = self.connector.execute_query(query, {"origin": origin_type})
+        results = self.connector.execute_query(
+            query, {"origin": origin_type, "place": place}
+        )
         return [row[0] for row in results]
 
     def get_markets(self, table: str) -> List[str]:
@@ -272,8 +334,8 @@ class DatabaseManager:
             "place": place,
             "product_unit": product_unit,
             "origin": origin_type,
-            "start_date": datetime.strftime(start_date, "%Y-%m-%d"),
-            "end_date": datetime.strftime(end_date, "%Y-%m-%d"),
+            "start_date": self.connector.cast_date_to_compare(start_date),
+            "end_date": self.connector.cast_date_to_compare(end_date),
         }
 
         logging.debug(f"Executing get_prices_data_for_product with params: {params}")

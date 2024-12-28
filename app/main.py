@@ -22,23 +22,23 @@ class CropsPricesApp:
         db_config = self.config.get_db_config(env)
         self.db = DatabaseManager(env=env, db_config=db_config)
 
-        self.state = {
+        self.state: Dict[str, str] = {
             "current_table": "vegetables",
             "current_origin": "KRAJOWE",
-            "selected_product": None,
+            "selected_product": "",
         }
         self.ui = UIComponents()
 
         # Initialize UI components references
-        self.drawer = None
-        self.table_toggle = None
-        self.origin_toggle = None
-        self.place = None
-        self.date = None
-        self.prices_table = None
-        self.product = None
-        self.chart_container = None
-        self.date_filter = None
+        self.drawer: ui.drawer
+        self.table_toggle: ui.toggle
+        self.origin_toggle: ui.toggle
+        self.place: ui.select
+        self.date: ui.date
+        self.prices_table: ui.table
+        self.product: ui.select
+        self.chart_container: ui.matplotlib
+        self.date_filter: List[str]
 
         # Initialize UI
         ui.colors(**self.config.COLORS)
@@ -151,7 +151,9 @@ class CropsPricesApp:
         """Setup product selection dropdown and label"""
         self.product = self.ui.create_product_select(
             options=self.db.get_products(
-                self.state["current_table"], self.state["current_origin"]
+                self.state["current_table"],
+                self.state["current_origin"],
+                self.place.value,
             ),
             on_change=self._handle_product_selection,
         )
@@ -193,7 +195,7 @@ class CropsPricesApp:
     def _refresh_ui_components(self) -> None:
         """Update all UI components that depend on current selection"""
         self.product.options = self.db.get_products(
-            self.state["current_table"], self.state["current_origin"]
+            self.state["current_table"], self.state["current_origin"], self.place.value
         )
         self.product.update()
 
@@ -240,7 +242,7 @@ class CropsPricesApp:
             fig.clear()
             self.ui.create_prices_chart(
                 fig=fig,
-                data=self.get_chart_data(),
+                data=self.get_chart_data(),  # type: ignore
                 title=" | ".join((self.state["selected_product"], self.place.value)),
             )
 
@@ -257,7 +259,7 @@ def main() -> None:
     logging.info(f"Starting application in {env} environment")
 
     try:
-        app = CropsPricesApp(env=env)  # noqa: F841
+        app = CropsPricesApp(env=env)  # type: ignore # noqa: F841
         ui.run(
             title="Ceny hurtowe owoców i warzyw",
             port=8080,
