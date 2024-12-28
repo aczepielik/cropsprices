@@ -267,6 +267,7 @@ def main() -> None:
             port=port,
             host="0.0.0.0",  # Required for Cloud Run
             language="pl",
+            reload=bool(os.getenv("RELOAD", "")),
         )
     except Exception as e:
         logging.error(f"Application failed to start: {str(e)}", exc_info=True)

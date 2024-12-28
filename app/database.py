@@ -1,11 +1,11 @@
 import logging
+import os
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import duckdb
-import yaml
 from google.cloud import bigquery
 
 from .config import AppConfig, EnvironmentType
@@ -101,10 +101,13 @@ class CloudDuckDBConnector(DuckDBConnector):
         logging.debug("Loaded https.")
 
         logging.debug("Starting authentication to Cloud Strorage")
-        # Load HMAC credentials from yaml file
-        secrets_path = Path(__file__).parent.parent / ".secrets" / "hmac.yaml"
-        with secrets_path.open("r") as f:
-            credentials = yaml.safe_load(f)
+
+        credentials: Dict[str, str] = {
+            "AccessKey": os.getenv("SA_ACCESS_KEY", "").strip('"'),
+            "Secret": os.getenv("SA_SECRET", "").strip('"'),
+        }
+
+        logging.debug(credentials["AccessKey"])
 
         # Create GCS secret with HMAC credentials
         self.conn.execute(f"""
