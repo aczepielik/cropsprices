@@ -8,7 +8,7 @@ from nicegui import ui
 
 from app.config import AppConfig, EnvironmentType
 from app.database import DatabaseManager
-from app.debug import setup_logging
+from app.logs import setup_logging  # type: ignore
 from app.ui_components import UIComponents
 
 
@@ -260,9 +260,12 @@ def main() -> None:
 
     try:
         app = CropsPricesApp(env=env)  # type: ignore # noqa: F841
+        port = int(os.getenv("PORT", "8080"))
+
         ui.run(
             title="Ceny hurtowe owoców i warzyw",
-            port=8080,
+            port=port,
+            host="0.0.0.0",  # Required for Cloud Run
             language="pl",
         )
     except Exception as e:

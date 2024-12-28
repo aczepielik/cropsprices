@@ -13,16 +13,19 @@ TableType = Literal["fruits", "vegetables"]
 EnvironmentType = Literal["dev", "staging", "prod"]
 
 
-def _get_bucket_name(project_id: str, secret: str = "bucket-name"):
-    logging.debug("Obtaining bucket name.")
+def _get_secret(project_id: str, secret_name: str) -> str:
+    """Get secret from Secret Manager"""
+    logging.debug(f"Fetching secret: {secret_name}")
 
-    secret_client = secretmanager.SecretManagerServiceClient()
-    secret_name = f"projects/{project_id}/secrets/{secret}/versions/latest"
-    response = secret_client.access_secret_version(request={"name": secret_name})
+    client = secretmanager.SecretManagerServiceClient()
+    secret_path = f"projects/{project_id}/secrets/{secret_name}/versions/latest"
 
-    logging.debug("Received bucket name.")
-
-    return response.payload.data.decode("UTF-8")
+    try:
+        response = client.access_secret_version(request={"name": secret_path})
+        return response.payload.data.decode("UTF-8")
+    except Exception as e:
+        logging.error(f"Failed to fetch secret {secret_name}: {e}")
+        raise
 
 
 @dataclass
@@ -31,16 +34,23 @@ class DatabaseConfig:
     staging = {
         "type": "cloudduckdb",
         "args": {
-            "bucket": _get_bucket_name(project_id=os.getenv("STAGING_PROJECT_ID", "")),
+            "bucket": _get_secret(
+                project_id=os.getenv("PROJECT_ID", ""),
+                secret_name="bucket-name",
+            ),
             "path": "exports",
             "materialize": True,
         },
     }
     prod = {
-        "type": "bigquery",
+        "type": "cloudduckdb",
         "args": {
-            "project": os.getenv("PROD_PROJECT_ID"),
-            "dataset": os.getenv("PROD_DATASET"),
+            "bucket": _get_secret(
+                project_id=os.getenv("PROJECT_ID", ""),
+                secret_name="bucket-name",
+            ),
+            "path": "exports/latest",
+            "materialize": True,
         },
     }
 
