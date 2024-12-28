@@ -13,6 +13,7 @@ ENV PROJECT_ID=$PROJECT_ID
 RUN apt-get update && apt-get install -y \
     build-essential \
     wget \
+    unzip \
     fonts-roboto \
     fonts-dejavu \
     fonts-liberation \
