@@ -31,13 +31,13 @@ RUN fc-cache -f -v
 WORKDIR /app
 
 # Copy requirements first to leverage Docker cache
-COPY requirements.txt .
+COPY app/requirements.txt .
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY . .
+COPY app/ .
 
 # Expose port 8080 (Cloud Run will override this with PORT environment variable) 
 EXPOSE 8080
