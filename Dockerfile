@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     wget \
     unzip \
+    fontconfig \
     fonts-roboto \
     fonts-dejavu \
     fonts-liberation \
