@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Tuple
 
 import matplotlib.pyplot as plt
+from nicegui import app as ngapp
 from nicegui import ui
 
 from app.config import AppConfig, EnvironmentType
@@ -22,11 +23,6 @@ class CropsPricesApp:
         db_config = self.config.get_db_config(env)
         self.db = DatabaseManager(env=env, db_config=db_config)
 
-        ui.session_storage["app_state"] = {
-            "current_table": "vegetables",
-            "current_origin": "KRAJOWE",
-            "selected_product": "",
-        }
         self.ui = UIComponents()
 
         # Initialize UI components references
@@ -40,10 +36,18 @@ class CropsPricesApp:
         self.chart_container: ui.matplotlib
         self.date_filter: List[str]
 
-        # Initialize UI
-        ui.colors(**self.config.COLORS)
-        self._init_ui()
-        plt.style.use(["app/material_design2.mplstyle", "fast"])
+        @ui.page("/")
+        def landing_page():
+            ui.colors(**self.config.COLORS)
+            plt.style.use(["app/material_design2.mplstyle", "fast"])
+
+            ngapp.storage.client["app_state"] = {
+                "current_table": "vegetables",
+                "current_origin": "KRAJOWE",
+                "selected_product": "",
+            }
+
+            self._init_ui()
 
     def _init_ui(self) -> None:
         """Initialize all UI components"""
@@ -94,21 +98,21 @@ class CropsPricesApp:
         """Setup toggle for switching between vegetables and fruits"""
         self.table_toggle = self.ui.create_table_toggle(
             on_change=self._on_table_toggle,
-            initial_value=ui.session_storage["app_state"]["current_table"],
+            initial_value=ngapp.storage.client["app_state"]["current_table"],
         )
 
     def _setup_origin_toggle(self) -> None:
         """Setup toggle for switching between domestic and imported products"""
         self.origin_toggle = self.ui.create_origin_toggle(
             on_change=self._on_origin_toggle,
-            initial_value=ui.session_storage["app_state"]["current_origin"],
+            initial_value=ngapp.storage.client["app_state"]["current_origin"],
         )
 
     def _setup_place_select(self) -> None:
         """Setup market place selection dropdown"""
         self.place = self.ui.create_place_select(
             options=self.db.get_markets(
-                ui.session_storage["app_state"]["current_table"]
+                ngapp.storage.client["app_state"]["current_table"]
             ),
             on_change=self._on_place_change,
         )
@@ -116,9 +120,9 @@ class CropsPricesApp:
     def _setup_date_picker(self) -> None:
         """Setup date picker with available dates"""
         self.date_filter = self.db.get_allowed_dates(
-            ui.session_storage["app_state"]["current_table"],
+            ngapp.storage.client["app_state"]["current_table"],
             self.place.value,
-            ui.session_storage["app_state"]["current_origin"],
+            ngapp.storage.client["app_state"]["current_origin"],
         )
         self.date = self.ui.create_date_picker(
             on_change=self._on_date_change, date_filter=self.date_filter
@@ -157,8 +161,8 @@ class CropsPricesApp:
         """Setup product selection dropdown and label"""
         self.product = self.ui.create_product_select(
             options=self.db.get_products(
-                ui.session_storage["app_state"]["current_table"],
-                ui.session_storage["app_state"]["current_origin"],
+                ngapp.storage.client["app_state"]["current_table"],
+                ngapp.storage.client["app_state"]["current_origin"],
                 self.place.value,
             ),
             on_change=self._handle_product_selection,
@@ -167,7 +171,7 @@ class CropsPricesApp:
     def _handle_product_selection(self, event: Any) -> None:
         """Handle product selection from dropdown"""
         if event.value:
-            ui.session_storage["app_state"]["selected_product"] = event.value
+            ngapp.storage.client["app_state"]["selected_product"] = event.value
             # Clear table selection
             self.prices_table.selected = []
             self.prices_table.update()
@@ -177,19 +181,19 @@ class CropsPricesApp:
         """Handle row selection in prices table"""
         if event.selection:
             selected_row = event.selection[0]
-            ui.session_storage["app_state"]["selected_product"] = selected_row[
+            ngapp.storage.client["app_state"]["selected_product"] = selected_row[
                 "product"
             ]
             self.update_chart()
 
     def _on_table_toggle(self, event: Any) -> None:
         """Handle table type toggle change"""
-        ui.session_storage["app_state"]["current_table"] = event.value
+        ngapp.storage.client["app_state"]["current_table"] = event.value
         self._refresh_ui_components()
 
     def _on_origin_toggle(self, event: Any) -> None:
         """Handle origin toggle change"""
-        ui.session_storage["app_state"]["current_origin"] = event.value
+        ngapp.storage.client["app_state"]["current_origin"] = event.value
         self._refresh_ui_components()
 
     def _on_place_change(self, event: Any) -> None:
@@ -203,16 +207,16 @@ class CropsPricesApp:
     def _refresh_ui_components(self) -> None:
         """Update all UI components that depend on current selection"""
         self.product.options = self.db.get_products(
-            ui.session_storage["app_state"]["current_table"],
-            ui.session_storage["app_state"]["current_origin"],
+            ngapp.storage.client["app_state"]["current_table"],
+            ngapp.storage.client["app_state"]["current_origin"],
             self.place.value,
         )
         self.product.update()
 
         self.date_filter = self.db.get_allowed_dates(
-            ui.session_storage["app_state"]["current_table"],
+            ngapp.storage.client["app_state"]["current_table"],
             self.place.value,
-            ui.session_storage["app_state"]["current_origin"],
+            ngapp.storage.client["app_state"]["current_origin"],
         )
         self.date.props(f':options="{self.date_filter}"')
         self.date.update()
@@ -223,10 +227,10 @@ class CropsPricesApp:
         """Get prices data from database"""
         date_str = self.date.value.replace("/", "-")
         return self.db.get_prices_data(
-            ui.session_storage["app_state"]["current_table"],
+            ngapp.storage.client["app_state"]["current_table"],
             self.place.value,
             date_str,
-            ui.session_storage["app_state"]["current_origin"],
+            ngapp.storage.client["app_state"]["current_origin"],
         )
 
     def get_chart_data(self) -> Tuple[List[Any], ...]:
@@ -234,10 +238,10 @@ class CropsPricesApp:
         start_date = datetime.strptime(date_str, "%Y-%m-%d") - timedelta(weeks=50)
         end_date = datetime.strptime(date_str, "%Y-%m-%d") + timedelta(weeks=2)
         data = self.db.get_prices_data_for_product(
-            table=ui.session_storage["app_state"]["current_table"],
-            product_unit=ui.session_storage["app_state"]["selected_product"],
+            table=ngapp.storage.client["app_state"]["current_table"],
+            product_unit=ngapp.storage.client["app_state"]["selected_product"],
             place=self.place.value,
-            origin_type=ui.session_storage["app_state"]["current_origin"],
+            origin_type=ngapp.storage.client["app_state"]["current_origin"],
             start_date=start_date,
             end_date=end_date,
         )
@@ -257,8 +261,8 @@ class CropsPricesApp:
                 data=self.get_chart_data(),  # type: ignore
                 title=" | ".join(
                     (
-                        ui.session_storage["app_state"]["selected_product"],
-                        ui.session_storage["app_state"]["current_origin"].title(),
+                        ngapp.storage.client["app_state"]["selected_product"],
+                        ngapp.storage.client["app_state"]["current_origin"].title(),
                         self.place.value,
                     )
                 ),

@@ -13,7 +13,7 @@ EnvironmentType = Literal["dev", "staging", "prod"]
 
 @dataclass
 class DatabaseConfig:
-    dev = {"type": "duckdb", "args": {"path": ".data/local.db"}}
+    dev = {"type": "duckdb", "args": {"db_path": ".data/local.db"}}
     staging = {
         "type": "cloudduckdb",
         "args": {
