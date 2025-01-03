@@ -9,7 +9,7 @@ from nicegui import ui
 
 from app.config import AppConfig, EnvironmentType
 from app.database import DatabaseManager
-from app.logs import setup_logging  # type: ignore
+from app.logs import log_ui_interaction, setup_logger
 from app.ui_components import UIComponents
 
 
@@ -168,6 +168,7 @@ class CropsPricesApp:
             on_change=self._handle_product_selection,
         )
 
+    @log_ui_interaction
     def _handle_product_selection(self, event: Any) -> None:
         """Handle product selection from dropdown"""
         if event.value:
@@ -177,6 +178,7 @@ class CropsPricesApp:
             self.prices_table.update()
             self.update_chart()
 
+    @log_ui_interaction
     def _handle_row_selection(self, event: Any) -> None:
         """Handle row selection in prices table"""
         if event.selection:
@@ -186,24 +188,29 @@ class CropsPricesApp:
             ]
             self.update_chart()
 
+    @log_ui_interaction
     def _on_table_toggle(self, event: Any) -> None:
         """Handle table type toggle change"""
         ngapp.storage.client["app_state"]["current_table"] = event.value
         self._refresh_ui_components()
 
+    @log_ui_interaction
     def _on_origin_toggle(self, event: Any) -> None:
         """Handle origin toggle change"""
         ngapp.storage.client["app_state"]["current_origin"] = event.value
         self._refresh_ui_components()
 
+    @log_ui_interaction
     def _on_place_change(self, event: Any) -> None:
         """Handle market place selection change"""
         self._refresh_ui_components()
 
+    @log_ui_interaction
     def _on_date_change(self, date_value: str) -> None:
         """Handle date selection change"""
         self.update_prices_table()
 
+    @log_ui_interaction
     def _refresh_ui_components(self) -> None:
         """Update all UI components that depend on current selection"""
         self.product.options = self.db.get_products(
@@ -248,11 +255,13 @@ class CropsPricesApp:
 
         return data if data else tuple([] for _ in range(5))
 
+    @log_ui_interaction
     def update_prices_table(self) -> None:
         """Update prices table with new data"""
         self.prices_table.rows = self.get_prices_data()
         self.prices_table.update()
 
+    @log_ui_interaction
     def update_chart(self) -> None:
         with self.chart_container.figure as fig:
             fig.clear()
@@ -277,8 +286,7 @@ def main() -> None:
         raise ValueError(f"Invalid environment: {env}")
 
     # Setup logging before initializing the app
-    setup_logging(env)
-    logging.info(f"Starting application in {env} environment")
+    setup_logger(env)
 
     try:
         app = CropsPricesApp(env=env)  # type: ignore # noqa: F841

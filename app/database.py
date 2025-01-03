@@ -1,4 +1,3 @@
-import logging
 import os
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -6,9 +5,20 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import duckdb
+import psutil
 from google.cloud import bigquery
 
 from .config import AppConfig, EnvironmentType
+from .logs import log_db_operation
+
+
+def check_db_memory():
+    process = psutil.Process()
+    memory_info = process.memory_info()
+    return {
+        "rss": memory_info.rss / 1024 / 1024,  # RSS in MB
+        "vms": memory_info.vms / 1024 / 1024,  # VMS in MB
+    }
 
 
 class DatabaseConnector(ABC):
@@ -85,29 +95,23 @@ class DuckDBConnector(DatabaseConnector):
 
 
 class CloudDuckDBConnector(DuckDBConnector):
-    def __init__(self, bucket: str, path: str, materialize: bool = False):
+    def __init__(self, bucket: str, path: str, materialize: bool = True):
         self.conn = duckdb.connect(":memory:")
         self._init_views(bucket, path, materialize)
 
-    def _init_views(self, bucket: str, path: str, materialize: bool = False):
+    def _init_views(self, bucket: str, path: str, materialize: bool = True):
         """Initialize views from parquet files"""
         base_path = f"gs://{bucket}/{path}"
         collection_type = "TABLE" if materialize else "VIEW"
 
         # Load httpfs extension and set credentials
-        logging.debug("Installing and loading https.")
         self.conn.execute("INSTALL httpfs;")
         self.conn.execute("LOAD httpfs;")
-        logging.debug("Loaded https.")
-
-        logging.debug("Starting authentication to Cloud Strorage")
 
         credentials: Dict[str, str] = {
             "AccessKey": os.getenv("SA_ACCESS_KEY", "").strip('"'),
             "Secret": os.getenv("SA_SECRET", "").strip('"'),
         }
-
-        logging.debug(credentials["AccessKey"])
 
         # Create GCS secret with HMAC credentials
         self.conn.execute(f"""
@@ -117,9 +121,7 @@ class CloudDuckDBConnector(DuckDBConnector):
                 SECRET '{credentials['Secret']}'
             );
         """)
-        logging.debug("Authenticated to Cloud Storage.")
 
-        logging.debug("Creating local copy of data.")
         self.conn.execute(f"""
             CREATE {collection_type} vegetables AS 
             SELECT * FROM read_parquet('{base_path}/vegetables.parquet');
@@ -127,11 +129,11 @@ class CloudDuckDBConnector(DuckDBConnector):
             CREATE {collection_type} fruits AS 
             SELECT * FROM read_parquet('{base_path}/fruits.parquet');
         """)
+
         sql_path = Path(__file__).parent / "db_views.sql"
         with open(sql_path, "r") as f:
             view_queries = f.read()
             self.conn.execute(view_queries)
-        logging.debug("Local copy of data created.")
 
 
 class BigQueryConnector(DatabaseConnector):
@@ -186,8 +188,6 @@ class DatabaseManager:
 
     def __init__(self, env: EnvironmentType = "dev", db_config: Optional[dict] = None):
         self.db_config = db_config or AppConfig.get_db_config(env)
-        logging.debug(f"Initializing DatabaseManager with environment: {env}")
-        logging.debug(f"Database config type: {self.db_config['type']}")
         self.connector = self._create_connector()
 
     def _create_connector(self) -> DatabaseConnector:
@@ -199,6 +199,7 @@ class DatabaseManager:
             return BigQueryConnector(**self.db_config["args"])
         raise ValueError(f"Unsupported database type: {self.db_config['type']}")
 
+    @log_db_operation(args=["table", "place", "origin_type"])
     def get_allowed_dates(self, table: str, place: str, origin_type: str) -> List[str]:
         formatted_date = self.connector.format_date("Date", "%Y/%m/%d")
         query = f"""
@@ -213,6 +214,7 @@ class DatabaseManager:
         )
         return [row[0] for row in results]
 
+    @log_db_operation(args=["table", "place", "origin_type"])
     def get_products(self, table: str, origin_type: str, place: str) -> List[str]:
         view_name = f"{table}_year_over_year"
         product_unit = self.connector.concat("Product", "', '", "Unit")
@@ -227,6 +229,7 @@ class DatabaseManager:
         )
         return [row[0] for row in results]
 
+    @log_db_operation(args=["place"])
     def get_markets(self, table: str) -> List[str]:
         query = f"""
             SELECT Place
@@ -241,6 +244,7 @@ class DatabaseManager:
         results = self.connector.execute_query(query)
         return [row[0] for row in results]
 
+    @log_db_operation(args=["table", "date", "place", "origin_type"])
     def get_prices_data(
         self, table: str, place: str, date: str, origin_type: str
     ) -> List[Dict[str, Any]]:
@@ -273,15 +277,11 @@ class DatabaseManager:
             "date": date,
             "origin": origin_type,
         }
-        logging.debug(f"Executing get_prices_data with params: {params}")
-        logging.debug(f"Using view: {view_name}")
-        logging.debug(f"Full query: {query}")
 
         results = self.connector.execute_query(
             query,
             params,
         )
-        logging.debug(f"Query returned {len(results)} results")
 
         return [
             {
@@ -300,6 +300,9 @@ class DatabaseManager:
             return f"`{self.db_config['dataset']}.{table}`"
         return table
 
+    @log_db_operation(
+        args=["table", "product_unit", "place", "origin_type", "end_date"]
+    )
     def get_prices_data_for_product(
         self,
         table: str,
@@ -341,12 +344,5 @@ class DatabaseManager:
             "end_date": self.connector.cast_date_to_compare(end_date),
         }
 
-        logging.debug(f"Executing get_prices_data_for_product with params: {params}")
-        logging.debug(f"Using view: {view_name}")
-        logging.debug(f"Full query: {query}")
-
         results = self.connector.execute_query(query, params)
-
-        logging.debug(f"Query returned {len(results)} results")
-
         return tuple(map(list, zip(*results)))
