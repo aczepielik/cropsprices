@@ -178,14 +178,8 @@ class UIComponents:
         # Adding titles and labels
         ax.set_title(title)
         ax.set_ylabel("Cena [PLN]")
-        fig.subplots_adjust(bottom=0.2)
-        ax.legend(loc="lower center", bbox_to_anchor=(0.5, -0.3), ncol=2)
-
-    @staticmethod
-    def create_header() -> None:
-        """Create application header"""
-        with ui.header().classes("bg-primary text-white"):
-            ui.label("Ceny hurtowe owoców i warzyw").classes("text-h4 q-px-md q-py-sm")
+        fig.subplots_adjust(top=0.92, bottom=0.15, left=0.08, right=0.99)
+        ax.legend(loc="lower center", bbox_to_anchor=(0.5, -0.2), ncol=2)
 
     @staticmethod
     def create_left_drawer() -> ui.left_drawer:

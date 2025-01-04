@@ -93,7 +93,7 @@ class CropsPricesApp:
                     "sm:block lg:hidden text-h6 w-16 h-16 flex items-center justify-center"
                 )
                 ui.label("Ceny hurtowe owoców i warzyw").classes(
-                    "text-h4 q-px-md q-py-sm"
+                    "text-h4 md:text-h5 q-px-md q-py-sm"
                 )
 
     def _setup_left_drawer(self) -> None:
