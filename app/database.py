@@ -1,3 +1,4 @@
+import logging
 import os
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -53,6 +54,11 @@ class DatabaseConnector(ABC):
     def cast_date_to_compare(self, date):
         pass
 
+    @abstractmethod
+    def close(self):
+        """Close the database connection"""
+        pass
+
 
 class DuckDBConnector(DatabaseConnector):
     def __init__(self, db_path: str):
@@ -93,6 +99,12 @@ class DuckDBConnector(DatabaseConnector):
     def cast_date_to_compare(self, date):
         return date
 
+    def close(self):
+        """Close this user's connection"""
+        if self.conn:
+            self.conn.close()
+            self.conn = None
+
 
 class CloudDuckDBConnector(DuckDBConnector):
     def __init__(self, bucket: str, path: str, materialize: bool = True):
@@ -101,6 +113,15 @@ class CloudDuckDBConnector(DuckDBConnector):
 
     def _init_views(self, bucket: str, path: str, materialize: bool = True):
         """Initialize views from parquet files"""
+        result = self.conn.execute("""
+            SELECT count(*) 
+            FROM information_schema.tables 
+            WHERE table_name IN ('vegetables', 'fruits', 'vegetables_year_over_year', 'fruits_year_over_year')
+        """).fetchone()[0]
+
+        if result == 4:
+            logging.debug("Views already initialized.")
+            return
         base_path = f"gs://{bucket}/{path}"
         collection_type = "TABLE" if materialize else "VIEW"
 
@@ -182,6 +203,12 @@ class BigQueryConnector(DatabaseConnector):
         }
         return type_map.get(type(value), "STRING")
 
+    def close(self):
+        """Close this user's client"""
+        if self.client:
+            self.client.close()
+            self.client = None
+
 
 class DatabaseManager:
     """Handles all database operations"""
@@ -198,6 +225,12 @@ class DatabaseManager:
         elif self.db_config["type"] == "bigquery":
             return BigQueryConnector(**self.db_config["args"])
         raise ValueError(f"Unsupported database type: {self.db_config['type']}")
+
+    def close(self):
+        """Close this user's database connection"""
+        if self.connector:
+            self.connector.close()
+            self.connector = None
 
     @log_db_operation(args=["table", "place", "origin_type"])
     def get_allowed_dates(self, table: str, place: str, origin_type: str) -> List[str]:

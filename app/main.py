@@ -41,8 +41,7 @@ class CropsPricesApp:
         """Initialize the application with database, config, and UI components"""
         self.env = env
         self.config = AppConfig()
-        db_config = self.config.get_db_config(env)
-        self.db = DatabaseManager(env=env, db_config=db_config)
+        self.db_config = self.config.get_db_config(env)
 
         self.ui = UIComponents()
 
@@ -52,16 +51,25 @@ class CropsPricesApp:
             if "state" not in ngapp.storage.client:
                 ngapp.storage.client["state"] = ClientState()
 
+            if "db" not in ngapp.storage.client:
+                ngapp.storage.client["db"] = DatabaseManager(
+                    env=self.env, db_config=self.db_config
+                )
+
+            @ngapp.on_disconnect
+            def cleanup():
+                if ngapp.storage.client["db"]:
+                    ngapp.storage.client["db"].close()
+                    ngapp.storage.client["db"] = None
+
             ui.colors(**self.config.COLORS)
             plt.style.use(["app/material_design2.mplstyle", "fast"])
 
-            ngapp.storage.client["app_state"] = {
-                "current_table": "vegetables",
-                "current_origin": "KRAJOWE",
-                "selected_product": "",
-            }
-
             self._init_ui()
+
+    @property
+    def db(self):
+        return ngapp.storage.client["db"]
 
     def _get_state(self) -> ClientState:
         """Get the current client's state"""
