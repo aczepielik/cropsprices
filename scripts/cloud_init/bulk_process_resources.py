@@ -27,6 +27,9 @@ class DataManager:
         for filepath in tqdm(xlsx_files, desc="Processing Excel files", unit="file"):
             self._process_single_file(filepath)
 
+    VEG_SHEET_NAMES = ["ceny hurt_warz", "HURT WARZ", "WK"]
+    FRUIT_SHEET_NAMES = ["ceny hurt_owoc", "HURT OWOC", "OK"]
+
     def _process_single_file(self, filepath: Path):
         try:
             with open(filepath, "rb") as f:
@@ -38,22 +41,20 @@ class DataManager:
 
             file_stem = filepath.stem
 
-            if "ceny hurt_warz" in workbook.sheetnames:
-                self._process_sheet(
-                    excel_bytes, "vegetables", "ceny hurt_warz", False, file_stem
-                )
-            elif "WK" in workbook.sheetnames:
-                self._process_sheet(excel_bytes, "vegetables", "WK", False, file_stem)
+            veg_sheet = next(
+                (s for s in self.VEG_SHEET_NAMES if s in workbook.sheetnames), None
+            )
+            if veg_sheet:
+                self._process_sheet(excel_bytes, "vegetables", veg_sheet, False, file_stem)
             else:
                 logger.warning(f"No valid vegetable sheet found in {filepath.name}")
 
             excel_bytes.seek(0)
-            if "ceny hurt_owoc" in workbook.sheetnames:
-                self._process_sheet(
-                    excel_bytes, "fruits", "ceny hurt_owoc", True, file_stem
-                )
-            elif "OK" in workbook.sheetnames:
-                self._process_sheet(excel_bytes, "fruits", "OK", True, file_stem)
+            fruit_sheet = next(
+                (s for s in self.FRUIT_SHEET_NAMES if s in workbook.sheetnames), None
+            )
+            if fruit_sheet:
+                self._process_sheet(excel_bytes, "fruits", fruit_sheet, True, file_stem)
             else:
                 logger.warning(f"No valid fruit sheet found in {filepath.name}")
 
