@@ -25,4 +25,5 @@ The `bulk_get_resources.py` script checks `data/overrides/` before downloading f
 
 | Resource ID | Original Filename | Issue | Fixed |
 |---|---|---|---|
-| (none yet) | | | |
+| 1807541 | 1807541,rynek-owocow-i-warzyw-notowania-za-okres-2704-05052026-r.xlsx | HURT OWOC sheet has shifted columns (cities at cols 8,10,12,14,16 instead of 5,7,9,11,13) and numeric date serials | Yes - shifted data left by 3 columns, converted date serials |
+| 1909262 | 1909262,rynek-owocow-i-warzyw-notowania-za-okres-04-12052026-r.xlsx | HURT OWOC sheet has Wrocław city data in wrong columns (cols 15-17) | Yes - removed Wrocław's malformed data |
