@@ -3,10 +3,15 @@
 dev.ipynb
 .errors/
 logs/
-.data/
 .secrets/
 .env
-.continueignore
 .venv/
-frontend/node_modules/
-frontend/dist/
+.continueignore
+cropsprices.egg-info/
+.pytest_cache/
+.tools/
+mocks/*.png
+
+# ETL intermediates — never committed
+data/raw/
+data/parsed/
