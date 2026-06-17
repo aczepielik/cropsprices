@@ -68,6 +68,8 @@ class ExcelData(BaseModel):
     @field_validator("df")
     @classmethod
     def validate_data(cls, v: pd.DataFrame, info: ValidationInfo) -> pd.DataFrame:
+        v = v.apply(lambda col: col.map(lambda x: x.strip() if isinstance(x, str) else x))
+        v = v.replace("", np.nan)
         start_col = info.data.get("start_col", 3)
         if v.shape[0] < 1 or v.shape[1] < 4:
             raise ValueError("Data must have at least 1 row and 4 columns")
@@ -189,8 +191,31 @@ class ExcelParser:
             raise
 
     def extract_dates_and_places(self) -> Tuple[List[str], List[str]]:
-        dates = self.df.iloc[1, self.start_col :].dropna().tolist()
-        places = self.df.iloc[0, self.start_col :].dropna().tolist()
+        header_row = self.df.iloc[2, self.start_col :]
+        num_pairs = sum(1 for v in header_row if v in ["Max", "Min"]) // 2
+
+        raw_places = self.df.iloc[0, self.start_col :].tolist()
+        places = []
+        for i in range(num_pairs):
+            col_idx = i * 2
+            if col_idx < len(raw_places):
+                val = raw_places[col_idx]
+                if pd.notna(val) and val not in ["Max", "Min", "Jedn.", "Miejscowość"]:
+                    places.append(str(val))
+                else:
+                    places.append(f"Rynek{i + 1}")
+            else:
+                places.append(f"Rynek{i + 1}")
+
+        raw_dates = self.df.iloc[1, self.start_col :].tolist()
+        dates = []
+        for i in range(num_pairs):
+            col_idx = i * 2
+            if col_idx < len(raw_dates):
+                dates.append(raw_dates[col_idx])
+            else:
+                dates.append(None)
+
         return dates, places
 
     def prepare_data_rows(self, places: List[str]) -> pd.DataFrame:
@@ -217,10 +242,8 @@ class ExcelParser:
 
         expected_cols = len(id_cols) + len(places) * 2
 
-        # Check if there's an extra column
-        if data_rows.shape[1] == expected_cols + 1:
-            # Drop the last column
-            data_rows = data_rows.iloc[:, :-1]
+        if data_rows.shape[1] > expected_cols:
+            data_rows = data_rows.iloc[:, :expected_cols]
 
         data_rows.columns = pd.Index(
             id_cols + [f"{place}_{stat}" for place in places for stat in ["Max", "Min"]]
