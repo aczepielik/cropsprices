@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notowania Rolne | Heatmap Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #fcfcfb;
+      --surface: #ffffff;
+      --ink: #171511;
+      --muted: #6e6a61;
+      --rule: #d8d3ca;
+      --soft: #f3f1ed;
+      --pale: #f7f6f4;
+      --green: #396b51;
+      --green-soft: #d8e1d7;
+      --rust: #a9683d;
+      --rust-soft: #ead6c6;
+      --blue: #2c4f6e;
+      --blue-soft: #e1e9ef;
+      --missing: #b0a89c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--ink);
+      font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1 {
+      font-size: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: 8px;
+      margin-bottom: 24px;
+    }
+    h2 { font-size: 16px; margin-bottom: 12px; }
+    .meta-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 6px;
+      display: block;
+    }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    .layout-container {
+      display: flex;
+      gap: 32px;
+      max-width: 1520px;
+      margin: 0 auto;
+    }
+    .sidebar { width: 300px; flex-shrink: 0; }
+    .canvas { flex-grow: 1; min-width: 0; }
+    .workspace-nav {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--rule);
+      background-color: var(--surface);
+      margin-bottom: 24px;
+    }
+    .tab-item {
+      display: block;
+      padding: 14px 16px;
+      text-align: left;
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--rule);
+      color: var(--ink);
+      font-weight: 500;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background-color 0.15s;
+    }
+    .tab-item:last-child { border-bottom: none; }
+    .tab-item:hover { background-color: var(--soft); }
+    .tab-item.active {
+      background-color: var(--soft);
+      border-left: 4px solid var(--green);
+      font-weight: 600;
+      padding-left: 12px;
+    }
+    .filter-zone {
+      background-color: var(--surface);
+      border: 1px solid var(--rule);
+      padding: 20px;
+    }
+    .filter-group { margin-bottom: 20px; }
+    .select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--rule);
+      background-color: var(--surface);
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--ink);
+      outline: none;
+    }
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .checkbox-item input { accent-color: var(--green); }
+    .date-slider-wrapper { margin-top: 8px; }
+    .date-readout {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--green);
+      margin-bottom: 10px;
+      display: block;
+    }
+    .slider-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--soft);
+      border: 1px solid var(--rule);
+      position: relative;
+    }
+    input[type=range].time-slider {
+      width: 100%;
+      -webkit-appearance: none;
+      background: transparent;
+      height: 22px;
+      margin-top: -14px;
+      display: block;
+      position: relative;
+      z-index: 2;
+    }
+    input[type=range].time-slider::-webkit-slider-runnable-track { height: 6px; }
+    input[type=range].time-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 18px;
+      width: 18px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 2px solid var(--green);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      cursor: pointer;
+      margin-top: -6px;
+      transition: transform 0.1s;
+    }
+    input[type=range].time-slider::-webkit-slider-thumb:hover { transform: scale(1.08); }
+    .workspace-grid { display: none; flex-direction: column; gap: 24px; }
+    .workspace-grid.active { display: flex; }
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .kpi-card {
+      background-color: var(--surface);
+      border: 1px solid var(--rule);
+      padding: 16px;
+    }
+    .kpi-value {
+      font-size: 22px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .kpi-change {
+      font-size: 12px;
+      margin-top: 6px;
+    }
+    .chart-box { background-color: var(--surface); border: 1px solid var(--rule); padding: 20px; }
+    .chart-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+    .chart-title { font-size: 14px; font-weight: 600; color: var(--ink); }
+    .chart-legend { display: flex; gap: 16px; font-size: 11px; font-weight: 500; }
+    .legend-item { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+    .legend-color { width: 12px; height: 12px; border: 1px solid var(--rule); }
+    .svg-chart-container { width: 100%; position: relative; }
+    svg { width: 100%; height: 100%; overflow: visible; }
+    .table-zone { background-color: var(--surface); border: 1px solid var(--rule); }
+    .table-header-bar {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--rule);
+      background-color: var(--soft);
+    }
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+      background-color: var(--soft); font-size: 11px; font-weight: 600; text-transform: uppercase;
+      color: var(--muted); padding: 10px 20px; border-bottom: 1px solid var(--rule);
+    }
+    .data-table td { padding: 12px 20px; border-bottom: 1px solid var(--soft); font-size: 13px; }
+    .text-right { text-align: right; }
+    .micro-slider-container { display: flex; align-items: center; gap: 8px; opacity: 0.7; }
+    .micro-slider-container:hover { opacity: 1; }
+    .micro-slider {
+      width: 72px;
+      height: 4px;
+      -webkit-appearance: none;
+      background: var(--rule);
+      border-radius: 2px;
+      outline: none;
+    }
+    .micro-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      background: var(--ink);
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Notowania Rolne <span style="font-weight: 300; font-size: 16px; color: var(--muted);">| BIULETYN RYNKOWY</span></h1>
+
+  <div class="layout-container">
+    <aside class="sidebar">
+      <span class="meta-label">Tryb Analizy</span>
+      <nav class="workspace-nav">
+        <button class="tab-item active" onclick="switchWorkspace('snapshot', this)">Widok Aktualny (Snapshot)</button>
+        <button class="tab-item" onclick="switchWorkspace('trend', this)">Mapa Cieplna (Heatmap)</button>
+      </nav>
+
+      <div class="filter-zone">
+        <h2 style="margin-bottom: 16px; border-bottom: 1px solid var(--rule); padding-bottom: 8px;">Parametry</h2>
+        <div class="filter-group">
+          <span class="meta-label">Kategoria</span>
+          <select class="select" id="catSelect" onchange="onFilterChange()">
+            <option value="fruits" selected>Owoce</option>
+            <option value="veg">Warzywa</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <span class="meta-label">Produkt</span>
+          <select class="select" id="productSelect" onchange="onFilterChange()">
+            <option value="strawberries" selected>Truskawki krajowe (kg)</option>
+            <option value="apples">Jabłka deserowe - Idared (kg)</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <span class="meta-label">Rynki Hurtowe</span>
+          <div class="checkbox-group" id="marketsGroup">
+            <label class="checkbox-item"><input type="checkbox" value="Warszawa (Bronisze)" checked onchange="onFilterChange()"> Warszawa (Bronisze)</label>
+            <label class="checkbox-item"><input type="checkbox" value="Poznań (WGP)" checked onchange="onFilterChange()"> Poznań (WGP)</label>
+            <label class="checkbox-item"><input type="checkbox" value="Wrocław (Zjazdowa)" checked onchange="onFilterChange()"> Wrocław (Zjazdowa)</label>
+            <label class="checkbox-item"><input type="checkbox" value="Kraków (Rybitwy)" checked onchange="onFilterChange()"> Kraków (Rybitwy)</label>
+          </div>
+        </div>
+        <div class="filter-group" id="dateAnchorGroup" style="border-top: 1px solid var(--rule); padding-top: 16px; margin-top: 8px;">
+          <span class="meta-label">Punkt Odniesienia (Snapshot)</span>
+          <div class="date-slider-wrapper">
+            <span class="date-readout tabular-nums" id="date-label">Ładowanie...</span>
+            <div class="slider-track"></div>
+            <input type="range" class="time-slider" id="date-slider" min="0" max="100" value="100" oninput="onTimeSliderChange()">
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="canvas">
+
+      <main id="workspace-snapshot" class="workspace-grid active">
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <span class="meta-label">Przedział Cenowy (Wybrane Rynki)</span>
+            <div class="kpi-value" id="kpi-spread-range">-</div>
+            <div class="kpi-change" style="color: var(--muted);">Stan na wybraną datę</div>
+          </div>
+          <div class="kpi-card">
+            <span class="meta-label">Rozpiętość (Spread)</span>
+            <div class="kpi-value" id="kpi-spread-width">-</div>
+            <div class="kpi-change" id="kpi-spread-sub">Zróżnicowanie rynkowe (max-min)</div>
+          </div>
+          <div class="kpi-card">
+            <span class="meta-label">Dynamika Zmian WoW</span>
+            <div class="kpi-value" id="kpi-wow-range" style="font-size: 18px; margin-top: 8px;">-</div>
+            <div class="kpi-change" id="kpi-wow-sub">Zmiana podłogi i sufitu</div>
+          </div>
+        </div>
+
+        <div class="chart-box">
+          <div class="chart-header">
+            <div class="chart-title" id="context-title">Kontekst Sezonowy (±3 Tygodnie)</div>
+            <div style="display: flex; align-items: center; gap: 24px;">
+              <div class="micro-slider-container">
+                <span class="meta-label" style="margin:0; font-size:10px;">Okno:</span>
+                <input type="range" class="micro-slider" id="window-slider" min="1" max="6" value="3" oninput="updateContextWindow(this.value)">
+              </div>
+              <div class="chart-legend">
+                <div class="legend-item"><div class="legend-color" style="background-color: var(--rust-soft); border-color: var(--rust);"></div>Rok -2</div>
+                <div class="legend-item"><div class="legend-color" style="background-color: var(--blue-soft); border-color: var(--blue);"></div>Rok -1</div>
+                <div class="legend-item"><div class="legend-color" style="background-color: var(--green-soft); border-color: var(--green);"></div>Aktualny Rok</div>
+              </div>
+            </div>
+          </div>
+          <div class="svg-chart-container" id="chart-context" style="height: 320px;"></div>
+        </div>
+
+        <div class="table-zone">
+          <div class="table-header-bar"><span class="meta-label" style="margin-bottom:0;">Przekrój Rynków</span></div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Rynek Hurtowy</th>
+                <th class="text-right">Cena Min (zł)</th>
+                <th class="text-right">Cena Max (zł)</th>
+                <th class="text-right">Rozpiętość (Spread)</th>
+                <th class="text-right">Odchylenie od min. wybranych</th>
+              </tr>
+            </thead>
+            <tbody id="snapshot-table-body"></tbody>
+          </table>
+        </div>
+      </main>
+
+      <main id="workspace-trend" class="workspace-grid">
+        <div class="chart-box">
+          <div class="chart-header">
+            <div class="chart-title">Mapa Cieplna Sezonowa (Tydzień × Rok)</div>
+            <div class="chart-legend">
+              <div class="legend-item"><div class="legend-color" style="background-color: rgba(160,155,145,0.35);"></div>Minione lata</div>
+              <div class="legend-item"><div class="legend-color" style="background: transparent; border: 2px solid var(--green);"></div>Rok bieżący</div>
+            </div>
+          </div>
+          <div class="svg-chart-container" id="heatmap-container" style="height: 680px;"></div>
+        </div>
+      </main>
+
+    </div>
+  </div>
+
+  <script>
+    const allMarkets = ["Warszawa (Bronisze)", "Poznań (WGP)", "Wrocław (Zjazdowa)", "Kraków (Rybitwy)"];
+    const mockDb = { strawberries: [], apples: [] };
+    const datesArr = [];
+
+    let curr = new Date("2019-01-07");
+    let end = new Date("2026-06-15");
+    while (curr <= end) {
+      datesArr.push(curr.toISOString().split('T')[0]);
+      curr.setDate(curr.getDate() + 7);
+    }
+
+    function seededRand(seed) {
+      let s = seed % 2147483647;
+      if (s <= 0) s += 2147483647;
+      return function() { s = s * 16807 % 2147483647; return (s - 1) / 2147483646; };
+    }
+
+    datesArr.forEach((dateStr, dateIdx) => {
+      const dObj = new Date(dateStr);
+      const month = dObj.getMonth() + 1;
+      const year = dObj.getFullYear();
+      const monthDay = dateStr.substring(5);
+      const rng = seededRand(dateIdx * 1000 + 42);
+
+      const strawSeasonStart = 14 + Math.floor(rng() * 2);
+      const strawSeasonEnd = 33 + Math.floor(rng() * 3);
+      const isoWeek = getISOWeekStatic(dateStr);
+
+      if (isoWeek >= strawSeasonStart && isoWeek <= strawSeasonEnd) {
+        let baseStraw = 14 - (month - 4) * 2.5;
+        if (month === 6) baseStraw = 4.5;
+        if (month === 7) baseStraw = 6.5;
+        if (month === 8) baseStraw = 9.0;
+        const yearInflation = 1 + (year - 2019) * 0.025;
+        baseStraw *= yearInflation;
+        allMarkets.forEach((mkt, mIdx) => {
+          if (rng() < 0.15) return;
+          let mktDev = (mIdx - 1.5) * 0.5;
+          if (mkt === "Wrocław (Zjazdowa)" && month === 6 && year === 2025) mktDev += 1.5;
+          if (mkt === "Kraków (Rybitwy)" && year === 2022 && month === 5) mktDev += 0.8;
+          let min = baseStraw + mktDev + (rng() - 0.5) * 1.0;
+          let max = min + (0.5 + rng() * 2.0);
+          if (min < 0) min = 0.5;
+          mockDb.strawberries.push({ date: dateStr, monthDay, year, market: mkt, min: parseFloat(min.toFixed(2)), max: parseFloat(max.toFixed(2)) });
+        });
+      }
+
+      let appleAvail = true;
+      if (month >= 6 && month <= 8 && rng() < 0.4) appleAvail = false;
+      if (rng() < 0.05) appleAvail = false;
+      if (appleAvail) {
+        let baseApples = 2.0 + (month >= 3 && month <= 6 ? (month - 2) * 0.12 : 0) - (month >= 9 ? (month - 8) * 0.18 : 0);
+        const yearInflation = 1 + (year - 2019) * 0.03;
+        baseApples *= yearInflation;
+        allMarkets.forEach((mkt, mIdx) => {
+          if (rng() < 0.08) return;
+          let mktDev = (mIdx === 0 ? -0.1 : (mIdx === 1 ? 0.05 : 0.2));
+          let min = baseApples + mktDev + (rng() - 0.5) * 0.3;
+          let max = min + (0.15 + rng() * 0.35);
+          if (min < 0.3) min = 0.3;
+          mockDb.apples.push({ date: dateStr, monthDay, year, market: mkt, min: parseFloat(min.toFixed(2)), max: parseFloat(max.toFixed(2)) });
+        });
+      }
+    });
+
+    function getISOWeekStatic(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+      const week1 = new Date(d.getFullYear(), 0, 4);
+      return 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+    }
+
+    let currentWs = 'snapshot';
+    let currentContextWindow = 3;
+    let availableDates = [];
+
+    function switchWorkspace(wsId, btnEl) {
+      currentWs = wsId;
+      document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+      btnEl.classList.add('active');
+      document.querySelectorAll('.workspace-grid').forEach(el => el.classList.remove('active'));
+      document.getElementById(`workspace-${wsId}`).classList.add('active');
+      document.getElementById('dateAnchorGroup').style.display = (wsId === 'snapshot') ? 'block' : 'none';
+      onFilterChange();
+    }
+
+    function getSelectedMarkets() {
+      return Array.from(document.querySelectorAll('#marketsGroup input[type="checkbox"]:checked')).map(cb => cb.value);
+    }
+
+    function initDateSlider(db) {
+      availableDates = [...new Set(db.map(d => d.date))].sort();
+      const slider = document.getElementById('date-slider');
+      slider.max = availableDates.length - 1;
+      slider.value = slider.max;
+      document.getElementById('date-label').innerText = availableDates[slider.value];
+    }
+
+    function onTimeSliderChange() {
+      document.getElementById('date-label').innerText = availableDates[document.getElementById('date-slider').value];
+      renderSnapshotWorkspace();
+    }
+
+    function onFilterChange() {
+      const product = document.getElementById('productSelect').value;
+      const db = mockDb[product];
+      const selMarkets = getSelectedMarkets();
+      const filteredDb = db.filter(d => selMarkets.includes(d.market));
+      if (currentWs === 'snapshot') {
+        const slider = document.getElementById('date-slider');
+        if (slider.dataset.prod !== product) {
+          initDateSlider(db);
+          slider.dataset.prod = product;
+        }
+        renderSnapshotWorkspace(filteredDb);
+      } else {
+        renderTrendWorkspace(filteredDb);
+      }
+    }
+
+    function renderSnapshotWorkspace(filteredDb) {
+      const selMarkets = getSelectedMarkets();
+      if(selMarkets.length === 0) return clearSnapshot();
+      const product = document.getElementById('productSelect').value;
+      const db = filteredDb || mockDb[product].filter(d => selMarkets.includes(d.market));
+      const idx = parseInt(document.getElementById('date-slider').value);
+      const selectedDate = availableDates[idx];
+      const snapData = db.filter(d => d.date === selectedDate);
+      if(!snapData.length) return clearSnapshot();
+
+      const natMin = Math.min(...snapData.map(d => d.min));
+      const natMax = Math.max(...snapData.map(d => d.max));
+      document.getElementById('kpi-spread-range').innerText = `[${natMin.toFixed(2)} – ${natMax.toFixed(2)} zł]`;
+      document.getElementById('kpi-spread-width').innerText = `${(natMax - natMin).toFixed(2)} zł`;
+
+      if (idx > 0) {
+        const prevData = db.filter(d => d.date === availableDates[idx - 1]);
+        if(prevData.length) {
+          const prevMin = Math.min(...prevData.map(d => d.min));
+          const prevMax = Math.max(...prevData.map(d => d.max));
+          const minDiff = natMin - prevMin;
+          const maxDiff = natMax - prevMax;
+          document.getElementById('kpi-wow-range').innerHTML =
+            `<span style="color: ${minDiff > 0 ? 'var(--rust)' : 'var(--green)'}">Min: ${minDiff > 0 ? '+' : ''}${minDiff.toFixed(2)} zł</span> &nbsp;|&nbsp; ` +
+            `<span style="color: ${maxDiff > 0 ? 'var(--rust)' : 'var(--green)'}">Max: ${maxDiff > 0 ? '+' : ''}${maxDiff.toFixed(2)} zł</span>`;
+        }
+      }
+
+      document.getElementById('snapshot-table-body').innerHTML = snapData.map(row => `
+        <tr>
+          <td>${row.market}</td>
+          <td class="text-right">${row.min.toFixed(2)}</td>
+          <td class="text-right">${row.max.toFixed(2)}</td>
+          <td class="text-right" style="color: var(--muted);">${(row.max - row.min).toFixed(2)} zł</td>
+          <td class="text-right" style="color: ${row.min > natMin ? 'var(--rust)' : 'var(--muted)'}; font-weight: 500;">${row.min > natMin ? '+' : ''}${(row.min - natMin).toFixed(2)} zł</td>
+        </tr>
+      `).join('');
+      drawContextChart(db, availableDates, idx);
+    }
+
+    function clearSnapshot() {
+      document.getElementById('kpi-spread-range').innerText = "-";
+      document.getElementById('kpi-spread-width').innerText = "-";
+      document.getElementById('kpi-wow-range').innerHTML = "-";
+      document.getElementById('snapshot-table-body').innerHTML = `<tr><td colspan="5" class="text-center" style="color: var(--missing);">Brak danych</td></tr>`;
+    }
+
+    function updateContextWindow(val) {
+      currentContextWindow = parseInt(val);
+      onFilterChange();
+    }
+
+    function niceTicks(minVal, maxVal, targetSteps = 5) {
+      const span = maxVal - minVal || 1;
+      const rough = span / targetSteps;
+      const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+      const norm = rough / mag;
+      const step = norm <= 1 ? mag : norm <= 2 ? 2 * mag : norm <= 5 ? 5 * mag : 10 * mag;
+      const niceMin = Math.floor(minVal / step) * step;
+      const niceMax = Math.ceil(maxVal / step) * step;
+      const ticks = [];
+      for (let v = niceMin; v <= niceMax + step * 0.001; v += step) ticks.push(parseFloat(v.toFixed(6)));
+      return { min: niceMin, max: niceMax, step, ticks };
+    }
+
+    function drawContextChart(db, allDates, currIdx) {
+      const container = document.getElementById('chart-context');
+      const win = currentContextWindow;
+      const w = container.clientWidth || 800;
+      const h = 320;
+      const pad = { t: 20, r: 20, b: 40, l: 48 };
+      const baseDates = [];
+      for(let i = currIdx - win; i <= currIdx + win; i++) baseDates.push(allDates[i] || null);
+
+      function getNatSpread(dateStr) {
+        if(!dateStr) return null;
+        const rows = db.filter(d => d.date === dateStr);
+        return rows.length ? { min: Math.min(...rows.map(d => d.min)), max: Math.max(...rows.map(d => d.max)) } : null;
+      }
+
+      const currentYearData = baseDates.map(d => getNatSpread(d));
+      const yr1Data = baseDates.map((d, i) => getNatSpread(allDates[currIdx - win + i - 52]));
+      const yr2Data = baseDates.map((d, i) => getNatSpread(allDates[currIdx - win + i - 104]));
+
+      let dataMin = Infinity, dataMax = -Infinity;
+      [currentYearData, yr1Data, yr2Data].forEach(ds => {
+        ds.forEach(pt => { if(pt) { if(pt.max > dataMax) dataMax = pt.max; if(pt.min < dataMin) dataMin = pt.min; } });
+      });
+      const { min: yMin, max: yMax, ticks } = niceTicks(dataMin, dataMax, 5);
+
+      function getX(idx) { return pad.l + (idx / (win*2)) * (w - pad.l - pad.r); }
+      function getY(val) { return pad.t + (1 - (val - yMin)/(yMax - yMin || 1)) * (h - pad.t - pad.b); }
+
+      function buildPolygon(dataset) {
+        let top = [], bot = [];
+        dataset.forEach((pt, i) => { if(pt) { top.push(`${getX(i)},${getY(pt.max)}`); bot.unshift(`${getX(i)},${getY(pt.min)}`); } });
+        return top.length ? [...top, ...bot].join(' ') : '0,0';
+      }
+      function buildLine(dataset, accessor) {
+        return dataset.map((pt, i) => `${i===0?'M':'L'} ${getX(i)} ${pt ? getY(accessor(pt)) : ''}`).filter(s => !s.endsWith('NaN')).join(' ');
+      }
+
+      let svg = `<svg viewBox="0 0 ${w} ${h}">`;
+      ticks.forEach(v => {
+        const y = getY(v);
+        svg += `<line x1="${pad.l}" y1="${y}" x2="${w-pad.r}" y2="${y}" stroke="var(--soft)" stroke-width="1" />`;
+        svg += `<text x="${pad.l - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${v.toFixed(v % 1 === 0 ? 0 : 1)}</text>`;
+      });
+
+      svg += `<polygon points="${buildPolygon(yr2Data)}" fill="var(--rust-soft)" opacity="0.22" />`;
+      svg += `<polygon points="${buildPolygon(yr1Data)}" fill="var(--blue-soft)" opacity="0.22" />`;
+      svg += `<polygon points="${buildPolygon(currentYearData)}" fill="var(--green-soft)" opacity="0.7" stroke="var(--green)" stroke-width="2.5" />`;
+
+      const mid = p => (p.min + p.max) / 2;
+      svg += `<path d="${buildLine(yr2Data, mid)}" fill="none" stroke="var(--rust)" stroke-width="1.2" opacity="0.4" stroke-dasharray="3,3" />`;
+      svg += `<path d="${buildLine(yr1Data, mid)}" fill="none" stroke="var(--blue)" stroke-width="1.2" opacity="0.4" stroke-dasharray="3,3" />`;
+
+      baseDates.forEach((d, i) => {
+        if(d) {
+          const label = d.substring(5);
+          svg += `<text x="${getX(i)}" y="${h - 12}" font-size="10" fill="var(--muted)" text-anchor="middle">${label}</text>`;
+        }
+      });
+
+      svg += `</svg>`;
+      container.innerHTML = svg;
+    }
+
+    function getISOWeek(dateStr) {
+      return getISOWeekStatic(dateStr);
+    }
+
+    function heatColor(t) {
+      t = Math.max(0, Math.min(1, t));
+      const stops = [[245,240,232],[215,225,200],[165,200,155],[100,165,110],[55,120,70],[30,80,48],[15,50,28]];
+      const seg = t * (stops.length - 1);
+      const lo = Math.floor(seg);
+      const hi = Math.min(lo + 1, stops.length - 1);
+      const f = seg - lo;
+      const r = Math.round(stops[lo][0] + (stops[hi][0] - stops[lo][0]) * f);
+      const g = Math.round(stops[lo][1] + (stops[hi][1] - stops[lo][1]) * f);
+      const b = Math.round(stops[lo][2] + (stops[hi][2] - stops[lo][2]) * f);
+      return `rgb(${r},${g},${b})`;
+    }
+
+    function computeHeatmapData(db) {
+      const cellMap = {};
+      const yearSet = new Set();
+      let maxWeek = 53;
+
+      db.forEach(d => {
+        const wn = getISOWeek(d.date);
+        yearSet.add(d.year);
+        const key = d.year + '-' + wn;
+        if (!cellMap[key]) cellMap[key] = { year: d.year, week: wn, mids: [], mins: [], maxes: [] };
+        const mid = (d.min + d.max) / 2;
+        cellMap[key].mids.push(mid);
+        cellMap[key].mins.push(d.min);
+        cellMap[key].maxes.push(d.max);
+      });
+
+      Object.values(cellMap).forEach(c => {
+        c.cellVal = c.mids.reduce((a, b) => a + b, 0) / c.mids.length;
+        c.ribbonMin = Math.min(...c.mins);
+        c.ribbonMax = Math.max(...c.maxes);
+      });
+
+      const years = [...yearSet].sort();
+      let globalCellMin = Infinity, globalCellMax = -Infinity;
+      let globalPriceMin = Infinity, globalPriceMax = -Infinity;
+      Object.values(cellMap).forEach(c => {
+        if (c.cellVal < globalCellMin) globalCellMin = c.cellVal;
+        if (c.cellVal > globalCellMax) globalCellMax = c.cellVal;
+        if (c.ribbonMin < globalPriceMin) globalPriceMin = c.ribbonMin;
+        if (c.ribbonMax > globalPriceMax) globalPriceMax = c.ribbonMax;
+      });
+
+      const yearAgg = {};
+      years.forEach(yr => { yearAgg[yr] = { mins: [], maxes: [] }; });
+      Object.values(cellMap).forEach(c => {
+        yearAgg[c.year].mins.push(c.ribbonMin);
+        yearAgg[c.year].maxes.push(c.ribbonMax);
+      });
+      Object.values(yearAgg).forEach(a => {
+        a.overallMin = Math.min(...a.mins);
+        a.overallMax = Math.max(...a.maxes);
+      });
+
+      return { cellMap, years, maxWeek, globalCellMin, globalCellMax, globalPriceMin, globalPriceMax, yearAgg };
+    }
+
+    function drawHeatmap(db) {
+      const container = document.getElementById('heatmap-container');
+      const cw = container.clientWidth || 960;
+
+      const data = computeHeatmapData(db);
+      const { cellMap, years, maxWeek, globalCellMin, globalCellMax, globalPriceMin, globalPriceMax, yearAgg } = data;
+      if (years.length === 0 || maxWeek === 0) { container.innerHTML = ''; return; }
+
+      const svgW = Math.max(cw, 960);
+      const hmML = 56;
+      const hmMT = 44;
+      const cellW = Math.max(12, Math.min(18, (svgW - hmML - 220) / maxWeek));
+      const cellH = 34;
+      const hmW = maxWeek * cellW;
+      const hmH = years.length * cellH;
+      const hmR = hmML + hmW;
+      const hmB = hmMT + hmH;
+      const gap = 32;
+      const bmT = hmB + 50;
+      const bmH = 160;
+      const bmB = bmT + bmH;
+      const rmL = hmR + gap;
+      const rmW = 150;
+      const svgH = bmB + 70;
+
+      const currentYear = years[years.length - 1];
+
+      function weekX(wn) { return hmML + (wn - 0.5) * cellW; }
+      function yearMidY(idx) { return hmMT + (idx + 0.5) * cellH; }
+      function priceY(val) { return bmB - ((val - globalPriceMin) / (globalPriceMax - globalPriceMin || 1)) * bmH; }
+      function priceX(val) { return rmL + ((val - globalPriceMin) / (globalPriceMax - globalPriceMin || 1)) * rmW; }
+
+      const monthNames = ['Sty','Lut','Mar','Kwi','Maj','Cze','Lip','Sie','Wrz','Paź','Lis','Gru'];
+      const monthStarts = [1, 5, 9, 14, 18, 23, 27, 32, 36, 41, 45, 49];
+
+      let svg = `<svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMidYMid meet">`;
+
+      svg += `<defs>`;
+      svg += `<clipPath id="clip-bm"><rect x="${hmML}" y="${bmT}" width="${hmW}" height="${bmH}" /></clipPath>`;
+      svg += `<clipPath id="clip-rm"><rect x="${rmL}" y="${hmMT}" width="${rmW}" height="${hmH}" /></clipPath>`;
+      svg += `</defs>`;
+
+      // Month ticks and labels
+      monthStarts.forEach((w, mi) => {
+        if (w <= maxWeek) {
+          const x = weekX(w);
+          svg += `<line x1="${x}" y1="${hmMT}" x2="${x}" y2="${hmB}" stroke="var(--soft)" stroke-width="1" />`;
+          svg += `<text x="${x + 2}" y="${hmMT - 10}" font-size="11" fill="var(--muted)" text-anchor="start" font-weight="500">${monthNames[mi]}</text>`;
+        }
+      });
+
+      // Year rows
+      years.forEach((yr, yi) => {
+        const y = hmMT + yi * cellH;
+        svg += `<line x1="${hmML}" y1="${y}" x2="${hmR}" y2="${y}" stroke="var(--rule)" stroke-width="0.5" />`;
+        svg += `<text x="${hmML - 10}" y="${yearMidY(yi) + 4}" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="end">${yr}</text>`;
+      });
+      svg += `<line x1="${hmML}" y1="${hmB}" x2="${hmR}" y2="${hmB}" stroke="var(--rule)" stroke-width="0.5" />`;
+
+      // Blank cells (off-season)
+      years.forEach((yr, yi) => {
+        for (let w = 1; w <= maxWeek; w++) {
+          const key = yr + '-' + w;
+          if (!cellMap[key]) {
+            const x = hmML + (w - 1) * cellW;
+            const y = hmMT + yi * cellH;
+            svg += `<rect x="${x + 1}" y="${y + 2}" width="${Math.max(1, cellW - 2)}" height="${cellH - 4}" rx="1" fill="var(--pale)" />`;
+          }
+        }
+      });
+
+      // Heat cells
+      Object.values(cellMap).forEach(c => {
+        const yi = years.indexOf(c.year);
+        if (yi < 0) return;
+        const t = (c.cellVal - globalCellMin) / (globalCellMax - globalCellMin || 1);
+        const x = hmML + (c.week - 1) * cellW;
+        const y = hmMT + yi * cellH;
+        svg += `<rect x="${x + 1}" y="${y + 2}" width="${Math.max(1, cellW - 2)}" height="${cellH - 4}" rx="2" fill="${heatColor(t)}"><title>${c.year} T${c.week}: ${c.cellVal.toFixed(2)} zł</title></rect>`;
+      });
+
+      // Week labels
+      for (let w = 1; w <= maxWeek; w += 4) {
+        svg += `<text x="${weekX(w)}" y="${hmB + 16}" font-size="10" fill="var(--muted)" text-anchor="middle">T${w}</text>`;
+      }
+
+      // ── Bottom marginal: weekly price ribbons ──
+      svg += `<text x="${hmML}" y="${bmT - 14}" font-size="12" font-weight="600" fill="var(--muted)">Cena (zł) — wstęgi tygodniowe</text>`;
+      svg += `<rect x="${hmML}" y="${bmT}" width="${hmW}" height="${bmH}" fill="var(--bg)" stroke="var(--rule)" stroke-width="0.5" />`;
+
+      const bmTicks = niceTicks(globalPriceMin, globalPriceMax, 4).ticks;
+      bmTicks.forEach(pv => {
+        const y = priceY(pv);
+        svg += `<line x1="${hmML}" y1="${y}" x2="${hmR}" y2="${y}" stroke="var(--soft)" stroke-width="0.5" />`;
+        svg += `<text x="${hmML - 6}" y="${y + 3}" font-size="10" fill="var(--muted)" text-anchor="end">${pv.toFixed(pv % 1 === 0 ? 0 : 1)}</text>`;
+      });
+
+      svg += `<g clip-path="url(#clip-bm)">`;
+      // Past years: grey ribbons, oldest first
+      years.forEach((yr, yi) => {
+        if (yr === currentYear) return;
+        const weeks = Object.values(cellMap).filter(c => c.year === yr).sort((a, b) => a.week - b.week);
+        if (weeks.length < 2) return;
+        let d = `M ${weekX(weeks[0].week)} ${priceY(weeks[0].ribbonMax)}`;
+        for (let i = 1; i < weeks.length; i++) d += ` L ${weekX(weeks[i].week)} ${priceY(weeks[i].ribbonMax)}`;
+        for (let i = weeks.length - 1; i >= 0; i--) d += ` L ${weekX(weeks[i].week)} ${priceY(weeks[i].ribbonMin)}`;
+        d += ' Z';
+        svg += `<path d="${d}" fill="rgba(150,145,140,0.40)" stroke="rgba(130,125,120,0.70)" stroke-width="1" />`;
+      });
+
+      // Current year: green ribbon on top
+      const curWeeks = Object.values(cellMap).filter(c => c.year === currentYear).sort((a, b) => a.week - b.week);
+      if (curWeeks.length >= 2) {
+        let d = `M ${weekX(curWeeks[0].week)} ${priceY(curWeeks[0].ribbonMax)}`;
+        for (let i = 1; i < curWeeks.length; i++) d += ` L ${weekX(curWeeks[i].week)} ${priceY(curWeeks[i].ribbonMax)}`;
+        for (let i = curWeeks.length - 1; i >= 0; i--) d += ` L ${weekX(curWeeks[i].week)} ${priceY(curWeeks[i].ribbonMin)}`;
+        d += ' Z';
+        svg += `<path d="${d}" fill="rgba(57,107,81,0.15)" stroke="var(--green)" stroke-width="2.5" />`;
+      }
+      svg += `</g>`;
+
+      // ── Right marginal: yearly mini ranges ──
+      svg += `<text x="${rmL}" y="${hmMT - 14}" font-size="12" font-weight="600" fill="var(--muted)">Cena (zł) — wg roku</text>`;
+      svg += `<rect x="${rmL}" y="${hmMT}" width="${rmW}" height="${hmH}" fill="var(--bg)" stroke="var(--rule)" stroke-width="0.5" />`;
+
+      // Vertical price ticks for right marginal
+      const rmTicks = niceTicks(globalPriceMin, globalPriceMax, 3).ticks;
+      rmTicks.forEach(pv => {
+        const x = priceX(pv);
+        svg += `<line x1="${x}" y1="${hmMT}" x2="${x}" y2="${hmB}" stroke="var(--soft)" stroke-width="0.5" />`;
+        svg += `<text x="${x}" y="${hmB + 16}" font-size="10" fill="var(--muted)" text-anchor="middle">${pv.toFixed(pv % 1 === 0 ? 0 : 1)}</text>`;
+      });
+
+      svg += `<g clip-path="url(#clip-rm)">`;
+      const bandH = Math.min(cellH * 0.5, 16);
+      years.forEach((yr, yi) => {
+        if (yr === currentYear) return;
+        const a = yearAgg[yr];
+        const ya = yearMidY(yi);
+        const x1 = priceX(a.overallMin);
+        const x2 = priceX(a.overallMax);
+        svg += `<rect x="${x1}" y="${ya - bandH/2}" width="${Math.max(2, x2 - x1)}" height="${bandH}" rx="3" fill="rgba(160,155,145,0.22)" stroke="rgba(130,125,120,0.5)" stroke-width="1" />`;
+        svg += `<text x="${rmL + rmW - 6}" y="${ya + 3}" font-size="10" fill="var(--muted)" text-anchor="end">${a.overallMin.toFixed(1)}–${a.overallMax.toFixed(1)}</text>`;
+      });
+
+      const curAgg = yearAgg[currentYear];
+      if (curAgg) {
+        const ya = yearMidY(years.indexOf(currentYear));
+        const x1 = priceX(curAgg.overallMin);
+        const x2 = priceX(curAgg.overallMax);
+        svg += `<rect x="${x1}" y="${ya - bandH/2}" width="${Math.max(2, x2 - x1)}" height="${bandH}" rx="3" fill="rgba(57,107,81,0.12)" stroke="var(--green)" stroke-width="2" />`;
+        svg += `<text x="${rmL + rmW - 6}" y="${ya + 3}" font-size="10" fill="var(--green)" font-weight="600" text-anchor="end">${curAgg.overallMin.toFixed(1)}–${curAgg.overallMax.toFixed(1)}</text>`;
+      }
+      svg += `</g>`;
+
+      // ── Legend ──
+      const legY = bmB + 34;
+      const legW = 200, legH = 12, legX = hmML;
+      svg += `<defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="0">`;
+      for (let i = 0; i <= 10; i++) svg += `<stop offset="${i*10}%" stop-color="${heatColor(i/10)}" />`;
+      svg += `</linearGradient></defs>`;
+      svg += `<rect x="${legX}" y="${legY}" width="${legW}" height="${legH}" rx="2" fill="url(#hg)" stroke="var(--rule)" />`;
+      svg += `<text x="${legX}" y="${legY + legH + 15}" font-size="11" fill="var(--muted)">${globalCellMin.toFixed(1)} zł</text>`;
+      svg += `<text x="${legX + legW}" y="${legY + legH + 15}" font-size="11" fill="var(--muted)" text-anchor="end">${globalCellMax.toFixed(1)} zł</text>`;
+      svg += `<text x="${legX + legW/2}" y="${legY + legH + 15}" font-size="11" fill="var(--muted)" text-anchor="middle" font-weight="500">Śr. cena</text>`;
+
+      // Blank legend
+      svg += `<rect x="${legX + legW + 32}" y="${legY + 2}" width="${legH - 4}" height="${legH - 4}" rx="1" fill="var(--pale)" stroke="var(--rule)" />`;
+      svg += `<text x="${legX + legW + 32 + legH + 4}" y="${legY + legH - 1}" font-size="11" fill="var(--muted)">Brak danych</text>`;
+
+      svg += `</svg>`;
+      container.innerHTML = svg;
+    }
+
+    function renderTrendWorkspace(db) {
+      if (db.length === 0) return;
+      drawHeatmap(db);
+    }
+
+    window.onload = function() { onFilterChange(); };
+    window.onresize = function() { onFilterChange(); };
+  </script>
+</body>
+</html>
