@@ -15,6 +15,12 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger("Bulk Data Load")
 
 
+VALID_PREFIXES = [
+    "ceny hurtowe i targowiskowe",
+    "Rynek owoców i warzyw",
+]
+
+
 class ResourceManager:
     def __init__(self, output_dir: str = "data/raw"):
         self.output_dir = Path(output_dir)
@@ -30,6 +36,9 @@ class ResourceManager:
     ) -> List[Resource]:
         filtered_resources = []
         for resource in resources:
+            title = resource.get("attributes", {}).get("title", "")
+            if not any(title.startswith(p) for p in VALID_PREFIXES):
+                continue
             try:
                 r = Resource(**resource)
                 filtered_resources.append(r)
@@ -94,7 +103,6 @@ def main():
     url = "https://api.dane.gov.pl/1.4/datasets/912,zintegrowany-system-rolniczej-informacji-rynkowej-biuletyny-informacyjne-rynek-owocow-i-warzyw-swiezych/resources"
     params = {
         "sort": "modified",
-        "title[prefix]": "ceny hurtowe i targowiskowe",
     }
     resource_manager = ResourceManager()
     resource_manager.process_resources(url, params)

@@ -73,15 +73,19 @@ class ExcelData(BaseModel):
         start_col = info.data.get("start_col", 3)
         if v.shape[0] < 1 or v.shape[1] < 4:
             raise ValueError("Data must have at least 1 row and 4 columns")
-        if (
-            "KRAJOWE" not in v.iloc[:, 0].values
-            and "IMPORTOWANE" not in v.iloc[:, 0].values
-        ):
+
+        product_col = None
+        for c in range(min(start_col, v.shape[1])):
+            if "KRAJOWE" in v.iloc[:, c].values or "IMPORTOWANE" in v.iloc[:, c].values:
+                product_col = c
+                break
+        if product_col is None:
             raise ValueError(
-                "Data must contain 'KRAJOWE' or 'IMPORTOWANE' in the first column"
+                "Data must contain 'KRAJOWE' or 'IMPORTOWANE' before start_col"
             )
+
         for index, row in v.iterrows():
-            product_name = row.iloc[0]
+            product_name = row.iloc[product_col]
             if not isinstance(product_name, str) and pd.notna(product_name):
                 raise ValueError(
                     f"Product name at row {index} is not a string: {product_name}"
@@ -234,16 +238,36 @@ class ExcelParser:
     def _set_data_rows_columns(
         self, data_rows: pd.DataFrame, places: List[str]
     ) -> pd.DataFrame:
-        if self.is_fruit:
-            id_cols = ["Product", "Variety", "Unit"]
-        else:
-            empty_cols = [""] * (self.start_col - 2) if self.start_col > 2 else []
-            id_cols = ["Product"] + empty_cols + ["Unit"]
+        product_col = None
+        for c in range(min(self.start_col, data_rows.shape[1])):
+            col_str = data_rows.iloc[:, c].fillna("").astype(str)
+            if col_str.str.contains("KRAJOWE|IMPORTOWANE", regex=True).any():
+                product_col = c
+                break
+        if product_col is None:
+            product_col = 0
 
-        expected_cols = len(id_cols) + len(places) * 2
+        if self.is_fruit:
+            id_prefix = [""] * product_col if product_col > 0 else []
+            id_cols = id_prefix + ["Product", "Variety", "Unit"]
+        else:
+            id_prefix = [""] * product_col + ["Product"]
+            id_suffix = []
+            if product_col + 1 < self.start_col:
+                id_suffix = [""] * (self.start_col - product_col - 2)
+            id_suffix.append("Unit")
+            id_cols = id_prefix + id_suffix
+
+        num_id = len(id_cols)
+        num_price = len(places) * 2
+        expected_cols = num_id + num_price
 
         if data_rows.shape[1] > expected_cols:
-            data_rows = data_rows.iloc[:, :expected_cols]
+            id_part = data_rows.iloc[:, :num_id]
+            price_part = data_rows.iloc[:, self.start_col:self.start_col + num_price]
+            data_rows = pd.concat([id_part, price_part], axis=1)
+        elif data_rows.shape[1] < expected_cols:
+            return data_rows
 
         data_rows.columns = pd.Index(
             id_cols + [f"{place}_{stat}" for place in places for stat in ["Max", "Min"]]
@@ -269,10 +293,13 @@ class ExcelParser:
         for place in places:
             min_col, max_col = f"{place}_Min", f"{place}_Max"
             if min_col in data_rows.columns and max_col in data_rows.columns:
-                mask = data_rows[min_col].gt(data_rows[max_col], fill_value=False)
-                data_rows.loc[mask, [min_col, max_col]] = data_rows.loc[
-                    mask, [max_col, min_col]
-                ].values
+                min_vals = pd.to_numeric(data_rows[min_col], errors="coerce")
+                max_vals = pd.to_numeric(data_rows[max_col], errors="coerce")
+                mask = min_vals.gt(max_vals, fill_value=False)
+                if mask.any():
+                    tmp = data_rows.loc[mask, min_col].copy()
+                    data_rows.loc[mask, min_col] = data_rows.loc[mask, max_col].values
+                    data_rows.loc[mask, max_col] = tmp.values
         return data_rows
 
     def _set_origin(self, data_rows: pd.DataFrame) -> pd.DataFrame:
