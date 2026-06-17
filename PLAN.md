@@ -106,17 +106,54 @@ Remove BigQuery/GCS/SecretManager dependencies. Keep the core logic:
 ### Step 2: Decouple bulk_process_resources.py from GCP
 
 Remove BigQuery insert logic. Keep the core logic:
-- Sheet detection (`ceny hurt_warz`, `WK`, `ceny hurt_owoc`, `OK`)
-- Skiprows retry loop (tries 0-4)
-- `parse_excel()` from `cropsprices/parsers.py` — unchanged
+- Sheet detection: handles both old and new naming conventions:
+  - Vegetables: `ceny hurt_warz`, `HURT WARZ`, `WK`
+  - Fruits: `ceny hurt_owoc`, `HURT OWOC`, `OK`
+- Skiprows retry loop (tries 0-7, up from 0-4 to handle new format with extra header rows)
+- `parse_excel()` from `cropsprices/parsers.py` — handles format variations
 
 **New behavior:**
 - Reads XLSX from `data/raw/`
 - Parses sheets into DataFrames
-- Outputs structured data to `data/parsed/` as Parquet or CSV
+- Outputs structured data to `data/parsed/` as CSV
 - No BigQuery writes
 
 **Dependencies to remove:** `google-cloud-bigquery`, `google-cloud-storage`, `google-cloud-secret-manager`, `google-cloud-logging`
+
+### Step 2a: Handle Source Data Format Changes
+
+The upstream data source (`api.dane.gov.pl`) has changed format multiple times:
+1. **Pre-2021**: `ceny hurt_warz`/`ceny hurt_owoc` sheets, product names in col 0
+2. **2021-2025**: Same sheet names, same structure
+3. **Nov 2025**: Title prefix changed to "Rynek owoców i warzyw", sheet names changed to `HURT WARZ`/`HURT OWOC`, product names moved to col 1, extra header rows added
+4. **Future changes**: Inevitable — the source has changed format 3+ times
+
+**Parser resilience:**
+- `extract_dates_and_places()`: Counts Max/Min pairs from header row, fills missing place names with `Rynek{i}` placeholders
+- `_set_data_rows_columns()`: Detects product column dynamically (not hardcoded to col 0), handles leading NaN columns and duplicate header columns
+- `_swap_min_max_if_necessary()`: Uses `pd.to_numeric` for safe comparison across dtypes
+- `ExcelData.validate_data()`: Strips whitespace, finds KRAJOWE/IMPORTOWANE in any column before start_col
+
+**When CI/CD encounters an unparseable file:**
+1. `bulk_process_resources.py` logs the error and continues to the next file
+2. The parse failure is recorded in the manifest with the file ID and error message
+3. A summary report is generated showing: total files processed, successes, failures, and failure reasons
+4. **Escalation**: If any files fail to parse, the CI workflow:
+   - Creates a GitHub Issue titled "ETL parse failure: {N} files failed" with the error log
+   - Labels it `data-quality`
+   - Does NOT block deployment (partial data is better than no data)
+5. Manual intervention: Developer downloads the failing XLSX, inspects the format, updates the parser if needed, and re-runs
+
+**Manual override mechanism:**
+For files with source data errors (e.g., misplaced "Wrocław" in dates row), a manual override directory exists:
+
+```
+data/overrides/
+├── README.md           # Instructions for manual overrides
+└── {resource_id}.xlsx  # Corrected XLSX files that replace broken ones
+```
+
+The pipeline checks `data/overrides/` before downloading from the API. If an override exists for a resource ID, it uses the override instead of the downloaded file. Overrides are committed to git (unlike `data/raw/` which is gitignored).
 
 ### Step 3: Implement scripts/build_arrow_db.py
 
@@ -267,11 +304,18 @@ Raw XLSX files stay on disk for debugging. Never committed.
 **CI workflow (staging/prod):**
 ```
 1. Checkout branch
-2. bulk_get_resources.py → data/raw/ (ephemeral)
-3. bulk_process_resources.py → data/parsed/ (ephemeral)
-4. build_arrow_db.py → public/data/
-5. git add public/data/ && git commit -m "data: update dataset"
-6. Deploy public/data/ to Pages
+2. Apply overrides: data/overrides/ → data/raw/ (manual fixes take priority)
+3. bulk_get_resources.py → data/raw/ (skips files already in overrides)
+4. bulk_process_resources.py → data/parsed/
+   - Logs parse failures but does NOT fail the build
+   - Generates parse_report.json with success/failure counts
+5. build_arrow_db.py → public/data/
+6. git add public/data/ && git commit -m "data: update dataset"
+7. Deploy public/data/ to Pages
+8. If parse_report.json has failures:
+   - Create GitHub Issue "ETL parse failure: {N} files" with error details
+   - Label: data-quality
+   - Do NOT block deployment
 ```
 Raw + parsed are never committed — gone after the pipeline finishes.
 

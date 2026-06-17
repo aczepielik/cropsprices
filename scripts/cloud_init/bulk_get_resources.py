@@ -22,9 +22,10 @@ VALID_PREFIXES = [
 
 
 class ResourceManager:
-    def __init__(self, output_dir: str = "data/raw"):
+    def __init__(self, output_dir: str = "data/raw", overrides_dir: str = "data/overrides"):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.overrides_dir = Path(overrides_dir)
 
     def extract_data(self, responses: List[Dict[str, Any]]):
         return reduce(
@@ -73,6 +74,16 @@ class ResourceManager:
             if filepath.exists():
                 logger.info(f"Already exists: {filename}")
                 manifest.append({"file_id": file_id, "filename": filename, "url": str(file.download_url)})
+                pbar.update(1)
+                return
+
+            # Check for manual override before downloading
+            override_path = self.overrides_dir / filename
+            if override_path.exists():
+                import shutil
+                shutil.copy2(override_path, filepath)
+                logger.info(f"Applied override: {filename}")
+                manifest.append({"file_id": file_id, "filename": filename, "url": str(file.download_url), "source": "override"})
                 pbar.update(1)
                 return
 
