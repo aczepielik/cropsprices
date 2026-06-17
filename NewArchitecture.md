@@ -56,7 +56,7 @@ graph TD
 *   **Tailwind CSS (v3):** Utility-first CSS framework for clean, responsive styling.
 *   **Recharts:** Interactive, SVG-based charting library.
 *   **Apache Arrow (JS):** Reads IPC files (Feather V2) directly from binary buffers.
-*   **Arquero:** A "dplyr-like" library for high-performance data manipulation. It handles the merging of yearly Arrow chunks and filtering for the UI.
+*   **Arquero (only if necessary):** A "dplyr-like" library for high-performance data manipulation. It handles the merging of yearly Arrow chunks and filtering for the UI.
 *   **IndexedDB (optional):** Used to cache historical `.arrow` files locally for near-instant subsequent loads.
 
 ### ETL & Data Hydration
@@ -80,14 +80,19 @@ To maximize performance and minimize initial download size, data is split into m
 *   **`prices_2024.arrow`, `prices_2023.arrow`, etc.**: Yearly data files containing the core price columns.
 
 ### Table Layout (Arrow Columns)
-*   `date`: Date64 (YYYY-MM-DD)
-*   `product_id`: UInt16 (Lookup key)
-*   `place_id`: UInt16 (Lookup key)
-*   `origin_id`: UInt8 (Lookup key: KRAJOWE/IMPORTOWANE)
-*   `price_min`: Float32
-*   `price_max`: Float32
-*   `price_avg`: Float32 (Materialized)
-*   `year_ago_avg`: Float32 (Materialized YoY for the current chunk)
+* `date`: Date64 (YYYY-MM-DD)
+
+* `product_id`: UInt16 (Lookup key)
+
+* `place_id`: UInt16 (Lookup key)
+
+* `origin_id`: UInt8 (Lookup key: KRAJOWE/IMPORTOWANE)
+
+* `price_min`: Float32
+
+* `price_max`: Float32
+
+  
 
 ---
 
