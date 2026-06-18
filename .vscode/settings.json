@@ -8,14 +8,12 @@
         "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.rulers": [88]
   },
-  "files.exclude": {
-    "public/data/**": true
-  },
+
   "search.exclude": {
-    "public/data/**": true
+    "public/data/*.arrow": true
   },
   "files.watcherExclude": {
-    "public/data/**": true
+    "public/data/*.arrow": true
   },
   "sqltools.useNodeRuntime": true,
   "sqltools.connections": [
