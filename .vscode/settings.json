@@ -9,15 +9,6 @@
         "editor.rulers": [88]
   },
 
-  "files.exclude": {
-    "public/data/**/*.arrow": true
-  },
-  "search.exclude": {
-    "public/data/**/*.arrow": true
-  },
-  "files.watcherExclude": {
-    "public/data/**/*.arrow": true
-  },
   "sqltools.useNodeRuntime": true,
   "sqltools.connections": [
     {
