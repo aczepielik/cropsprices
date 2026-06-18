@@ -23,8 +23,9 @@
 - `cropsprices/parsers.py` — Excel parsing logic, no GCP deps
 - `cropsprices/models.py` — Pydantic models for api.dane.gov.pl responses
 - `cropsprices/apiquery.py` — generic paged API client
-- `scripts/etl/bulk_get_resources.py` — API fetch + XLSX download (decoupled from GCP)
-- `scripts/etl/bulk_process_resources.py` — Excel parse orchestration (decoupled from GCP)
+- `cropsprices/bulk_get_resources.py` — API fetch + XLSX download (decoupled from GCP)
+- `cropsprices/bulk_process_resources.py` — Excel parse orchestration (decoupled from GCP)
+- `cropsprices/build_arrow_db.py` — Arrow export (Phase 2)
 
 ### Post-cleanup structure
 ```
@@ -35,22 +36,21 @@ cropsprices/
 ├── PLAN.md                      # this file
 ├── LICENSE
 ├── README.md
+├── pyproject.toml               # package config with entry points
 ├── requirements.txt
 ├── .venv/
 ├── data/                        # ETL intermediate files (gitignored)
 │   ├── raw/                     # Downloaded XLSX bulletins (gitignored)
 │   ├── parsed/                  # Intermediate DataFrames (gitignored)
 │   └── overrides/               # Manual XLSX fixes (committed)
-├── cropsprices/                 # reusable ETL core
+├── cropsprices/                 # reusable ETL core + scripts
 │   ├── __init__.py
 │   ├── apiquery.py
 │   ├── models.py
-│   └── parsers.py
-├── scripts/
-│   ├── etl/                     # bulk fetch + parse orchestration
-│   │   ├── bulk_get_resources.py
-│   │   └── bulk_process_resources.py
-│   └── build_arrow_db.py        # Arrow export (Phase 2)
+│   ├── parsers.py
+│   ├── bulk_get_resources.py    # entry point: bulk-get-resources
+│   ├── bulk_process_resources.py # entry point: bulk-process-resources
+│   └── build_arrow_db.py        # entry point: build-arrow-db
 ├── public/
 │   └── data/                    # FINAL Arrow output (committed per-branch)
 │       ├── manifest.json
@@ -75,6 +75,30 @@ data/parsed/
 # public/data/ is the OUTPUT — committed per-branch by CI
 # (not gitignored — that's the point)
 ```
+
+---
+
+## Known Bugs (discovered 2026-06-18)
+
+These bugs persisted despite being discussed in earlier sessions. Root cause: **context rot** — the conversation grew long enough that earlier decisions and fixes were not carried through to implementation.
+
+### Bug A: (puste) still in manifest.json
+
+**Root cause:** The puste-stripping fix in `parsers.py` only affects *new* parsing runs. The existing CSVs in `data/parsed/` were generated before the fix and still contain "(puste)". `build_arrow_db.py` reads stale CSVs, so `manifest.json` inherits stale product names (12 products like "Ananasy (puste)").
+
+**Fix required:** Re-run the full ETL pipeline (re-parse XLSX → re-generate CSVs → re-run build_arrow_db). The code fix in parsers.py is correct but has never been applied to the data.
+
+### Bug B: Manifest has flat product list instead of 4 structured lists
+
+**Root cause:** `build_arrow_db.py:118` builds `products` as `sorted(df["Product"].unique())` — a flat list of 138 strings. The dashboard needs four separate filter lists (owoce/krajowe, owoce/importowane, warzywa/krajowe, warzywa/importowane) as described in DataFlow.md §2.
+
+**Fix required:** `build_arrow_db.py` must use `Unit` and `Origin` columns to produce structured product metadata. The `category` column (owoce/warzywa) needs to flow through the entire ETL pipeline from `bulk_process_resources.py` (which knows `is_fruit`) into the CSVs and manifest.
+
+### Bug C: Scripts duplicated in `scripts/` and `cropsprices/`
+
+**Root cause:** The refactor moved scripts into `cropsprices/` as package modules with entry points, but the old `scripts/` copies were never deleted. The stale copies in `scripts/etl/` and `scripts/build_arrow_db.py` diverged from the canonical `cropsprices/` versions.
+
+**Fix required:** Delete `scripts/` directory entirely. The `cropsprices/` versions are canonical (referenced by `pyproject.toml` entry points). Update dev workflow references in PLAN.md to use `python -m cropsprices.<module>` or the entry point commands.
 
 ---
 
@@ -130,7 +154,7 @@ Remove BigQuery insert logic. Keep the core logic:
 
 **Files to change:**
 - `cropsprices/parsers.py` — stop dropping Unit in `pivot_min_max()`, or add it to the output
-- `scripts/build_arrow_db.py` — group by (Product, Unit, Origin), include Unit in output schema
+- `cropsprices/build_arrow_db.py` — group by (Product, Unit, Origin), include Unit in output schema
 - Arrow schema: add `unit` column (dictionary-encoded)
 
 #### Fix 2: Filtered dropdown — category and origin metadata missing
@@ -158,9 +182,9 @@ Remove BigQuery insert logic. Keep the core logic:
 ```
 
 **Files to change:**
-- `scripts/etl/bulk_process_resources.py` — pass `is_fruit` flag into CSV output
+- `cropsprices/bulk_process_resources.py` — pass `is_fruit` flag into CSV output
 - `cropsprices/parsers.py` — include category in parsed output
-- `scripts/build_arrow_db.py` — include category in Arrow schema and manifest
+- `cropsprices/build_arrow_db.py` — include category in Arrow schema and manifest
 - `public/data/manifest.json` — structured product list with category/unit/origin
 
 #### Fix 3: Strip "(puste)" and "(różne)" variety suffixes
@@ -247,7 +271,7 @@ data/overrides/
 
 The pipeline checks `data/overrides/` before downloading from the API. If an override exists for a resource ID, it uses the override instead of the downloaded file. Overrides are committed to git (unlike `data/raw/` which is gitignored).
 
-### Step 3: Implement scripts/build_arrow_db.py
+### Step 3: Implement build_arrow_db.py
 
 Takes parsed DataFrames and produces monthly partitioned Arrow files with dictionary-encoded strings.
 
@@ -396,9 +420,9 @@ Per DataFlow.md §5:
 
 **Dev workflow:**
 ```
-scripts/etl/bulk_get_resources.py        # downloads XLSX to data/raw/
-scripts/etl/bulk_process_resources.py    # parses to data/parsed/
-scripts/build_arrow_db.py                # writes to public/data/
+python -m cropsprices.bulk_get_resources        # downloads XLSX to data/raw/
+python -m cropsprices.bulk_process_resources    # parses to data/parsed/
+python -m cropsprices.build_arrow_db            # writes to public/data/
 ```
 Raw XLSX files stay on disk for debugging. Never committed.
 
@@ -406,11 +430,11 @@ Raw XLSX files stay on disk for debugging. Never committed.
 ```
 1. Checkout branch
 2. Apply overrides: data/overrides/ → data/raw/ (manual fixes take priority)
-3. bulk_get_resources.py → data/raw/ (skips files already in overrides)
-4. bulk_process_resources.py → data/parsed/
+3. python -m cropsprices.bulk_get_resources → data/raw/ (skips files already in overrides)
+4. python -m cropsprices.bulk_process_resources → data/parsed/
    - Logs parse failures but does NOT fail the build
    - Generates parse_report.json with success/failure counts
-5. build_arrow_db.py → public/data/
+5. python -m cropsprices.build_arrow_db → public/data/
 6. git add public/data/ && git commit -m "data: update dataset"
 7. Deploy public/data/ to Pages
 8. If parse_report.json has failures:
