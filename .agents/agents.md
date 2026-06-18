@@ -1,6 +1,7 @@
 1. Use GitFlow branching model
 2. If the commit is fully authored by agent it should have agent as author. In mixes authorship agent's conribution should be mentioned
 3. Update **Status** below after every change
+4. **Beginner-oriented comments in frontend code.** The user is learning web development. All new frontend code (`.svelte`, `.ts` in `frontend/`) should include educational comments that explain *why*, not just *what*. Cover concepts like reactive state, component lifecycle, data flow patterns, and library-specific APIs. Comments are stripped during production minification so there is zero cost.
 
 ## Status
 
