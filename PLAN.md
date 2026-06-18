@@ -53,8 +53,9 @@ cropsprices/
 │   └── build_arrow_db.py        # entry point: build-arrow-db
 ├── public/
 │   └── data/                    # FINAL Arrow output (committed per-branch)
-│       ├── manifest.json
-│       └── prices_*.arrow       # Monthly partitioned, dictionary-encoded
+│       ├── manifest.json        # Structured product list, years, places
+│       ├── archive/             # Past years: 181 flat files, 2.5 MB
+│       └── 2026/                # Current year: 87 files, 504 KB
 ├── mocks/
 │   └── mock6.html               # authoritative UI mock
 ├── tests/                       # existing tests for parsers
@@ -78,36 +79,36 @@ data/parsed/
 
 ---
 
-## Known Bugs (discovered 2026-06-18)
+## Known Bugs (discovered 2026-06-18) ✅ ALL FIXED
 
 These bugs persisted despite being discussed in earlier sessions. Root cause: **context rot** — the conversation grew long enough that earlier decisions and fixes were not carried through to implementation.
 
-### Bug A: (puste) still in manifest.json
+### Bug A: (puste) still in manifest.json ✅
 
 **Root cause:** The puste-stripping fix in `parsers.py` only affects *new* parsing runs. The existing CSVs in `data/parsed/` were generated before the fix and still contain "(puste)". `build_arrow_db.py` reads stale CSVs, so `manifest.json` inherits stale product names (12 products like "Ananasy (puste)").
 
-**Fix required:** Re-run the full ETL pipeline (re-parse XLSX → re-generate CSVs → re-run build_arrow_db). The code fix in parsers.py is correct but has never been applied to the data.
+**Fix:** Re-ran full ETL pipeline. Verified: 0 products with puste/różne in manifest.
 
-### Bug B: Manifest has flat product list instead of 4 structured lists
+### Bug B: Manifest has flat product list instead of 4 structured lists ✅
 
 **Root cause:** `build_arrow_db.py:118` builds `products` as `sorted(df["Product"].unique())` — a flat list of 138 strings. The dashboard needs four separate filter lists (owoce/krajowe, owoce/importowane, warzywa/krajowe, warzywa/importowane) as described in DataFlow.md §2.
 
-**Fix required:** `build_arrow_db.py` must use `Unit` and `Origin` columns to produce structured product metadata. The `category` column (owoce/warzywa) needs to flow through the entire ETL pipeline from `bulk_process_resources.py` (which knows `is_fruit`) into the CSVs and manifest.
+**Fix:** `build_arrow_db.py` now uses `Unit` and `Origin` columns to produce structured product metadata. Verified: manifest has 186 structured products with name/unit/origin/category.
 
-### Bug C: Scripts duplicated in `scripts/` and `cropsprices/`
+### Bug C: Scripts duplicated in `scripts/` and `cropsprices/` ✅
 
 **Root cause:** The refactor moved scripts into `cropsprices/` as package modules with entry points, but the old `scripts/` copies were never deleted. The stale copies in `scripts/etl/` and `scripts/build_arrow_db.py` diverged from the canonical `cropsprices/` versions.
 
-**Fix required:** Delete `scripts/` directory entirely. The `cropsprices/` versions are canonical (referenced by `pyproject.toml` entry points). Update dev workflow references in PLAN.md to use `python -m cropsprices.<module>` or the entry point commands.
+**Fix:** Deleted `scripts/` directory entirely. The `cropsprices/` versions are canonical (referenced by `pyproject.toml` entry points).
 
 ---
 
-## Phase 2: Data Refactor & Scraper Update
+## Phase 2: Data Refactor & Scraper Update ✅
 
 **Design doc:** `DataFlow.md` (supersedes `NewArchitecture.md`)
-**Strategy:** Monthly partitioning with dictionary-encoded strings, client-side heatmap aggregation
+**Strategy:** Archive flat files (past years) + current-yearly files, frontend heatmap aggregation
 
-### Step 1: Decouple bulk_get_resources.py from GCP
+### Step 1: Decouple bulk_get_resources.py from GCP ✅
 
 Remove BigQuery/GCS/SecretManager dependencies. Keep the core logic:
 - `query_paged_api()` from `cropsprices/apiquery.py` — unchanged
@@ -122,7 +123,7 @@ Remove BigQuery/GCS/SecretManager dependencies. Keep the core logic:
 
 **Dependencies to remove:** `google-cloud-bigquery`, `google-cloud-storage`, `google-cloud-secret-manager`, `google-cloud-logging`
 
-### Step 2: Decouple bulk_process_resources.py from GCP
+### Step 2: Decouple bulk_process_resources.py from GCP ✅
 
 Remove BigQuery insert logic. Keep the core logic:
 - Sheet detection: handles both old and new naming conventions:
@@ -139,7 +140,7 @@ Remove BigQuery insert logic. Keep the core logic:
 
 **Dependencies to remove:** `google-cloud-bigquery`, `google-cloud-storage`, `google-cloud-secret-manager`, `google-cloud-logging`
 
-### Step 2a: Data Quality Fixes
+### Step 2a: Data Quality Fixes ✅
 
 #### Fix 1: Product identity — unit and origin must be part of the product key
 
@@ -177,7 +178,8 @@ Remove BigQuery insert logic. Keep the core logic:
     {"name": "Truskawki", "unit": "kg", "origin": "KRAJOWE", "category": "owoce"}
   ],
   "places": ["Białystok", "Bronisze", ...],
-  "years": [2018, 2019, ...]
+  "years": [2018, 2019, ...],
+  "currentYear": 2026
 }
 ```
 
@@ -205,7 +207,7 @@ product_name = product_name.replace(" (puste)", "").replace(" (różne)", "")
 **Files to change:**
 - `cropsprices/parsers.py` — `_process_fruit_data()` method
 
-### Step 2b: Investigate — Fruit name appearing in Unit column (column shift bug)
+### Step 2b: Investigate — Fruit name appearing in Unit column (column shift bug) ✅
 
 **Root cause:** In 7 specific XLSX files, the fruit sheet has a column structure where the Unit ("Jedn.") column is shifted one position to the right. The parser reads the NEXT product's name as the Unit value.
 
@@ -236,7 +238,7 @@ The parser's `_set_data_rows_columns()` detects the Unit column at index 4, but 
 
 **Recommendation:** Fix in parser (option 2). After `_set_data_rows_columns()`, validate the Unit column. If none of the values match known units (`kg`, `szt.`, `szt`, `pęczek`, `l`), try reading Unit from the next column index.
 
-### Step 2c: Handle Source Data Format Changes
+### Step 2c: Handle Source Data Format Changes ✅
 
 The upstream data source (`api.dane.gov.pl`) has changed format multiple times:
 1. **Pre-2021**: `ceny hurt_warz`/`ceny hurt_owoc` sheets, product names in col 0
@@ -271,47 +273,61 @@ data/overrides/
 
 The pipeline checks `data/overrides/` before downloading from the API. If an override exists for a resource ID, it uses the override instead of the downloaded file. Overrides are committed to git (unlike `data/raw/` which is gitignored).
 
-### Step 3: Implement build_arrow_db.py
+### Step 3: Implement build_arrow_db.py ✅
 
-Takes parsed DataFrames and produces monthly partitioned Arrow files with dictionary-encoded strings.
+Takes parsed DataFrames and produces Arrow files with dictionary-encoded strings.
 
-**Outputs into `public/data/`:**
-- `manifest.json` — years, products, lastUpdate
-- `prices_{YYYY}_{MM}_{product}.arrow` — monthly data (~500+ files, ~2KB each)
+**Output structure (268 files, 5.3 MB total):**
 
-**Arrow columns per monthly file:**
+```
+public/data/
+├── manifest.json
+├── archive/                              # ~181 files, ~4.2 MB
+│   ├── Truskawki-kg-KRAJOWE.arrow        # All past years concatenated (~46 KB)
+│   └── ...
+└── 2026/                                 # ~87 files, ~1.1 MB
+    ├── Truskawki-kg-KRAJOWE.arrow        # Current year only (~9 KB)
+    └── ...
+```
 
-| Column      | Type              | Meaning                                |
-|-------------|-------------------|----------------------------------------|
-| `date`      | Date64            | Observation date (YYYY-MM-DD)          |
-| `product`   | Utf8 (dictionary) | Product name                           |
-| `place`     | Utf8 (dictionary) | Market name                            |
-| `origin`    | Utf8 (dictionary) | KRAJOWE / IMPORTOWANE                  |
-| `price_min` | Float32           | Minimum wholesale price (zł/kg)       |
-| `price_max` | Float32           | Maximum wholesale price (zł/kg)       |
+**Two tiers:**
+- **Archive** (`archive/*.arrow`): One flat file per product, all past years concatenated. Changes once per year (January 1st merge). Cached as immutable.
+- **Current year** (`{YYYY}/*.arrow`): One file per product, current year only. Grows weekly as new observations arrive. Re-validated via ETag.
+
+**Arrow columns:**
+
+| Column | Type | Meaning |
+|---|---|---|
+| `date` | Date32 | Observation date |
+| `product` | Utf8 (dictionary) | Product name |
+| `place` | Utf8 (dictionary) | Market name |
+| `origin` | Utf8 (dictionary) | KRAJOWE / IMPORTOWANE |
+| `price_min` | Float32 | Minimum wholesale price (zł/kg) |
+| `price_max` | Float32 | Maximum wholesale price (zł/kg) |
 
 **No `lookups.arrow`** — dictionary encoding inline. Frontend extracts unique values from loaded data.
-**No weekly pre-agg files** — frontend loads monthly files and aggregates heatmap cells client-side (enables market toggling).
+**No pre-aggregated files** — frontend loads raw Arrow files and aggregates heatmap cells client-side (enables market toggling).
+**No compression** — files average 5 KB, compression overhead exceeds savings.
 
 **Dependencies to add:** `pyarrow>=17.0.0`
 
-### Step 4: Incremental scraper
+### Step 4: Incremental scraper (future enhancement)
 
 Reuses `apiquery.py` + `models.py` to:
 1. Fetch latest resources from API
 2. Compare against `manifest.json` to find missing months
 3. Download only new XLSX files
-4. Parse and generate only new monthly Arrow files
+4. Parse and generate only new Arrow files
 5. Update `manifest.json`
 
-### Step 5: Generate initial dataset
+### Step 5: Generate initial dataset ✅
 
 Run full ETL pipeline:
 1. `bulk_get_resources.py` (decoupled) → download all XLSX to `data/raw/`
 2. `bulk_process_resources.py` (decoupled) → parse all XLSX to DataFrames
-3. `build_arrow_db.py` → generate monthly Arrow files into `public/data/`
+3. `build_arrow_db.py` → generate Arrow files into `public/data/`
 
-**Expected output:** ~500+ files, ~1 MB total
+**Actual output:** 268 files, 3.4 MB total (archive: 181 files/2.5 MB, current: 87 files/504 KB)
 
 ---
 
@@ -332,7 +348,6 @@ frontend/
 │   ├── App.svelte
 │   ├── lib/
 │   │   ├── arrow-loader.ts    # fetch + decode Arrow files
-│   │   ├── cache.ts           # IndexedDB caching layer
 │   │   ├── filters.ts         # filter chain logic
 │   │   ├── helpers.ts         # heatColor, niceTicks, SVG path builders
 │   │   └── types.ts           # TypeScript types
@@ -370,39 +385,63 @@ frontend/
 Per DataFlow.md:
 
 ```typescript
-// Snapshot view: ~8 monthly files, ~16 KB total
+// Load manifest
+loadManifest(): Promise<Manifest>
+
+// Snapshot view: archive + current-year file, ~57 KB total
 loadSnapshotView(product: string, date: string, windowWeeks: number)
 
-// Heatmap view: all monthly files for product, ~24 KB total
-// Client aggregates by week×year, re-aggregates when markets toggle
+// Heatmap view: same 2 files as snapshot, client aggregates by week×year
 loadHeatmapView(product: string)
 
-// IndexedDB caching with immutability awareness
-fetchArrow(key: string, immutable: boolean): Promise<ArrayBuffer>
+// Market toggle: re-filter already-loaded data, no new fetch
+// Product switch: fetch 2 new files (archive + current-year)
 ```
 
 **Loading waterfall:**
 ```
-Snapshot (first load):
-  T+0ms     manifest.json (1 KB)
-  T+10ms    [parallel] 8 monthly files (16 KB)
-  T+30ms    Snapshot renders (17 KB total)
+First load (snapshot):
+  T+0ms     manifest.json (~2 KB)
+  T+10ms    [parallel] archive (~46 KB) + current-year (~9 KB)
+  T+50ms    Snapshot renders (~57 KB total)
 
-Heatmap (first load):
-  T+0ms     manifest.json (1 KB)           ← already cached
-  T+10ms    [parallel] ~84 monthly files (168 KB)
+First load (heatmap):
+  T+0ms     manifest.json (~2 KB)           ← already cached
+  T+10ms    [parallel] archive + current-year ← same 2 files
   T+50ms    Client aggregates by week×year
   T+60ms    Heatmap renders
-  Market toggle: re-filter + re-aggregate (no new fetch)
+
+Page refresh (HTTP cache warm):
+  T+0ms     manifest.json → 304 (0 KB)
+            archive → immutable, no revalidation
+            current → 304 if unchanged (0 KB)
+  T+10ms    Renders (0 KB transferred)
+
+Market toggle:
+  T+0ms     Re-filter loaded data (0 KB)
+  T+1ms     Re-aggregate
+  T+2ms     Re-renders
 ```
 
-### Step 3: IndexedDB caching
+### Step 3: HTTP caching (no IndexedDB)
 
-Per DataFlow.md §5:
-- In-memory cache (Svelte store) for currently viewed data
-- IndexedDB for all loaded Arrow buffers (~1.1 MB max)
-- HTTP cache headers for immutable past data (max-age=31536000)
-- ETag validation for mutable current-year data
+At 57 KB total load, HTTP cache is sufficient. No IndexedDB.
+
+**Cache headers:**
+```yaml
+archive/*.arrow:
+  Cache-Control: public, max-age=31536000, immutable
+
+{YYYY}/*.arrow:
+  Cache-Control: no-cache
+  ETag: "<hash>"
+
+manifest.json:
+  Cache-Control: no-cache
+  ETag: "<hash>"
+```
+
+**Archive immutability note:** Archive files change once per year (January 1st merge). With `immutable` headers, stale for ~1 day after merge — acceptable for crop prices. If unacceptable, use `max-age=25920000` (300 days).
 
 ---
 
@@ -489,7 +528,7 @@ jobs:
 
 **Why commit public/data/ instead of serving from CI artifact:**
 - Cloudflare Pages serves from git — commit is the deploy trigger
-- Cache headers on immutable files (past years) work correctly from git
+- Cache headers on immutable files (archive) work correctly from git
 - Every branch has its own data snapshot for review
 - Rollback is just `git revert`
 
@@ -503,11 +542,12 @@ jobs:
 
 ## Key Design Decisions
 
-1. **Monthly partitioning over yearly** — Snapshot context chart crosses year boundaries (Jan ±7 weeks needs Dec prev year). Monthly files give surgical access.
-2. **Client-side heatmap aggregation** — Market toggling requires re-aggregation. Loading all monthly files (~168 KB) is still fast; enables full interactivity matching mock6.html.
-3. **Dictionary-encoded strings (no FK, no lookups.arrow)** — 68 products, 11 places, 2 origins are small enough for inline dictionary encoding. Simpler than FK + separate lookup tables.
+1. **Archive flat + current-yearly** — Past years concatenated into one flat file per product (immutable, forever cache). Current year is a separate file that grows weekly (mutable, ETag-validated). 268 files total, 5.3 MB.
+2. **Client-side heatmap aggregation** — Market toggling requires re-aggregation. Loading 2 files (~57 KB) is trivial; enables full interactivity matching mock6.html.
+3. **Dictionary-encoded strings (no FK, no lookups.arrow)** — 186 products, 17 places, 2 origins are small enough for inline dictionary encoding. Simpler than FK + separate lookup tables.
 4. **Origin as product identity** — "Truskawki krajowe" and "Truskawki importowane" are separate products, not a filterable column.
-5. **IndexedDB caching** — ~95% of files are immutable after year closes. Cache forever with no revalidation.
-6. **Playwright in .tools/** — Agentic screenshot tooling, not a project dependency.
-7. **Branch-based deploys (Option A)** — No data duplication. Every PR gets a preview URL. Staging uses same Arrow files as prod.
-8. **data/ gitignored, public/data/ committed** — Raw XLSX and parsed intermediates never leave dev machine. Only final Arrow output crosses git boundaries.
+5. **No IndexedDB** — At 57 KB total load, HTTP cache (immutable for archive, ETag for current year) is sufficient. Saves ~100 lines of cache management code.
+6. **No compression** — Files average 5 KB. Compression overhead exceeds savings. Gzip/brotli on transport gets to ~3-4 MB.
+7. **Playwright in .tools/** — Agentic screenshot tooling, not a project dependency.
+8. **Branch-based deploys (Option A)** — No data duplication. Every PR gets a preview URL. Staging uses same Arrow files as prod.
+9. **data/ gitignored, public/data/ committed** — Raw XLSX and parsed intermediates never leave dev machine. Only final Arrow output crosses git boundaries.
