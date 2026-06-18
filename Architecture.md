@@ -13,7 +13,7 @@ The application follows a loosely decoupled ETL-Storage-App architecture, utiliz
 The ETL process is currently implemented as a set of Python scripts intended for initialization and bulk processing.
 
 ### Phase 1: Data Discovery & Raw Ingestion
-- **Tool:** `scripts/cloud_init/bulk_get_resources.py`
+- **Tool:** `scripts/etl/bulk_get_resources.py`
 - **Source:** [api.dane.gov.pl](https://api.dane.gov.pl)
 - **Actions:**
     1. Queries the API for bulletins related to "ceny hurtowe i targowiskowe".
@@ -21,7 +21,7 @@ The ETL process is currently implemented as a set of Python scripts intended for
     3. Downloads raw `.xlsx` workbooks and uploads them to Google Cloud Storage (GCS) under the `wholesale_prices_workbooks/` prefix.
 
 ### Phase 2: Data Parsing & Structured Storage
-- **Tool:** `scripts/cloud_init/bulk_process_resources.py`
+- **Tool:** `scripts/etl/bulk_process_resources.py`
 - **Logic:** `cropsprices/parsers.py`
 - **Actions:**
     1. Lists `.xlsx` files from GCS.

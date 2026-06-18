@@ -115,7 +115,104 @@ Remove BigQuery insert logic. Keep the core logic:
 
 **Dependencies to remove:** `google-cloud-bigquery`, `google-cloud-storage`, `google-cloud-secret-manager`, `google-cloud-logging`
 
-### Step 2a: Handle Source Data Format Changes
+### Step 2a: Data Quality Fixes
+
+#### Fix 1: Product identity — unit and origin must be part of the product key
+
+**Problem:** `build_arrow_db.py` groups by `Product` name alone. The same name can represent incomparable products:
+- "Rzodkiewka, kg" vs "Rzodkiewka, pęczek" — different units, different prices
+- "Gruszki" KRAJOWE vs "Gruszki" IMPORTOWANE — different origins, different price ranges
+- The `Unit` column is currently dropped entirely in `pivot_min_max()` (`parsers.py:46-47`)
+
+**Impact:** 33 products have both KRAJOWE and IMPORTOWANE rows. 30 products have multiple unit variants (kg, pęczek, szt., szt). These are all mixed into the same Arrow file under the same product name.
+
+**Fix:** The product key for Arrow files must be a composite of `Product + Unit + Origin`. The CSV output must preserve all three fields. `build_arrow_db.py` must group by the composite key, not just Product. Each unique combination becomes a separate product identity in the dashboard (e.g., "Rzodkiewka kg KRAJOWE" and "Rzodkiewka pęczek KRAJOWE" are separate selectable items).
+
+**Files to change:**
+- `cropsprices/parsers.py` — stop dropping Unit in `pivot_min_max()`, or add it to the output
+- `scripts/build_arrow_db.py` — group by (Product, Unit, Origin), include Unit in output schema
+- Arrow schema: add `unit` column (dictionary-encoded)
+
+#### Fix 2: Filtered dropdown — category and origin metadata missing
+
+**Problem:** The sidebar filter chain (DataFlow.md §2) requires: category (warzywa/owoce), origin (krajowe/importowane), product, and market. Currently:
+- **Category** — not stored anywhere after parsing. `bulk_process_resources.py` knows `is_fruit` when it calls the parser, but this info is discarded when writing CSVs.
+- **Origin** — exists as a row-level column in Arrow files, but is not part of product identity (see Fix 1)
+- **Product** — flat list of 138 names in `manifest.json`, no unit/category metadata
+- **Markets** — available, 17 unique places
+
+**Impact:** Cannot build the cascading filter UI (warzywa→owoce→krajowe→importowane→product) without knowing which products belong to which category.
+
+**Fix:** Add `category` column to the CSV output in `bulk_process_resources.py`. Derive it from the sheet name: `ceny hurt_warz`/`HURT WARZ`/`WK` = `warzywa`, `ceny hurt_owoc`/`HURT OWOC`/`OK` = `owoce`. Include category in Arrow files and `manifest.json`. The manifest should expose a structured product list:
+
+```json
+{
+  "products": [
+    {"name": "Rzodkiewka", "unit": "kg", "origin": "KRAJOWE", "category": "warzywa"},
+    {"name": "Rzodkiewka", "unit": "pęczek", "origin": "KRAJOWE", "category": "warzywa"},
+    {"name": "Truskawki", "unit": "kg", "origin": "KRAJOWE", "category": "owoce"}
+  ],
+  "places": ["Białystok", "Bronisze", ...],
+  "years": [2018, 2019, ...]
+}
+```
+
+**Files to change:**
+- `scripts/etl/bulk_process_resources.py` — pass `is_fruit` flag into CSV output
+- `cropsprices/parsers.py` — include category in parsed output
+- `scripts/build_arrow_db.py` — include category in Arrow schema and manifest
+- `public/data/manifest.json` — structured product list with category/unit/origin
+
+#### Fix 3: Strip "(puste)" and "(różne)" variety suffixes
+
+**Problem:** The parser concatenates Product + Variety (`parsers.py:331-332`). When the source Excel has "(puste)" (Polish for "empty") in the variety column, it becomes "Maliny (puste)". But "Maliny (puste)" and "Maliny" are the same product — generic maliny with no specific variety. The "(puste)" suffix is noise from 12 specific older XLSX files.
+
+Similarly, "(różne)" (Polish for "various") creates "Maliny (różne)" which is also just generic maliny.
+
+**Impact:** 15 products have "(puste)" duplicates (e.g., "Ananasy" + "Ananasy (puste)", "Truskawki" + "Truskawki (puste)"). This inflates the product list and fragments data.
+
+**Fix:** In `_process_fruit_data()` (`parsers.py:322-337`), strip "(puste)" and "(różne)" from the concatenated product name. After the `f"{Product} {Variety}"` join, remove these suffixes:
+
+```python
+product_name = f"{product} {variety}".strip()
+product_name = product_name.replace(" (puste)", "").replace(" (różne)", "")
+```
+
+**Files to change:**
+- `cropsprices/parsers.py` — `_process_fruit_data()` method
+
+### Step 2b: Investigate — Fruit name appearing in Unit column (column shift bug)
+
+**Root cause:** In 7 specific XLSX files, the fruit sheet has a column structure where the Unit ("Jedn.") column is shifted one position to the right. The parser reads the NEXT product's name as the Unit value.
+
+**Example from file `1452006` (March 2026):**
+```
+Raw Excel row 23: | Banany |  | Arbuzy |  | kg | 6  | 8
+Parser reads:      Product=Banany, Variety=Arbuzy, Unit=kg (correct)
+But output shows:  Product=Banany, Unit=Arbuzy (wrong — Arbuzy is next product, not unit)
+```
+
+The parser's `_set_data_rows_columns()` detects the Unit column at index 4, but in these files the actual unit data is at index 5. Column 4 contains the next product name (from a duplicated product-name column in the source).
+
+**Affected files (7 total, all fruits):**
+- 1452006 — March 2026
+- 1505470 — March 2026
+- 1545573 — March-April 2026
+- 1593417 — March-April 2026
+- 1650995 — April 2026
+- 59719 — July 2024
+- 59793 — July 2024
+
+**Impact:** 530 rows (0.3% of total) have fruit names as Unit values. The correct unit is always `kg` (except Jabłka Gala which shows "kk" — likely a typo for "kg"). The price data itself is still correct (Min/Max values are read from the right columns).
+
+**Fix options:**
+1. **Post-hoc correction in `build_arrow_db.py`**: If Unit is not in `{kg, szt., szt, pęczek, l}`, replace it with the correct unit from other files for the same product. Simple but fragile.
+2. **Fix in parser**: After reading the sheet, validate that Unit values are real units. If not, try shifting the column index by 1 and re-reading. More robust.
+3. **Override files**: Add corrected XLSX to `data/overrides/`. Correct but doesn't fix the parser for future occurrences.
+
+**Recommendation:** Fix in parser (option 2). After `_set_data_rows_columns()`, validate the Unit column. If none of the values match known units (`kg`, `szt.`, `szt`, `pęczek`, `l`), try reading Unit from the next column index.
+
+### Step 2c: Handle Source Data Format Changes
 
 The upstream data source (`api.dane.gov.pl`) has changed format multiple times:
 1. **Pre-2021**: `ceny hurt_warz`/`ceny hurt_owoc` sheets, product names in col 0
