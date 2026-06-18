@@ -51,6 +51,12 @@ cropsprices/
 │   ├── bulk_get_resources.py    # entry point: bulk-get-resources
 │   ├── bulk_process_resources.py # entry point: bulk-process-resources
 │   └── build_arrow_db.py        # entry point: build-arrow-db
+├── frontend/                    # Svelte + TypeScript dashboard
+│   ├── src/
+│   │   ├── App.svelte           # Root component
+│   │   ├── lib/                 # Data loading, filters, helpers, types
+│   │   └── components/          # Sidebar, FilterZone, SnapshotView, HeatmapView
+│   └── ...
 ├── public/
 │   └── data/                    # FINAL Arrow output (committed per-branch)
 │       ├── manifest.json        # Structured product list, years, places
@@ -331,95 +337,81 @@ Run full ETL pipeline:
 
 ---
 
-## Phase 3: Svelte TypeScript Frontend
+## Phase 3: Svelte TypeScript Frontend ✅
 
-### Step 1: Initialize Vite + Svelte project
+### Step 1: Initialize Vite + Svelte project ✅
 
 ```
 frontend/
-├── package.json
+├── package.json              # Vite 8 + Svelte 5 + Tailwind 4 + Apache Arrow + LayerCake
 ├── svelte.config.js
-├── vite.config.ts
-├── index.html
+├── vite.config.ts            # Tailwind v4 + Svelte plugins
+├── index.html                # Polish lang, Inter font
+├── README.md
 ├── public/
-│   └── data/          # Arrow files copied here at build time
+│   ├── favicon.svg
+│   └── icons.svg
 ├── src/
 │   ├── main.ts
-│   ├── App.svelte
+│   ├── app.css               # CSS custom properties (design tokens from mock6.html)
+│   ├── App.svelte            # Root: manifest load → filter state → view switching
 │   ├── lib/
-│   │   ├── arrow-loader.ts    # fetch + decode Arrow files
-│   │   ├── filters.ts         # filter chain logic
-│   │   ├── helpers.ts         # heatColor, niceTicks, SVG path builders
-│   │   └── types.ts           # TypeScript types
-│   ├── components/
-│   │   ├── Sidebar.svelte           # tab nav + filter controls
-│   │   ├── FilterZone.svelte        # category, product, market checkboxes
-│   │   ├── SnapshotView.svelte      # LayerCake container for snapshot
-│   │   ├── HeatmapView.svelte       # LayerCake container for heatmap
-│   │   ├── HeatmapCells.svelte      # rect grid with color scale
-│   │   ├── ContextChart.svelte      # area polygons for 3-year context
-│   │   ├── PriceRibbons.svelte      # bottom marginal ribbon paths
-│   │   ├── YearBands.svelte         # right marginal year ranges
-│   │   ├── KpiCards.svelte          # HTML KPI cards
-│   │   └── MarketTable.svelte       # HTML market breakdown table
-│   └── styles/
-│       └── globals.css        # Tailwind
+│   │   ├── arrow-loader.ts   # fetch + decode Arrow files (tableFromIPC named import)
+│   │   ├── filters.ts        # filterByMarkets, filterByDate, aggregateByDate/WeekYear
+│   │   ├── helpers.ts        # heatColor, niceTicks, formatPrice, formatDate
+│   │   └── types.ts          # Manifest, PriceRecord, Filters, ViewMode, etc.
+│   └── components/
+│       ├── Sidebar.svelte         # Tab nav: Snapshot / Heatmap
+│       ├── FilterZone.svelte      # Category → Origin → Product cascade + market checkboxes
+│       ├── SnapshotView.svelte    # KPI cards + market breakdown table
+│       └── HeatmapView.svelte     # Week × Year SVG grid with color scale
 └── tailwind.config.js
 ```
 
 **Dependencies:**
-- `vite`, `@sveltejs/vite-plugin-svelte`
-- `svelte` (v5)
+- `vite` (v8), `@sveltejs/vite-plugin-svelte` (v7)
+- `svelte` (v5) — runes reactivity ($state, $derived, $bindable)
 - `layercake` (v10) — headless graphics framework for scale management
-- `apache-arrow` (Apache Arrow JS)
-- `d3-scale` — re-exported by LayerCake but useful directly for custom scales
-- `tailwindcss`, `postcss`, `autoprefixer`
+- `apache-arrow` (v21) — Arrow IPC file decoding (tableFromIPC named import)
+- `tailwindcss` (v4), `postcss`, `autoprefixer`
+- `typescript` (v6), `svelte-check`
 
 **Why LayerCake over Recharts / raw SVG:**
 - Recharts is React-only and adds ~150 KB. The heatmap and context chart are custom SVG — Recharts can't render them.
 - Raw SVG (mock6.html style) works but requires manual scale management, resize handling, and `niceTicks()` boilerplate. LayerCake eliminates all of that.
 - LayerCake (~15 KB) provides: automatic scale computation from data extents, responsive container sizing, shared coordinate spaces across SVG layers, and helper functions (`bin`, `stack`, `groupLonger`).
 
-### Step 2: Data loading layer
+**Code style:** All frontend code includes beginner-oriented comments explaining *why*, not just *what* (see `.agents/agents.md` rule 4). Comments are stripped during production minification.
 
-Per DataFlow.md:
+### Step 2: Data loading layer ✅
+
+Implemented in `src/lib/arrow-loader.ts`:
 
 ```typescript
-// Load manifest
+// Named import — only tableFromIPC from apache-arrow
+import { tableFromIPC } from 'apache-arrow';
+
+// Cache manifest (fetched once per page load)
 loadManifest(): Promise<Manifest>
 
-// Snapshot view: archive + current-year file, ~57 KB total
-loadSnapshotView(product: string, date: string, windowWeeks: number)
-
-// Heatmap view: same 2 files as snapshot, client aggregates by week×year
-loadHeatmapView(product: string)
-
-// Market toggle: re-filter already-loaded data, no new fetch
-// Product switch: fetch 2 new files (archive + current-year)
+// Load archive + current-year files in parallel
+loadProductData(name, unit, origin, currentYear): Promise<PriceRecord[]>
 ```
+
+**Filter cascade** (FilterZone.svelte):
+1. **Kategoria** — Owoce / Warzywa (category)
+2. **Pochodzenie** — Krajowe / Importowane (origin)
+3. **Produkt** — filtered by category + origin
 
 **Loading waterfall:**
 ```
-First load (snapshot):
+First load:
   T+0ms     manifest.json (~2 KB)
   T+10ms    [parallel] archive (~46 KB) + current-year (~9 KB)
-  T+50ms    Snapshot renders (~57 KB total)
-
-First load (heatmap):
-  T+0ms     manifest.json (~2 KB)           ← already cached
-  T+10ms    [parallel] archive + current-year ← same 2 files
-  T+50ms    Client aggregates by week×year
-  T+60ms    Heatmap renders
-
-Page refresh (HTTP cache warm):
-  T+0ms     manifest.json → 304 (0 KB)
-            archive → immutable, no revalidation
-            current → 304 if unchanged (0 KB)
-  T+10ms    Renders (0 KB transferred)
+  T+50ms    Snapshot/Heatmap renders (~57 KB total)
 
 Market toggle:
   T+0ms     Re-filter loaded data (0 KB)
-  T+1ms     Re-aggregate
   T+2ms     Re-renders
 ```
 
