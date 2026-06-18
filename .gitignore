@@ -18,4 +18,4 @@ data/raw/
 data/parsed/
 
 # ETL oimmkited in early dev phase:
-public/data/*.arrow
+public/data/**/*.arrow
