@@ -30,14 +30,23 @@ public/data/
 ```
 public/data/
 ├── manifest.json                              # Metadata
-├── prices_{YYYY}_{MM}_{product}.arrow         # Monthly data, dictionary-encoded (~2 KB each)
-│   ├── prices_2025_01_strawberries.arrow
-│   ├── prices_2025_02_strawberries.arrow
-│   ├── ...
-│   └── prices_2019_12_onions.arrow
+├── 2018/
+│   ├── 07/
+│   │   ├── 2018-07-03-Banany-kg-KRAJOWE.arrow
+│   │   ├── 2018-07-03-Banany-kg-IMPORTOWANE.arrow
+│   │   ├── 2018-07-10-Banany-kg-KRAJOWE.arrow
+│   │   └── ...
+│   └── 08/
+│       └── ...
+├── 2019/
+│   ├── 01/
+│   └── ...
+└── 2026/
+    └── 05/
+        └── ...
 ```
 
-**Critical detail:** Each `prices_{YYYY}_{MM}_{product}.arrow` contains rows for **one product, one month, all markets and origins**. Product filtering is built into the file structure.
+**Critical detail:** Each file contains data for **one date, one product, one unit, one origin, all markets**. The product identity is the compound key `(Product, Unit, Origin)` — e.g., "Rzodkiewka, kg, KRAJOWE" and "Rzodkiewka, pęczek, KRAJOWE" are separate products in separate files.
 
 **No `lookups.arrow`** — columns use Arrow dictionary encoding (inline dictionaries for product, place, origin).
 **No weekly pre-agg files** — heatmap aggregates from monthly files client-side (enables market toggling).
@@ -229,17 +238,16 @@ The original `NewArchitecture.md` design partitions by year: `prices_YYYY.arrow`
 
 ### 4.3 Monthly Partitioning
 
-Instead of splitting by year, split by **product × month**. Each file contains all markets and origins for one product in one month.
+Instead of splitting by year, split by **product × month**, with files further distinguished by date and compound product identity (Product, Unit, Origin). Each file contains all markets for one date, one product, one unit, one origin.
 
-**File naming:** `prices_{YYYY}_{MM}_{product_key}.arrow`
+**Directory layout:** `{YYYY}/{MM}/{date}-{product}-{unit}-{origin}.arrow`
 
 **Row count per file:**
 ```
-Per month, 1 product, all markets, 2 origins:
-  ~4 weeks × ~11 markets × 2 origins = ~88 rows
-  × some weeks may have 2 observations ≈ ~80-120 rows
-  At ~16 bytes/row (Date64 + 3×dict_indices + 2×Float32) ≈ ~1.5 KB raw
-  With Arrow IPC overhead ≈ ~2 KB per file
+Per file, 1 date, 1 product, 1 unit, 1 origin, all markets:
+  ~11 markets = ~11 rows
+  At ~16 bytes/row (Date64 + 3×dict_indices + 2×Float32) ≈ ~0.2 KB raw
+  With Arrow IPC overhead ≈ ~0.3 KB per file
 ```
 
 **Full inventory:**
@@ -280,12 +288,12 @@ Total: 7 × 1 KB = ~7 KB
 
 #### Option 1: Monthly Partitioning Only (Recommended)
 
-**ETL produces:** `prices_{YYYY}_{MM}_{product}.arrow` (504 files)
+**ETL produces:** `{YYYY}/{MM}/{date}-{product}-{unit}-{origin}.arrow` (~500+ files)
 
 | View | Files loaded | Total size | Client computation |
 |---|---|---|---|
-| Snapshot (±7 weeks, 3 years) | ~8 monthly files | ~16 KB | KPIs, context chart, market table |
-| Heatmap (all years) | 84 monthly files | ~168 KB | GroupBy week, color normalization |
+| Snapshot (±7 weeks, 3 years) | ~8 monthly dirs (all dates × product × unit × origin) | ~16 KB | KPIs, context chart, market table |
+| Heatmap (all years) | 84 monthly dirs | ~168 KB | GroupBy week, color normalization |
 | Market toggle (heatmap) | 0 (already loaded) | 0 KB | Re-filter + re-aggregate |
 | Product switch | re-fetch monthly files | ~16-168 KB | Full recompute |
 
@@ -431,10 +439,16 @@ Market toggling is a core feature of the heatmap (mock6.html implements it). Pre
 ```json
 {
   "years": [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026],
-  "products": ["Truskawki krajowe", "Jabłka", ...],
+  "products": [
+    {"name": "Rzodkiewka", "unit": "kg", "origin": "KRAJOWE", "category": "warzywa"},
+    {"name": "Rzodkiewka", "unit": "pęczek", "origin": "KRAJOWE", "category": "warzywa"},
+    {"name": "Truskawki", "unit": "kg", "origin": "KRAJOWE", "category": "owoce"}
+  ],
+  "places": ["Białystok", "Bronisze", "Łódź", "Poznań", "Warszawa", "Wrocław"],
   "lastUpdate": "2026-06-18"
 }
 ```
+**Product identity:** The compound key `(name, unit, origin)` uniquely identifies a product.
 
 **Loading waterfall:**
 ```
@@ -466,8 +480,8 @@ Past data is immutable. Once a year closes (Jan 1 next year), all 12 monthly fil
 | File type | Mutability | Change frequency |
 |---|---|---|
 | `manifest.json` | Mutable | Weekly (new data added) |
-| `prices_{YYYY}_{MM}_{product}.arrow` for current month | Mutable | Weekly (new observations appended) |
-| `prices_{YYYY}_{MM}_{product}.arrow` for past months | **Immutable** | Never |
+| `{YYYY}/{MM}/{date}-{product}-{unit}-{origin}.arrow` for current month | Mutable | Weekly (new observations appended) |
+| `{YYYY}/{MM}/{date}-{product}-{unit}-{origin}.arrow` for past months | **Immutable** | Never |
 
 **Key: ~95% of files are immutable after their year closes.**
 
@@ -513,16 +527,16 @@ interface CachedArrow {
 
 ```yaml
 # Immutable past data (forever cache)
-prices_2019_*.arrow:   Cache-Control: public, max-age=31536000, immutable
-prices_2020_*.arrow:   Cache-Control: public, max-age=31536000, immutable
+2018/**/*.arrow:   Cache-Control: public, max-age=31536000, immutable
+2019/**/*.arrow:   Cache-Control: public, max-age=31536000, immutable
 ...
-prices_2024_*.arrow:   Cache-Control: public, max-age=31536000, immutable
+2024/**/*.arrow:   Cache-Control: public, max-age=31536000, immutable
 
 # Current year — mutable (weekly updates)
-prices_2025_*.arrow:   Cache-Control: public, max-age=604800  # 1 week
+2026/**/*.arrow:   Cache-Control: public, max-age=604800  # 1 week
 
 # Manifest — mutable
-manifest.json:         Cache-Control: no-cache
+manifest.json:     Cache-Control: no-cache
 ```
 
 ### 5.5 Fetch Strategy
@@ -590,18 +604,18 @@ Market toggle (warm):
   T+2ms     ✅ Heatmap re-renders
 
 Current month update scenario:
-  T+0ms     manifest.json                     ← network (checks for new data)
-  T+10ms    prices_2025_06_strawberries.arrow ← network (ETag check, gets fresh data)
-  T+10ms    [parallel] 7 past monthly files   ← IndexedDB (immutable, instant)
+  T+0ms     manifest.json                               ← network (checks for new data)
+  T+10ms    2026/06/17-Truskawki-kg-KRAJOWE.arrow      ← network (ETag check, gets fresh data)
+  T+10ms    [parallel] 7 past monthly dirs              ← IndexedDB (immutable, instant)
   T+15ms    ✅ Snapshot renders
 ```
 
 ### 5.7 Cache Size Budget
 
 ```
-Full dataset (7 years × 6 products):
-  Monthly raw:    504 files × ~2 KB = ~1 MB
-  Manifest:       1 file × ~1 KB    = ~1 KB
+Full dataset (7 years × many products):
+  Monthly raw:    ~500+ files × ~0.3 KB = ~150 KB
+  Manifest:       1 file × ~1 KB        = ~1 KB
   ─────────────────────────────────────────
   Total IndexedDB: ~1 MB
 

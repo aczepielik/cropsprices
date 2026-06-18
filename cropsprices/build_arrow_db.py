@@ -41,6 +41,8 @@ def pivot_min_max(df: pd.DataFrame) -> pd.DataFrame:
     merge_keys = ["Product", "Place", "Date", "Origin"]
     if "Unit" in max_rows.columns:
         merge_keys.append("Unit")
+    if "category" in max_rows.columns:
+        merge_keys.append("category")
 
     merged = max_rows.merge(
         min_rows,
@@ -77,6 +79,10 @@ def make_table(df: pd.DataFrame) -> pa.Table:
         unit_array = pa.array(df["Unit"], type=pa.dictionary(pa.int8(), pa.utf8()))
         arrays["unit"] = unit_array
 
+    if "category" in df.columns:
+        cat_array = pa.array(df["category"], type=pa.dictionary(pa.int8(), pa.utf8()))
+        arrays["category"] = cat_array
+
     table = pa.table(arrays)
     return table
 
@@ -89,17 +95,29 @@ def write_monthly_files(df: pd.DataFrame, output_dir: Path) -> list[str]:
     df["year"] = pd.to_datetime(df["Date"]).dt.year
     df["month"] = pd.to_datetime(df["Date"]).dt.month
 
-    group_keys = ["year", "month", "Product"]
+    group_keys = ["year", "month", "Date", "Product"]
     if "Unit" in df.columns:
         group_keys.append("Unit")
     group_keys.append("Origin")
 
+    has_unit = "Unit" in group_keys
     files_written = []
     for key, group in df.groupby(group_keys):
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        key_map = dict(zip(group_keys, key))
         table = make_table(group)
-        product_key = sanitize_filename(key[2])  # Product is at index 2
-        filename = f"prices_{key[0]}_{key[1]:02d}_{product_key}.arrow"
-        filepath = output_dir / filename
+
+        date_str = pd.to_datetime(key_map["Date"]).strftime("%Y-%m-%d")
+        product_key = sanitize_filename(key_map["Product"])
+        unit_key = sanitize_filename(key_map.get("Unit", "")) if has_unit else ""
+        origin_key = sanitize_filename(key_map["Origin"])
+
+        year_dir = output_dir / str(key_map["year"]) / f"{key_map['month']:02d}"
+        year_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{date_str}-{product_key}-{unit_key}-{origin_key}.arrow"
+        filepath = year_dir / filename
 
         sink = pa.BufferOutputStream()
         writer = ipc.new_file(sink, table.schema)
@@ -107,7 +125,7 @@ def write_monthly_files(df: pd.DataFrame, output_dir: Path) -> list[str]:
         writer.close()
         filepath.write_bytes(sink.getvalue().to_pybytes())
 
-        files_written.append(filename)
+        files_written.append(f"{key_map['year']}/{key_map['month']:02d}/{filename}")
 
     logger.info(f"Wrote {len(files_written)} monthly Arrow files")
     return files_written
@@ -115,11 +133,26 @@ def write_monthly_files(df: pd.DataFrame, output_dir: Path) -> list[str]:
 
 def build_manifest(df: pd.DataFrame, files: list[str]) -> dict:
     years = sorted(df["year"].unique().tolist())
-    products = sorted(df["Product"].unique().tolist())
+
+    product_cols = ["Product"]
+    if "Unit" in df.columns:
+        product_cols.append("Unit")
+    product_cols.append("Origin")
+    if "category" in df.columns:
+        product_cols.append("category")
+
+    products_df = df[product_cols].drop_duplicates().sort_values(product_cols).reset_index(drop=True)
+
+    products_list = []
+    for _, row in products_df.iterrows():
+        entry = {"name": row["Product"], "unit": row.get("Unit", ""), "origin": row["Origin"]}
+        entry["category"] = row.get("category", "")
+        products_list.append(entry)
 
     manifest = {
         "years": [int(y) for y in years],
-        "products": products,
+        "products": products_list,
+        "places": sorted(df["Place"].unique().tolist()),
         "lastUpdate": datetime.now(timezone.utc).isoformat(),
     }
     return manifest
@@ -138,7 +171,7 @@ def main(parsed_dir: Path = DEFAULT_PARSED_DIR, output_dir: Path = DEFAULT_OUTPU
     manifest_path = output_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
     logger.info(f"Wrote manifest to {manifest_path}")
-    logger.info(f"Years: {manifest['years']}, Products: {len(manifest['products'])}")
+    logger.info(f"Years: {manifest['years']}, Products: {len(manifest['products'])}, Places: {len(manifest['places'])}")
 
 
 if __name__ == "__main__":

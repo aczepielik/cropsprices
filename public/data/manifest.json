@@ -1,0 +1,1151 @@
+{
+  "years": [
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025,
+    2026
+  ],
+  "products": [
+    {
+      "name": "Agrest",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Ananasy",
+      "unit": "szt.",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Arbuzy",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Arbuzy",
+      "unit": "szt.",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Banany",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Banany",
+      "unit": "szt.",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Boczniaki",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Borówka amerykańska",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Borówki amerykańskie",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Borówki amerykańskie",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Brzoskwinie",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Brzoskwinie",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Buraki młode",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Buraki młode",
+      "unit": "pęczek",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Buraki ćwikłowe",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Cebula",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Cebula ",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Cebula biała",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Cebula młoda",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Cebula młoda",
+      "unit": "pęczek",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Cytryny",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Czereśnie",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Czereśnie",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Czosnek",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Czosnek",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Czosnek",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Czosnek",
+      "unit": "szt.",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Grejpfruty",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Gruszki",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Gruszki",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Alwa",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Antonówka",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Antonówki",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Boiken",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Boskoop",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Celesta",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Cortland",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Delikates",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Early Geneva",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Eliza",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Elstar",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Empire",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Gala",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Gala",
+      "unit": "kk",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Gloster",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Golden",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Idared",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Jerseymac",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Jonagold",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Jonagored",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Katja",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Ligol",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Lobo",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Malinówki",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Ogórki długie",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Papierówki",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Paula Red",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Paulared",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Piros",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Rubin",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Szampion",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka Szara Reneta",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Alwa",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Antonówki",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Boiken",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Boskoop",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Celesta",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Champion",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Cortland",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Delikates",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Early Geneva",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Elstar",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Empire",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Gala",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Genewa",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Gloster",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Golden",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Idared",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Jerseymac",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Jonagold",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Jonagored",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Ligol",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Lobo",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Papierówki",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Paula Red",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Paulared",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Piros",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Rubin",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Shampion",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Szampion",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jabłka: Szara Reneta",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jagody czarne",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Jeżyny",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Kalafiory",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Kalafiory",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Kalafiory",
+      "unit": "szt.",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Kalafiory",
+      "unit": "szt.",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Kalafiory",
+      "unit": "szt.",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Kapusta ",
+      "unit": "szt.",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Kapusta biała",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Kapusta biała",
+      "unit": "szt.",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Kapusta biała ",
+      "unit": "szt.",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Kapusta biała mloda",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Kapusta młoda",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Kapusta młoda",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Kapusta młoda",
+      "unit": "szt",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Kapusta młoda",
+      "unit": "szt.",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Kapusta młoda",
+      "unit": "szt.",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Maliny",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Maliny",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Mandarynki",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Marchew",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Marchew",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Marchew młoda",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Marchew młoda",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Marchew młoda",
+      "unit": "pęczek",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Marchew młoda",
+      "unit": "pęczek",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Marchew młoda ",
+      "unit": "pęczek",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Morele",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Morele",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Morele",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Nektarynki",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Nektarynki",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Ogórki długie",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Ogórki długie",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Ogórki gruntowe",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Ogórki gruntowe",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Ogórki krótkie",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Ogórki krótkie",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Ogórki szklarniowe",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Ogórki szklarniowe",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Papryka czerwona",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Papryka czerwona",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Papryka zielona",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Papryka zielona",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Papryka żółta",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Papryka żółta",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pieczarki",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pietruszka",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pomarańcze",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Pomidory",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pomidory",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pomidory",
+      "unit": "pęczek",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pomidory gruntowe",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pomidory malinowe",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pomidory malinowe",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pory",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pory",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pory",
+      "unit": "szt",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pory",
+      "unit": "szt.",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pory ",
+      "unit": "szt.",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pory młode",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Pory młode",
+      "unit": "szt.",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Porzeczki czarne",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Porzeczki czerwone",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Rzodkiewka",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Rzodkiewka",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Rzodkiewka",
+      "unit": "pęczek",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Rzodkiewka",
+      "unit": "pęczek",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Rzodkiewka",
+      "unit": "szt.",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Sałata",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Sałata",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Sałata",
+      "unit": "pęczek",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Sałata",
+      "unit": "szt.",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Sałata",
+      "unit": "szt.",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Sałata ",
+      "unit": "szt.",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Selery",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Selery",
+      "unit": "szt.",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Selery ",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Selery młode",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Selery młode",
+      "unit": "pęczek",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Selery młode",
+      "unit": "szt",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Selery młode",
+      "unit": "szt.",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Truskawki",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Truskawki",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Winogrona",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Winogrona",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Wiśnie",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
+      "name": "Ziemniaki",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Ziemniaki",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Ziemniaki młode",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Ziemniaki młode",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Śliwki",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Śliwki",
+      "unit": "kg",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    }
+  ],
+  "places": [
+    "Białystok",
+    "Bronisze",
+    "Bydgoszcz",
+    "Gdańsk",
+    "Gorzów Wlkp.",
+    "Kalisz",
+    "Kielce",
+    "Kraków",
+    "Lublin",
+    "Poznań",
+    "Radom",
+    "Rynek4",
+    "Rzeszów",
+    "Sandomierz",
+    "Szczecin",
+    "Wrocław",
+    "Łódź"
+  ],
+  "lastUpdate": "2026-06-18T19:04:23.184189+00:00"
+}
