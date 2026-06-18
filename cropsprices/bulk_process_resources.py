@@ -74,6 +74,8 @@ class DataManager:
         if data:
             output_path = self.parsed_dir / f"{file_stem}_{product_type}.csv"
             df = pd.DataFrame(data)
+            category = "owoce" if is_fruit else "warzywa"
+            df["category"] = category
             df.to_csv(output_path, index=False)
             logger.info(f"Saved {len(data)} rows to {output_path.name}")
         else:
