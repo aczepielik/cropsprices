@@ -16,6 +16,3 @@ mocks/*.png
 # ETL intermediates — never committed
 data/raw/
 data/parsed/
-
-# ETL oimmkited in early dev phase:
-public/data/**/*.arrow
