@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cropsprices"
+version = "0.1.0"
+description = "Crops price data tools"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.32.0",
+    "pydantic>=2.0.0",
+    "pandas>=2.2.0",
+    "openpyxl>=3.1.0",
+    "pyyaml>=6.0",
+    "tqdm>=4.66.0",
+    "pyarrow>=17.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+build-arrow-db = "cropsprices.build_arrow_db:main"
+bulk-get-resources = "cropsprices.bulk_get_resources:main"
+bulk-process-resources = "cropsprices.bulk_process_resources:main"
+
+[tool.setuptools.packages.find]
+include = ["cropsprices*"]
