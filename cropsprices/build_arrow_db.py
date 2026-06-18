@@ -91,47 +91,81 @@ def sanitize_filename(name: str) -> str:
     return name.replace("/", "-").replace("\\", "-")
 
 
-def write_monthly_files(df: pd.DataFrame, output_dir: Path) -> list[str]:
-    df["year"] = pd.to_datetime(df["Date"]).dt.year
-    df["month"] = pd.to_datetime(df["Date"]).dt.month
+def write_arrow_file(table: pa.Table, filepath: Path) -> None:
+    sink = pa.BufferOutputStream()
+    writer = ipc.new_file(sink, table.schema)
+    writer.write_table(table)
+    writer.close()
+    filepath.write_bytes(sink.getvalue().to_pybytes())
 
-    group_keys = ["year", "month", "Date", "Product"]
-    if "Unit" in df.columns:
+
+def write_archive_files(df: pd.DataFrame, output_dir: Path, current_year: int) -> list[str]:
+    past_df = df[df["year"] < current_year]
+
+    group_keys = ["Product"]
+    if "Unit" in past_df.columns:
         group_keys.append("Unit")
     group_keys.append("Origin")
 
     has_unit = "Unit" in group_keys
+    archive_dir = output_dir / "archive"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+
     files_written = []
-    for key, group in df.groupby(group_keys):
+    for key, group in past_df.groupby(group_keys):
         if not isinstance(key, tuple):
             key = (key,)
 
         key_map = dict(zip(group_keys, key))
         table = make_table(group)
 
-        date_str = pd.to_datetime(key_map["Date"]).strftime("%Y-%m-%d")
         product_key = sanitize_filename(key_map["Product"])
         unit_key = sanitize_filename(key_map.get("Unit", "")) if has_unit else ""
         origin_key = sanitize_filename(key_map["Origin"])
 
-        year_dir = output_dir / str(key_map["year"]) / f"{key_map['month']:02d}"
-        year_dir.mkdir(parents=True, exist_ok=True)
-        filename = f"{date_str}-{product_key}-{unit_key}-{origin_key}.arrow"
-        filepath = year_dir / filename
+        filename = f"{product_key}-{unit_key}-{origin_key}.arrow"
+        filepath = archive_dir / filename
+        write_arrow_file(table, filepath)
+        files_written.append(f"archive/{filename}")
 
-        sink = pa.BufferOutputStream()
-        writer = ipc.new_file(sink, table.schema)
-        writer.write_table(table)
-        writer.close()
-        filepath.write_bytes(sink.getvalue().to_pybytes())
-
-        files_written.append(f"{key_map['year']}/{key_map['month']:02d}/{filename}")
-
-    logger.info(f"Wrote {len(files_written)} monthly Arrow files")
+    logger.info(f"Wrote {len(files_written)} archive files (all past years concatenated)")
     return files_written
 
 
-def build_manifest(df: pd.DataFrame, files: list[str]) -> dict:
+def write_current_year_files(df: pd.DataFrame, output_dir: Path, current_year: int) -> list[str]:
+    current_df = df[df["year"] == current_year]
+
+    group_keys = ["Product"]
+    if "Unit" in current_df.columns:
+        group_keys.append("Unit")
+    group_keys.append("Origin")
+
+    has_unit = "Unit" in group_keys
+    year_dir = output_dir / str(current_year)
+    year_dir.mkdir(parents=True, exist_ok=True)
+
+    files_written = []
+    for key, group in current_df.groupby(group_keys):
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        key_map = dict(zip(group_keys, key))
+        table = make_table(group)
+
+        product_key = sanitize_filename(key_map["Product"])
+        unit_key = sanitize_filename(key_map.get("Unit", "")) if has_unit else ""
+        origin_key = sanitize_filename(key_map["Origin"])
+
+        filename = f"{product_key}-{unit_key}-{origin_key}.arrow"
+        filepath = year_dir / filename
+        write_arrow_file(table, filepath)
+        files_written.append(f"{current_year}/{filename}")
+
+    logger.info(f"Wrote {len(files_written)} current-year files ({current_year})")
+    return files_written
+
+
+def build_manifest(df: pd.DataFrame, archive_files: list[str], current_files: list[str], current_year: int) -> dict:
     years = sorted(df["year"].unique().tolist())
 
     product_cols = ["Product"]
@@ -151,6 +185,7 @@ def build_manifest(df: pd.DataFrame, files: list[str]) -> dict:
 
     manifest = {
         "years": [int(y) for y in years],
+        "currentYear": current_year,
         "products": products_list,
         "places": sorted(df["Place"].unique().tolist()),
         "lastUpdate": datetime.now(timezone.utc).isoformat(),
@@ -165,13 +200,18 @@ def main(parsed_dir: Path = DEFAULT_PARSED_DIR, output_dir: Path = DEFAULT_OUTPU
     df = pivot_min_max(df)
     df["year"] = pd.to_datetime(df["Date"]).dt.year
 
-    files = write_monthly_files(df, output_dir)
+    current_year = int(df["year"].max())
+    logger.info(f"Current year: {current_year}")
 
-    manifest = build_manifest(df, files)
+    archive_files = write_archive_files(df, output_dir, current_year)
+    current_files = write_current_year_files(df, output_dir, current_year)
+
+    manifest = build_manifest(df, archive_files, current_files, current_year)
     manifest_path = output_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
     logger.info(f"Wrote manifest to {manifest_path}")
     logger.info(f"Years: {manifest['years']}, Products: {len(manifest['products'])}, Places: {len(manifest['places'])}")
+    logger.info(f"Archive: {len(archive_files)} files, Current: {len(current_files)} files, Total: {len(archive_files) + len(current_files)} files")
 
 
 if __name__ == "__main__":
