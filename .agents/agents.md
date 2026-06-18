@@ -12,19 +12,22 @@
 
 ### Phase 2 🏗️ — Data Refactor & Scraper Update
 - **Design doc:** `DataFlow.md` (supersedes `NewArchitecture.md`)
-- **Strategy:** Monthly partitioning + pre-aggregated weekly files (Option 2 from DataFlow.md §4.6)
+- **Strategy:** Monthly partitioning with dictionary-encoded strings, client-side heatmap aggregation
 - **Reusable ETL core:** `cropsprices/` package (parsers.py, models.py, apiquery.py) — no GCP deps
-- **Orchestration:** `scripts/cloud_init/` — needs decoupling from BigQuery/GCS, keep API fetch + parse logic
-- **Next Steps:**
-    - Decouple `bulk_get_resources.py` from GCP (remove BigQuery/GCS writes, output to local FS)
-    - Decouple `bulk_process_resources.py` from GCP (remove BigQuery inserts, output to DataFrame)
-    - Implement `scripts/build_arrow_db.py` for monthly + weekly partitioned Arrow export
+- **Orchestration:** `scripts/etl/` (renamed from cloud_init) — decoupled from GCP
+- **Done:**
+    - Decoupled `bulk_get_resources.py` from GCP (outputs to local `data/raw/`)
+    - Decoupled `bulk_process_resources.py` from GCP (outputs to `data/parsed/`)
+    - Parser handles both old and new Excel formats (Phase 2a)
+    - Manual overrides for 2 source-data-error files
+- **Remaining:**
+    - Implement `scripts/build_arrow_db.py` for monthly partitioned Arrow export
     - Update scraper for incremental `api.dane.gov.pl` fetches using manifest.json
-    - Generate `manifest.json`, `lookups.arrow`, and initial `.arrow` chunks into `public/data/`
+    - Generate `manifest.json` and initial `.arrow` files into `public/data/`
 
 ### Phase 3 — Svelte TypeScript Frontend
 - **Stack:** Vite + Svelte + TypeScript, Tailwind CSS, LayerCake, Apache Arrow JS
-- **Data loading:** Snapshot (~8 monthly files, ~63KB) + Heatmap (~7 weekly pre-agg files, ~58KB)
+- **Data loading:** Snapshot (~8 monthly files, ~17KB) + Heatmap (~84 monthly files, ~168KB, client-side aggregation)
 - **Caching:** IndexedDB with immutability awareness (DataFlow.md §5)
 - **Next Steps:**
     - Initialize Vite + Svelte project
