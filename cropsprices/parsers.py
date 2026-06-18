@@ -247,9 +247,31 @@ class ExcelParser:
         if product_col is None:
             product_col = 0
 
+        valid_units = {"kg", "szt.", "szt", "pęczek", "l"}
+
         if self.is_fruit:
             id_prefix = [""] * product_col if product_col > 0 else []
             id_cols = id_prefix + ["Product", "Variety", "Unit"]
+
+            # Detect column shift bug: if Unit col doesn't contain valid units,
+            # scan for the actual unit between current Unit position and start_col
+            unit_col_pos = len(id_cols) - 1  # Last col in id_cols is Unit
+            if unit_col_pos < data_rows.shape[1]:
+                unit_vals = set(
+                    data_rows.iloc[:, unit_col_pos].dropna().astype(str).unique()
+                )
+                if unit_vals and not unit_vals.issubset(valid_units):
+                    for candidate in range(unit_col_pos + 1, self.start_col):
+                        if candidate < data_rows.shape[1]:
+                            cand_vals = set(
+                                data_rows.iloc[:, candidate]
+                                .dropna().astype(str).unique()
+                            )
+                            if cand_vals and cand_vals.issubset(valid_units):
+                                # Insert blank cols to shift Unit to the right
+                                for _ in range(candidate - unit_col_pos):
+                                    id_cols.insert(-1, "")
+                                break
         else:
             id_prefix = [""] * product_col + ["Product"]
             id_suffix = []
@@ -272,6 +294,7 @@ class ExcelParser:
         data_rows.columns = pd.Index(
             id_cols + [f"{place}_{stat}" for place in places for stat in ["Max", "Min"]]
         )
+
         return data_rows
 
     def _fill_product_names(self, data_rows: pd.DataFrame) -> pd.DataFrame:
@@ -332,6 +355,11 @@ class ExcelParser:
             lambda row: f"{notna_or_empty(row['Product'])} {notna_or_empty(row['Variety'])}".strip(),
             axis=1,
         )
+
+        # Strip "(puste)" and "(różne)" variety suffixes
+        data_rows["Product"] = data_rows["Product"].str.replace(" (puste)", "", regex=False)
+        data_rows["Product"] = data_rows["Product"].str.replace(" (różne)", "", regex=False)
+
         data_rows = data_rows.drop("Variety", axis=1)
 
         return data_rows
