@@ -23,9 +23,8 @@
 - `cropsprices/parsers.py` — Excel parsing logic, no GCP deps
 - `cropsprices/models.py` — Pydantic models for api.dane.gov.pl responses
 - `cropsprices/apiquery.py` — generic paged API client
-- `scripts/cloud_init/bulk_get_resources.py` — API fetch + XLSX download (needs GCP decoupling)
-- `scripts/cloud_init/bulk_process_resources.py` — Excel parse orchestration (needs GCP decoupling)
-- `scripts/cloud_init/init_*.py` — BQ schema setup (reference only)
+- `scripts/etl/bulk_get_resources.py` — API fetch + XLSX download (decoupled from GCP)
+- `scripts/etl/bulk_process_resources.py` — Excel parse orchestration (decoupled from GCP)
 
 ### Post-cleanup structure
 ```
@@ -40,26 +39,22 @@ cropsprices/
 ├── .venv/
 ├── data/                        # ETL intermediate files (gitignored)
 │   ├── raw/                     # Downloaded XLSX bulletins (gitignored)
-│   └── parsed/                  # Intermediate DataFrames (gitignored)
+│   ├── parsed/                  # Intermediate DataFrames (gitignored)
+│   └── overrides/               # Manual XLSX fixes (committed)
 ├── cropsprices/                 # reusable ETL core
 │   ├── __init__.py
 │   ├── apiquery.py
 │   ├── models.py
 │   └── parsers.py
 ├── scripts/
-│   ├── cloud_init/              # bulk fetch + parse orchestration (to be renamed)
+│   ├── etl/                     # bulk fetch + parse orchestration
 │   │   ├── bulk_get_resources.py
-│   │   ├── bulk_process_resources.py
-│   │   ├── init_dataset.py
-│   │   ├── init_prices_table.py
-│   │   └── init_resources_table.py
-│   └── build_arrow_db.py        # NEW (Phase 2)
+│   │   └── bulk_process_resources.py
+│   └── build_arrow_db.py        # Arrow export (Phase 2)
 ├── public/
 │   └── data/                    # FINAL Arrow output (committed per-branch)
 │       ├── manifest.json
-│       ├── lookups.arrow
-│       ├── prices_*.arrow
-│       └── weekly_prices_*.arrow
+│       └── prices_*.arrow       # Monthly partitioned, dictionary-encoded
 ├── mocks/
 │   └── mock6.html               # authoritative UI mock
 ├── tests/                       # existing tests for parsers
@@ -86,7 +81,7 @@ data/parsed/
 ## Phase 2: Data Refactor & Scraper Update
 
 **Design doc:** `DataFlow.md` (supersedes `NewArchitecture.md`)
-**Strategy:** Monthly partitioning + pre-aggregated weekly files (Option 2 from DataFlow.md §4.6)
+**Strategy:** Monthly partitioning with dictionary-encoded strings, client-side heatmap aggregation
 
 ### Step 1: Decouple bulk_get_resources.py from GCP
 
@@ -157,36 +152,27 @@ The pipeline checks `data/overrides/` before downloading from the API. If an ove
 
 ### Step 3: Implement scripts/build_arrow_db.py
 
-Takes parsed DataFrames and produces the partitioned Arrow files per DataFlow.md §4.6.
+Takes parsed DataFrames and produces monthly partitioned Arrow files with dictionary-encoded strings.
 
 **Outputs into `public/data/`:**
-- `manifest.json` — years, products, months, lastUpdate
-- `lookups.arrow` — dictionary tables (products, places, origins)
-- `prices_{YYYY}_{MM}_{product}.arrow` — raw monthly data (~504 files, ~2KB each)
-- `weekly_prices_{YYYY}_{product}.arrow` — pre-aggregated weekly cells (~42 files, ~1KB each)
+- `manifest.json` — years, products, lastUpdate
+- `prices_{YYYY}_{MM}_{product}.arrow` — monthly data (~500+ files, ~2KB each)
 
 **Arrow columns per monthly file:**
 
-| Column       | Type    | Meaning                                |
-|--------------|---------|----------------------------------------|
-| `date`       | Date64  | Observation date (YYYY-MM-DD)          |
-| `product_id` | UInt16  | FK → lookups.products                  |
-| `place_id`   | UInt16  | FK → lookups.places                    |
-| `origin_id`  | UInt8   | FK → lookups.origins                   |
-| `price_min`  | Float32 | Minimum wholesale price (zł/kg)       |
-| `price_max`  | Float32 | Maximum wholesale price (zł/kg)       |
+| Column      | Type              | Meaning                                |
+|-------------|-------------------|----------------------------------------|
+| `date`      | Date64            | Observation date (YYYY-MM-DD)          |
+| `product`   | Utf8 (dictionary) | Product name                           |
+| `place`     | Utf8 (dictionary) | Market name                            |
+| `origin`    | Utf8 (dictionary) | KRAJOWE / IMPORTOWANE                  |
+| `price_min` | Float32           | Minimum wholesale price (zł/kg)       |
+| `price_max` | Float32           | Maximum wholesale price (zł/kg)       |
 
-**Arrow columns per weekly pre-agg file:**
+**No `lookups.arrow`** — dictionary encoding inline. Frontend extracts unique values from loaded data.
+**No weekly pre-agg files** — frontend loads monthly files and aggregates heatmap cells client-side (enables market toggling).
 
-| Column       | Type    | Meaning                                |
-|--------------|---------|----------------------------------------|
-| `week`       | UInt8   | ISO week number (1-53)                 |
-| `cellVal`    | Float32 | Average midprice across markets        |
-| `ribbonMin`  | Float32 | Min price_min across markets           |
-| `ribbonMax`  | Float32 | Max price_max across markets           |
-| `ribbonAvg`  | Float32 | Average of min/max across markets      |
-
-**Dependencies to add:** `pyarrow` (already in requirements via pandas, but explicit usage)
+**Dependencies to add:** `pyarrow>=17.0.0`
 
 ### Step 4: Incremental scraper
 
@@ -194,7 +180,7 @@ Reuses `apiquery.py` + `models.py` to:
 1. Fetch latest resources from API
 2. Compare against `manifest.json` to find missing months
 3. Download only new XLSX files
-4. Parse and generate only new monthly + weekly Arrow files
+4. Parse and generate only new monthly Arrow files
 5. Update `manifest.json`
 
 ### Step 5: Generate initial dataset
@@ -202,9 +188,9 @@ Reuses `apiquery.py` + `models.py` to:
 Run full ETL pipeline:
 1. `bulk_get_resources.py` (decoupled) → download all XLSX to `data/raw/`
 2. `bulk_process_resources.py` (decoupled) → parse all XLSX to DataFrames
-3. `build_arrow_db.py` → generate all Arrow files into `public/data/`
+3. `build_arrow_db.py` → generate monthly Arrow files into `public/data/`
 
-**Expected output:** ~546 files, ~1.04 MB total
+**Expected output:** ~500+ files, ~1 MB total
 
 ---
 
@@ -260,13 +246,14 @@ frontend/
 
 ### Step 2: Data loading layer
 
-Per DataFlow.md §4.6:
+Per DataFlow.md:
 
 ```typescript
-// Snapshot view: ~8 monthly files, ~63 KB total
+// Snapshot view: ~8 monthly files, ~16 KB total
 loadSnapshotView(product: string, date: string, windowWeeks: number)
 
-// Heatmap view: 7 weekly pre-agg files, ~58 KB total
+// Heatmap view: all monthly files for product, ~24 KB total
+// Client aggregates by week×year, re-aggregates when markets toggle
 loadHeatmapView(product: string)
 
 // IndexedDB caching with immutability awareness
@@ -277,13 +264,15 @@ fetchArrow(key: string, immutable: boolean): Promise<ArrayBuffer>
 ```
 Snapshot (first load):
   T+0ms     manifest.json (1 KB)
-  T+10ms    lookups.arrow (50 KB)
-  T+30ms    [parallel] 8 monthly files (16 KB)
-  T+50ms    Snapshot renders (67 KB total)
+  T+10ms    [parallel] 8 monthly files (16 KB)
+  T+30ms    Snapshot renders (17 KB total)
 
-Heatmap (warm cache):
-  T+0ms     [parallel] 7 weekly files (7 KB) ← IndexedDB
-  T+5ms     Heatmap renders (58 KB total)
+Heatmap (first load):
+  T+0ms     manifest.json (1 KB)           ← already cached
+  T+10ms    [parallel] ~84 monthly files (168 KB)
+  T+50ms    Client aggregates by week×year
+  T+60ms    Heatmap renders
+  Market toggle: re-filter + re-aggregate (no new fetch)
 ```
 
 ### Step 3: IndexedDB caching
@@ -310,9 +299,9 @@ Per DataFlow.md §5:
 
 **Dev workflow:**
 ```
-scripts/cloud_init/bulk_get_resources.py     # downloads XLSX to data/raw/
-scripts/cloud_init/bulk_process_resources.py  # parses to data/parsed/
-scripts/build_arrow_db.py                     # writes to public/data/
+scripts/etl/bulk_get_resources.py        # downloads XLSX to data/raw/
+scripts/etl/bulk_process_resources.py    # parses to data/parsed/
+scripts/build_arrow_db.py                # writes to public/data/
 ```
 Raw XLSX files stay on disk for debugging. Never committed.
 
@@ -394,9 +383,10 @@ jobs:
 ## Key Design Decisions
 
 1. **Monthly partitioning over yearly** — Snapshot context chart crosses year boundaries (Jan ±7 weeks needs Dec prev year). Monthly files give surgical access.
-2. **Pre-aggregated weekly files** — Heatmap needs all years. 7 weekly files (~7 KB) vs 84 monthly files (~168 KB).
-3. **Origin as product identity** — "Truskawki krajowe" and "Truskawki importowane" are separate product_ids, not a filterable column.
-4. **IndexedDB caching** — ~95% of files are immutable after year closes. Cache forever with no revalidation.
-5. **Playwright in .tools/** — Agentic screenshot tooling, not a project dependency.
-6. **Branch-based deploys (Option A)** — No data duplication. Every PR gets a preview URL. Staging uses same Arrow files as prod.
-7. **data/ gitignored, public/data/ committed** — Raw XLSX and parsed intermediates never leave dev machine. Only final Arrow output crosses git boundaries.
+2. **Client-side heatmap aggregation** — Market toggling requires re-aggregation. Loading all monthly files (~168 KB) is still fast; enables full interactivity matching mock6.html.
+3. **Dictionary-encoded strings (no FK, no lookups.arrow)** — 68 products, 11 places, 2 origins are small enough for inline dictionary encoding. Simpler than FK + separate lookup tables.
+4. **Origin as product identity** — "Truskawki krajowe" and "Truskawki importowane" are separate products, not a filterable column.
+5. **IndexedDB caching** — ~95% of files are immutable after year closes. Cache forever with no revalidation.
+6. **Playwright in .tools/** — Agentic screenshot tooling, not a project dependency.
+7. **Branch-based deploys (Option A)** — No data duplication. Every PR gets a preview URL. Staging uses same Arrow files as prod.
+8. **data/ gitignored, public/data/ committed** — Raw XLSX and parsed intermediates never leave dev machine. Only final Arrow output crosses git boundaries.

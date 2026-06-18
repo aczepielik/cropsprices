@@ -30,9 +30,7 @@ public/data/
 ```
 public/data/
 ├── manifest.json                              # Metadata
-├── lookups.arrow                              # Shared dictionaries (~50 KB)
-├── weekly_prices_{YYYY}_{product}.arrow       # Pre-aggregated weekly cells (~1 KB each)
-├── prices_{YYYY}_{MM}_{product}.arrow         # Raw monthly data (~2 KB each)
+├── prices_{YYYY}_{MM}_{product}.arrow         # Monthly data, dictionary-encoded (~2 KB each)
 │   ├── prices_2025_01_strawberries.arrow
 │   ├── prices_2025_02_strawberries.arrow
 │   ├── ...
@@ -41,24 +39,21 @@ public/data/
 
 **Critical detail:** Each `prices_{YYYY}_{MM}_{product}.arrow` contains rows for **one product, one month, all markets and origins**. Product filtering is built into the file structure.
 
+**No `lookups.arrow`** — columns use Arrow dictionary encoding (inline dictionaries for product, place, origin).
+**No weekly pre-agg files** — heatmap aggregates from monthly files client-side (enables market toggling).
+
 ### Arrow Columns per Row
 
-| Column       | Type    | Meaning                                         |
-|--------------|---------|--------------------------------------------------|
-| `date`       | Date64  | Observation date (YYYY-MM-DD)                   |
-| `product_id` | UInt16  | FK → `lookups.products`                          |
-| `place_id`   | UInt16  | FK → `lookups.places`                            |
-| `origin_id`  | UInt8   | FK → `lookups.origins` (KRAJOWE / IMPORTOWANE)   |
-| `price_min`  | Float32 | Minimum wholesale price (zł/kg)                 |
-| `price_max`  | Float32 | Maximum wholesale price (zł/kg)                 |
+| Column      | Type              | Meaning                                         |
+|-------------|-------------------|--------------------------------------------------|
+| `date`      | Date64            | Observation date (YYYY-MM-DD)                   |
+| `product`   | Utf8 (dictionary) | Product name (e.g., "Truskawki krajowe")        |
+| `place`     | Utf8 (dictionary) | Market name (e.g., "Bronisze")                  |
+| `origin`    | Utf8 (dictionary) | KRAJOWE / IMPORTOWANE                           |
+| `price_min` | Float32           | Minimum wholesale price (zł/kg)                 |
+| `price_max` | Float32           | Maximum wholesale price (zł/kg)                 |
 
-### Lookup Tables (in `lookups.arrow`)
-
-| Table       | Columns                        |
-|-------------|--------------------------------|
-| `products`  | `product_id`, `name`, `unit`, `category` |
-| `places`    | `place_id`, `name`             |
-| `origins`   | `origin_id`, `name`            |
+All string columns use Arrow dictionary encoding. Frontend extracts unique values directly from loaded data for filter dropdowns.
 
 ---
 
@@ -73,31 +68,32 @@ Category (Kategoria)     → UI filter: determines which products appear in Prod
 
 Origin (Pochodzenie)     → UI filter: declutters Product dropdown by origin.
                                "Krajowe" shows domestic products, "Importowane" shows imported.
-                               Each combination is a distinct product_id (e.g., "Truskawki krajowe"
+                               Each combination is a distinct product (e.g., "Truskawki krajowe"
                                ≠ "Truskawki importowane"). No Arrow filtering needed.
 
 Product (Produkt)        → File-level filter: determines which monthly files to load.
                                With monthly partitioning, product is built into the file name.
                                No client-side filtering needed.
 
-Markets (Rynki Hurtowe)  → Arrow filter: WHERE place_id IN [selected market IDs]
+Markets (Rynki Hurtowe)  → Arrow filter: WHERE place IN selectedMarkets
                                Reduces dataset from ~40-60 rows/month to ~16-24 rows/month
                                (4 markets × ~4 weeks × 2 origins ≈ 32 rows).
+                               Heatmap re-aggregates on market toggle (client-side).
 
 Date (Punkt Odniesienia) → Arrow filter: WHERE date = selected_date
                                Snapshot only. Reduces to ~(4 markets × 1 origin) = 4 rows.
 ```
 
-**Effective row counts (1 product, 4 markets, 1 month):**
+**Effective row counts (1 product, 4 selected markets, 1 month):**
 
 | Filter Stage              | Approximate Rows |
 |---------------------------|------------------|
-| Raw monthly file          | ~40-60           |
-| After market filter       | ~16-24           |
+| Raw monthly file          | ~80-120          |
+| After market filter       | ~30-45           |
 | After date filter (snap)  | ~4-8             |
 
 **For full-year context (1 product, 4 markets, 12 months):**
-~192-288 rows across 12 monthly files
+~360-540 rows across 12 monthly files
 
 ---
 
@@ -110,8 +106,7 @@ Date (Punkt Odniesienia) → Arrow filter: WHERE date = selected_date
 **File loading sequence (with monthly partitioning):**
 ```
 1. manifest.json                              → 1 KB    (know which months/products exist)
-2. lookups.arrow                              → 50 KB   (decode product_id, place_id to names)
-3. prices_{YYYY}_{MM}_{product}.arrow         → ~2 KB each
+2. prices_{YYYY}_{MM}_{product}.arrow         → ~2 KB each
    For Jan 15, 2025, ±7 weeks, 3-year context:
    - prices_2025_01_strawberries.arrow        (current month)
    - prices_2025_02_strawberries.arrow        (next month for +7 weeks)
@@ -119,13 +114,13 @@ Date (Punkt Odniesienia) → Arrow filter: WHERE date = selected_date
    - prices_2024_01_strawberries.arrow        (year-1 same month)
    - prices_2023_12_strawberries.arrow        (year-2 Dec)
    - prices_2023_01_strawberries.arrow        (year-2 same month)
-   TOTAL: ~12 KB raw + 51 KB lookup = ~63 KB
+   TOTAL: ~12 KB
 ```
 
 **Filter + compute pipeline:**
 ```
 Monthly files for selected product
-  → Filter: place_id IN selectedMarkets
+  → Filter: place IN selectedMarkets
   → Split into:
       ├── [KPIs] Filter: date = selectedDate
       │     → Aggregate across markets: MIN(price_min), MAX(price_max)
@@ -154,39 +149,40 @@ The context chart shows ±N weeks around the selected date across 3 years. The w
 **Revised Snapshot file loading (monthly partitioning):**
 ```
 Initial load (snapshot view):
-  manifest.json + lookups.arrow + ~6-8 monthly files = ~63 KB
+  manifest.json + ~6-8 monthly files = ~13 KB
 
 When switching to heatmap (lazy):
-  + 7 weekly pre-agg files = +7 KB
-  Total for full session: ~70 KB
+  + all monthly files for product = +~168 KB
+  Total for full session: ~181 KB
 
-Advantage: loads only the months needed, not entire years
+Heatmap supports market toggling (client re-aggregates from raw data)
 ```
 
 ### 3.2 Heatmap View (Mapa Cieplna)
 
 **Data needed:** ALL available years for the selected product. The heatmap is a Week × Year grid — it must show every year side by side.
 
-**File loading sequence (with pre-aggregated weekly files):**
+**File loading sequence (monthly files, client-side aggregation):**
 ```
 1. manifest.json                              → 1 KB     (know available years)
-2. lookups.arrow                              → 50 KB    (decode IDs)
-3. weekly_prices_{YYYY}_{product}.arrow       → ~1 KB each
-   For strawberries, 7 years:
-   - weekly_prices_2019_strawberries.arrow
-   - weekly_prices_2020_strawberries.arrow
+2. prices_{YYYY}_{MM}_{product}.arrow         → ~2 KB each
+   For strawberries, 7 years × 12 months:
+   - prices_2019_01_strawberries.arrow through prices_2019_12_strawberries.arrow
    - ...
-   - weekly_prices_2025_strawberries.arrow
-   TOTAL: ~7 KB pre-agg + 51 KB lookup = ~58 KB
+   - prices_2025_01_strawberries.arrow through prices_2025_06_strawberries.arrow
+   TOTAL: ~84 files × ~2 KB = ~168 KB
 ```
 
-**Why pre-aggregated weekly files?** The heatmap only needs 5 values per week×year cell: cellVal, ribbonMin, ribbonMax, ribbonAvg. Pre-computing these in the ETL reduces the heatmap payload from ~168 KB (84 monthly raw files) to ~7 KB (7 weekly files).
+**Why client-side aggregation?** Market toggling requires re-computing heatmap cells from the selected subset of markets. Pre-aggregated weekly files bake in all markets and can't be filtered. Loading monthly files (~168 KB total) is fast enough, and the client aggregation is trivial (group by ISO week, compute mean/min/max).
 
 **Filter + compute pipeline:**
 ```
-weekly_prices_{YYYY}_{product}.arrow (for each year)
-  → Already filtered by product (built into file name)
-  → Client applies market filter if needed (pre-agg includes all markets)
+All monthly files for selected product
+  → Filter: place IN selectedMarkets (client-side)
+  → Group by (year, ISO_week):
+      → cellVal = mean of (price_min + price_max) / 2 across filtered rows
+      → ribbonMin = min(price_min) across filtered rows
+      → ribbonMax = max(price_max) across filtered rows
   → Compute global normalization:
       → globalCellMin = MIN(all cellVal)
       → globalCellMax = MAX(all cellVal)
@@ -198,17 +194,12 @@ weekly_prices_{YYYY}_{product}.arrow (for each year)
       └── Right marginal: year-level overallMin/Max → horizontal bands
 ```
 
-**Row count for heatmap (1 product, 4 markets, 7 years):**
+**Row count for heatmap (1 product, 7 years):**
 ```
-With pre-aggregated weekly files:
-  Per year: 53 weeks × 5 columns (week, cellVal, ribbonMin, ribbonMax, ribbonAvg) = 53 rows
-  7 years: 371 rows total
-  At 20 bytes/row ≈ ~7 KB (matches file size estimate)
-
-With raw monthly files (fallback):
-  Per year: ~480-720 rows (12 months × 40-60 rows/month)
-  7 years: ~3,360-5,040 rows
-  Client must GroupBy(week) to aggregate
+Monthly files: 7 years × ~480 rows/year = ~3,360 rows total
+After market filter (4 markets): ~1,344 rows
+Client groups by week: 7 years × 53 weeks = 371 cells
+Cost: trivial (<1ms on modern hardware)
 ```
 
 ---
@@ -221,10 +212,10 @@ With raw monthly files (fallback):
 |---|---|
 | **Snapshot needs ±N weeks across year boundaries** | January date with ±7 weeks requires Dec (prev year) + Jan–Feb (current year). Cannot partition purely by year. |
 | **Heatmap needs ALL years** | Week × Year grid requires every year's data side by side. |
-| **Data is low-volume** | ~50K rows/year, ~350K rows total for 7 years. ~200 KB raw per year. |
+| **Data is low-volume** | ~50K rows/year, ~350K rows total for 7 years. ~2 KB per monthly file. |
 | **Data is weekly updated** | ETL runs weekly. Pre-computation cost is negligible. |
 | **ETL is cheap** | Python + PyArrow on GitHub Actions. Can generate many file types without concern. |
-| **6 products, ~15 markets** | Product filtering reduces data ~6×. Market filtering reduces ~4× further. |
+| **60 products, ~11 markets** | Product filtering via file names. Market filtering reduces rows ~4×. |
 
 ### 4.2 The Year-Partitioning Problem
 
@@ -244,17 +235,17 @@ Instead of splitting by year, split by **product × month**. Each file contains 
 
 **Row count per file:**
 ```
-Per month, 1 product, 4 markets, 2 origins:
-  ~4 weeks × 4 markets × 2 origins = ~32 rows
-  × some weeks may have 2 observations ≈ ~40-60 rows
-  At 24 bytes/row (Date64 + 3×UInt16 + 2×Float32) ≈ ~1.2 KB raw
-  With Arrow IPC overhead ≈ ~1.5-2 KB per file
+Per month, 1 product, all markets, 2 origins:
+  ~4 weeks × ~11 markets × 2 origins = ~88 rows
+  × some weeks may have 2 observations ≈ ~80-120 rows
+  At ~16 bytes/row (Date64 + 3×dict_indices + 2×Float32) ≈ ~1.5 KB raw
+  With Arrow IPC overhead ≈ ~2 KB per file
 ```
 
 **Full inventory:**
 ```
-7 years × 12 months × 6 products = 504 files
-Each ~2 KB → total ~1 MB (same as 5 year-files, but with surgical access)
+~8 years × 12 months × ~60 products = ~5,760 files
+Each ~2 KB → total ~11 MB (surgical access to any month/product)
 ```
 
 **What each view loads:**
@@ -269,46 +260,49 @@ Previous year: prices_2024_12_strawberries.arrow  (~2 KB)
                prices_2023_11_strawberries.arrow  (~2 KB)  ← for year-2 context
                prices_2024_01_strawberries.arrow  (~2 KB)  ← for year-1 same-month context
                prices_2023_01_strawberries.arrow  (~2 KB)  ← for year-2 same-month context
-Total: ~16 KB + lookups (50 KB) + manifest (1 KB) = ~67 KB
+Total: ~16 KB + manifest (1 KB) = ~17 KB
 ```
 
 **Heatmap (strawberries, all years):**
 ```
 12 months × 7 years = 84 files × ~2 KB = ~168 KB
-+ lookups (50 KB) + manifest (1 KB) = ~219 KB
++ manifest (1 KB) = ~169 KB
 ```
 
-**Heatmap with pre-aggregated weekly cells:**
+**Heatmap with pre-aggregated weekly cells (NOT recommended — breaks market toggling):**
 ```
 7 years × 53 weekly rows × 20 bytes ≈ ~1 KB per year
 Total: 7 × 1 KB = ~7 KB
-+ lookups (50 KB) + manifest (1 KB) = ~58 KB
++ manifest (1 KB) = ~8 KB
 ```
 
 ### 4.4 Strategy Options
 
-#### Option 1: Monthly Partitioning Only (No Pre-aggregation)
+#### Option 1: Monthly Partitioning Only (Recommended)
 
 **ETL produces:** `prices_{YYYY}_{MM}_{product}.arrow` (504 files)
 
-| View | Files loaded | Total size |
-|---|---|---|
-| Snapshot (±7 weeks, 3 years) | ~8 monthly files | ~16 KB |
-| Heatmap (all years) | 84 monthly files | ~168 KB |
-| Product switch | re-filter in-memory | 0 KB |
+| View | Files loaded | Total size | Client computation |
+|---|---|---|---|
+| Snapshot (±7 weeks, 3 years) | ~8 monthly files | ~16 KB | KPIs, context chart, market table |
+| Heatmap (all years) | 84 monthly files | ~168 KB | GroupBy week, color normalization |
+| Market toggle (heatmap) | 0 (already loaded) | 0 KB | Re-filter + re-aggregate |
+| Product switch | re-fetch monthly files | ~16-168 KB | Full recompute |
 
 **Pros:**
 - Single file type, simple ETL
 - Snapshot is extremely small (~16 KB)
 - Handles year boundaries naturally
 - Full raw data available for any drill-down
+- Market toggling works (client re-aggregates from raw)
+- ~168 KB for heatmap is fast on modern hardware
 
 **Cons:**
 - Heatmap loads 84 small files (many HTTP requests, even with HTTP/2)
-- Client must compute weekly aggregates for heatmap (cheap but non-trivial)
+- Client must compute weekly aggregates for heatmap (trivial, <1ms)
 - 504 files to manage on CDN
 
-#### Option 2: Monthly Partitioning + Pre-aggregated Weekly (Recommended)
+#### Option 2: Monthly Partitioning + Pre-aggregated Weekly
 
 **ETL produces:**
 ```
@@ -352,9 +346,10 @@ Total: ~1.04 MB across 546 files
 - Graceful degradation: if weekly_prices missing, compute from monthly files
 
 **Cons:**
+- **Market toggling broken** — pre-agg bakes in all markets, can't re-filter
 - Two file types to maintain
 - 546 files total (but ETL generates them automatically)
-- Adding a new product requires generating 12 monthly + 1 weekly file per year
+- Adding a new product requires generating 12 monthly files per year
 
 #### Option 3: Monthly Partitioning + Pre-aggregated Snapshot KPIs
 
@@ -402,57 +397,62 @@ snapshot_kpi_{YYYY}_{MM}_{product}.arrow    # Pre-computed daily national aggreg
 |---|---|---|---|
 | **Snapshot load** | ~16 KB | ~16 KB | ~8 KB (KPIs) + ~16 KB (table) |
 | **Heatmap load** | ~168 KB | ~7 KB | ~7 KB |
+| **Market toggling** | ✅ works | ❌ broken | ❌ broken |
 | **Total files** | 504 | 546 | 588 |
 | **Total size** | ~1 MB | ~1.04 MB | ~1.08 MB |
 | **ETL complexity** | ★☆☆ simple | ★★☆ moderate | ★★★ complex |
-| **Client computation** | moderate | minimal | minimal |
+| **Client computation** | moderate (trivial) | minimal | minimal |
 | **Flexibility** | ★★★ max | ★★☆ good | ★★☆ good |
-| **Graceful degradation** | N/A | monthly fallback | monthly fallback |
 
-### 4.6 Recommendation: Option 2 (Monthly + Weekly Pre-agg)
+### 4.6 Recommendation: Option 1 (Monthly Only, Client-side Aggregation)
 
-**Why Option 2 over Option 1:**
-The heatmap needs all years. With monthly files, that's 84 HTTP requests for ~168 KB. With pre-aggregated weekly files, it's 7 requests for ~7 KB. The ETL cost is negligible (GroupBy on data that already exists). The client benefit is massive (near-instant heatmap render).
-
-**Why Option 2 over Option 3:**
-The snapshot KPIs are cheap to compute client-side from 8 monthly files (~16 rows after filtering). Pre-computing them saves ~5 KB of transfer but adds a third file type and ETL complexity. Not worth it for this data volume.
+**Why Option 1 over Option 2:**
+Market toggling is a core feature of the heatmap (mock6.html implements it). Pre-aggregated weekly files bake in all markets and can't be re-filtered. Loading all monthly files (~168 KB) is fast, and the client aggregation is trivial (<1ms). Option 1 preserves full interactivity.
 
 **Why monthly partitioning over yearly:**
 - Snapshot context chart needs months across year boundaries (Jan ±7 weeks → Dec prev year)
 - Yearly files load 200 KB when only ~17 KB is needed
 - Monthly files give surgical access to exactly the date range needed
 - 504 files sounds like many, but ETL generates them all automatically
-- Origin is part of product identity — "Truskawki krajowe" and "Truskawki importowane" are separate products with different product_ids
+- Origin is part of product identity — "Truskawki krajowe" and "Truskawki importowane" are separate products with different product names
+
+**Why dictionary-encoded strings over FK + lookups.arrow:**
+- Only 68 products, 11 places, 2 origins — small enough for inline dictionaries
+- Eliminates a separate file and ID-mapping complexity
+- Frontend reads strings directly from Arrow, no join needed
 
 **Implementation plan:**
-1. **ETL (Phase 2):** Generate monthly raw files + weekly pre-aggregated files
+1. **ETL (Phase 2):** Generate monthly files with dictionary-encoded columns
 2. **Frontend loading layer (Phase 3):**
    - `loadSnapshotView(product, date, windowWeeks)` → compute required months, fetch in parallel
-   - `loadHeatmapView(product)` → fetch 7 weekly pre-agg files in parallel
-   - Cache all loaded buffers in Svelte stores
+   - `loadHeatmapView(product)` → fetch all monthly files for product, aggregate client-side
+   - Cache all loaded buffers in Svelte stores + IndexedDB
 3. **Manifest structure:**
 ```json
 {
-  "years": [2019, 2020, 2021, 2022, 2023, 2024, 2025],
-  "products": ["strawberries_krajowe", "strawberries_importowane", "apples_krajowe", ...],
-  "months": {"2019": [1,2,3,...,12], "2020": [1,2,3,...,12], ...},
-  "lastUpdate": "2025-06-15"
+  "years": [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026],
+  "products": ["Truskawki krajowe", "Jabłka", ...],
+  "lastUpdate": "2026-06-18"
 }
 ```
 
-**Loading waterfall (Option 2):**
+**Loading waterfall:**
 ```
 Snapshot (first load):
   T+0ms     manifest.json (1 KB)
-  T+10ms    lookups.arrow (50 KB)
-  T+30ms    [parallel] 8 monthly files (16 KB)
-  T+50ms    ✅ Snapshot renders (67 KB total)
+  T+10ms    [parallel] 8 monthly files (16 KB)
+  T+30ms    ✅ Snapshot renders (17 KB total)
 
 Heatmap (first load):
   T+0ms     manifest.json (1 KB)           ← already cached
-  T+0ms     lookups.arrow (50 KB)          ← already cached
-  T+20ms    [parallel] 7 weekly files (7 KB)
-  T+40ms    ✅ Heatmap renders (58 KB total)
+  T+10ms    [parallel] 84 monthly files (168 KB)
+  T+50ms    Client groups by week, normalizes
+  T+60ms    ✅ Heatmap renders
+
+Market toggle (warm):
+  T+0ms     Re-filter loaded data (0 KB)
+  T+1ms     Re-aggregate by week
+  T+2ms     ✅ Heatmap re-renders
 ```
 
 ---
@@ -461,16 +461,13 @@ Heatmap (first load):
 
 ### 5.1 Immutability Insight
 
-Past data is immutable. Once a year closes (Jan 1 next year), all 12 monthly files and the weekly pre-agg file for that year will never change again. The only files that change are:
+Past data is immutable. Once a year closes (Jan 1 next year), all 12 monthly files for that year will never change again. The only files that change are:
 
 | File type | Mutability | Change frequency |
 |---|---|---|
 | `manifest.json` | Mutable | Weekly (new data added) |
-| `lookups.arrow` | Mutable | Rarely (new products/markets added) |
 | `prices_{YYYY}_{MM}_{product}.arrow` for current month | Mutable | Weekly (new observations appended) |
 | `prices_{YYYY}_{MM}_{product}.arrow` for past months | **Immutable** | Never |
-| `weekly_prices_{YYYY}_{product}.arrow` for past years | **Immutable** | Never |
-| `weekly_prices_{currentYear}_{product}.arrow` | Mutable | Weekly (new weeks added) |
 
 **Key: ~95% of files are immutable after their year closes.**
 
@@ -508,9 +505,8 @@ interface CachedArrow {
 }
 
 // Store names:
-// "arrows"       — monthly raw files + weekly pre-agg files
+// "arrows"       — monthly raw files
 // "manifest"     — latest manifest.json
-// "lookups"      — lookups.arrow
 ```
 
 ### 5.4 Cache-Control Headers (CDN)
@@ -521,17 +517,12 @@ prices_2019_*.arrow:   Cache-Control: public, max-age=31536000, immutable
 prices_2020_*.arrow:   Cache-Control: public, max-age=31536000, immutable
 ...
 prices_2024_*.arrow:   Cache-Control: public, max-age=31536000, immutable
-weekly_prices_2019_*.arrow: Cache-Control: public, max-age=31536000, immutable
-...
-weekly_prices_2024_*.arrow: Cache-Control: public, max-age=31536000, immutable
 
 # Current year — mutable (weekly updates)
 prices_2025_*.arrow:   Cache-Control: public, max-age=604800  # 1 week
-weekly_prices_2025_*.arrow: Cache-Control: public, max-age=604800
 
-# Manifest & lookups — mutable
+# Manifest — mutable
 manifest.json:         Cache-Control: no-cache
-lookups.arrow:         Cache-Control: public, max-age=86400  # 1 day
 ```
 
 ### 5.5 Fetch Strategy
@@ -579,20 +570,24 @@ async function fetchArrow(key: string, immutable: boolean): Promise<ArrayBuffer>
 ```
 First visit (cold cache):
   T+0ms     manifest.json (1 KB)              ← network
-  T+10ms    lookups.arrow (50 KB)              ← network
-  T+30ms    [parallel] 8 monthly files (16 KB) ← network
-  T+50ms    ✅ Snapshot renders (67 KB total)
-  T+50ms    Write all to IndexedDB
+  T+10ms    [parallel] 8 monthly files (16 KB) ← network
+  T+30ms    ✅ Snapshot renders (17 KB total)
+  T+30ms    Write all to IndexedDB
 
 Subsequent visit (warm cache):
   T+0ms     manifest.json (1 KB)              ← network (no-cache)
-  T+5ms     lookups.arrow (50 KB)             ← IndexedDB
   T+5ms     [parallel] 8 monthly files (16 KB)← IndexedDB
-  T+10ms    ✅ Snapshot renders (67 KB total)
+  T+10ms    ✅ Snapshot renders (17 KB total)
 
 Heatmap (warm cache):
-  T+0ms     [parallel] 7 weekly files (7 KB)  ← IndexedDB
-  T+5ms     ✅ Heatmap renders (58 KB total)
+  T+0ms     [parallel] 84 monthly files (168 KB) ← IndexedDB
+  T+5ms     Client aggregates by week
+  T+10ms    ✅ Heatmap renders
+
+Market toggle (warm):
+  T+0ms     Re-filter loaded data (0 KB)
+  T+1ms     Re-aggregate by week
+  T+2ms     ✅ Heatmap re-renders
 
 Current month update scenario:
   T+0ms     manifest.json                     ← network (checks for new data)
@@ -606,11 +601,9 @@ Current month update scenario:
 ```
 Full dataset (7 years × 6 products):
   Monthly raw:    504 files × ~2 KB = ~1 MB
-  Weekly pre-agg: 42 files × ~1 KB  = ~42 KB
-  Lookups:        1 file × ~50 KB   = ~50 KB
   Manifest:       1 file × ~1 KB    = ~1 KB
   ─────────────────────────────────────────
-  Total IndexedDB: ~1.1 MB
+  Total IndexedDB: ~1 MB
 
 This is tiny for IndexedDB (typical limit is 50% of disk space).
 ```
