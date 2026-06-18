@@ -429,7 +429,7 @@ The snapshot KPIs are cheap to compute client-side from 8 monthly files (~16 row
 2. **Frontend loading layer (Phase 3):**
    - `loadSnapshotView(product, date, windowWeeks)` → compute required months, fetch in parallel
    - `loadHeatmapView(product)` → fetch 7 weekly pre-agg files in parallel
-   - Cache all loaded buffers in React state
+   - Cache all loaded buffers in Svelte stores
 3. **Manifest structure:**
 ```json
 {
@@ -478,7 +478,7 @@ Past data is immutable. Once a year closes (Jan 1 next year), all 12 monthly fil
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  Layer 1: In-memory (React state)               │
+│  Layer 1: In-memory (Svelte store)              │
 │  - Currently viewed data                        │
 │  - Fastest access (0ms)                         │
 │  - Lost on page refresh                         │

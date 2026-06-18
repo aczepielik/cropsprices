@@ -208,40 +208,55 @@ Run full ETL pipeline:
 
 ---
 
-## Phase 3: React TypeScript Frontend
+## Phase 3: Svelte TypeScript Frontend
 
-### Step 1: Initialize Vite + React project
+### Step 1: Initialize Vite + Svelte project
 
 ```
 frontend/
 ├── package.json
-├── tsconfig.json
+├── svelte.config.js
 ├── vite.config.ts
 ├── index.html
 ├── public/
 │   └── data/          # Arrow files copied here at build time
 ├── src/
-│   ├── main.tsx
-│   ├── App.tsx
-│   ├── components/
-│   ├── hooks/
+│   ├── main.ts
+│   ├── App.svelte
 │   ├── lib/
 │   │   ├── arrow-loader.ts    # fetch + decode Arrow files
 │   │   ├── cache.ts           # IndexedDB caching layer
 │   │   ├── filters.ts         # filter chain logic
+│   │   ├── helpers.ts         # heatColor, niceTicks, SVG path builders
 │   │   └── types.ts           # TypeScript types
+│   ├── components/
+│   │   ├── Sidebar.svelte           # tab nav + filter controls
+│   │   ├── FilterZone.svelte        # category, product, market checkboxes
+│   │   ├── SnapshotView.svelte      # LayerCake container for snapshot
+│   │   ├── HeatmapView.svelte       # LayerCake container for heatmap
+│   │   ├── HeatmapCells.svelte      # rect grid with color scale
+│   │   ├── ContextChart.svelte      # area polygons for 3-year context
+│   │   ├── PriceRibbons.svelte      # bottom marginal ribbon paths
+│   │   ├── YearBands.svelte         # right marginal year ranges
+│   │   ├── KpiCards.svelte          # HTML KPI cards
+│   │   └── MarketTable.svelte       # HTML market breakdown table
 │   └── styles/
 │       └── globals.css        # Tailwind
 └── tailwind.config.js
 ```
 
 **Dependencies:**
-- `vite`, `@vitejs/plugin-react`
-- `react`, `react-dom`
+- `vite`, `@sveltejs/vite-plugin-svelte`
+- `svelte` (v5)
+- `layercake` (v10) — headless graphics framework for scale management
 - `apache-arrow` (Apache Arrow JS)
-- `arquero` (optional, for data manipulation)
-- `recharts` (charts)
+- `d3-scale` — re-exported by LayerCake but useful directly for custom scales
 - `tailwindcss`, `postcss`, `autoprefixer`
+
+**Why LayerCake over Recharts / raw SVG:**
+- Recharts is React-only and adds ~150 KB. The heatmap and context chart are custom SVG — Recharts can't render them.
+- Raw SVG (mock6.html style) works but requires manual scale management, resize handling, and `niceTicks()` boilerplate. LayerCake eliminates all of that.
+- LayerCake (~15 KB) provides: automatic scale computation from data extents, responsive container sizing, shared coordinate spaces across SVG layers, and helper functions (`bin`, `stack`, `groupLonger`).
 
 ### Step 2: Data loading layer
 
@@ -274,7 +289,7 @@ Heatmap (warm cache):
 ### Step 3: IndexedDB caching
 
 Per DataFlow.md §5:
-- In-memory cache (React state) for currently viewed data
+- In-memory cache (Svelte store) for currently viewed data
 - IndexedDB for all loaded Arrow buffers (~1.1 MB max)
 - HTTP cache headers for immutable past data (max-age=31536000)
 - ETag validation for mutable current-year data
