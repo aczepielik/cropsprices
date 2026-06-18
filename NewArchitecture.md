@@ -6,6 +6,11 @@ This document describes the new architecture of the crops prices tracking applic
 
 ## 1. Overview
 
+> ⚠️ **Superseded by DataFlow.md for data strategy and PLAN.md Phase 3 for frontend stack.**
+> This document's data partitioning (year-based) and frontend stack (React + Recharts) are outdated.
+> DataFlow.md §4.6 recommends monthly + weekly pre-agg partitioning (Option 2).
+> PLAN.md Phase 3 specifies Svelte + LayerCake instead of React + Recharts.
+
 The application follows a **Partitioned Columnar Store** pattern. Data is processed in a scheduled CI/CD pipeline and served as immutable Apache Arrow chunks. The frontend fetches only the necessary data (e.g., the current year) for the initial render, lazy-loading historical chunks as needed.
 
 ```mermaid
@@ -21,8 +26,8 @@ graph TD
     end
 
     %% Build & Deploy
-    ArrowFiles & Manifest -->|Copy to public/data/| ReactBuild[Vite React Build]
-    ReactBuild -->|Compile Static Assets| StaticAssets[Static Site Assets]
+    ArrowFiles & Manifest -->|Copy to public/data/| SvelteBuild[Vite Svelte Build]
+    SvelteBuild -->|Compile Static Assets| StaticAssets[Static Site Assets]
 
     %% Serving Layer
     subgraph Hosting ["Static Serving Layer"]
@@ -34,16 +39,16 @@ graph TD
         Browser[User Web Browser] -->|8. Load App| CDN
         Browser -->|9. Fetch Manifest & Current Year| CDN
         Browser -->|10. Zero-copy Read| ArrowJS[Apache Arrow JS]
-        ArrowJS -->|11. Query & Merge| Arquero[Arquero Fluent API]
-        Arquero -->|Fast local rendering| ReactUI[React Frontend UI]
-        ReactUI -->|Lazy-load history on demand| CDN
+        ArrowJS -->|11. Query & Merge| LayerCake[LayerCake + Svelte]
+        LayerCake -->|Fast local rendering| SvelteUI[Svelte Frontend UI]
+        SvelteUI -->|Lazy-load history on demand| CDN
     end
 
     classDef actions fill:#24292e,stroke:#333,stroke-width:2px,color:#fff;
     classDef client fill:#FF9900,stroke:#333,stroke-width:2px,color:#fff;
     classDef static fill:#4285F4,stroke:#333,stroke-width:2px,color:#fff;
     class ETL,Python,DBCheck,DBBuilder actions;
-    class Client,ArrowJS,Arquero,ReactUI client;
+    class Client,ArrowJS,LayerCake,SvelteUI client;
     class Hosting,CDN static;
 ```
 
@@ -52,12 +57,14 @@ graph TD
 ## 2. Technology Stack
 
 ### Frontend & Client-side Execution
-*   **Vite + React (TypeScript):** Modern, type-safe single-page application framework.
+*   **Vite + Svelte (TypeScript):** Lightweight reactive framework, ~3 KB runtime.
+*   **LayerCake (v10):** Headless graphics framework for scale management and responsive chart layouts.
 *   **Tailwind CSS (v3):** Utility-first CSS framework for clean, responsive styling.
-*   **Recharts:** Interactive, SVG-based charting library.
 *   **Apache Arrow (JS):** Reads IPC files (Feather V2) directly from binary buffers.
-*   **Arquero (only if necessary):** A "dplyr-like" library for high-performance data manipulation. It handles the merging of yearly Arrow chunks and filtering for the UI.
-*   **IndexedDB (optional):** Used to cache historical `.arrow` files locally for near-instant subsequent loads.
+*   **IndexedDB:** Used to cache historical `.arrow` files locally for near-instant subsequent loads.
+
+> ⚠️ **Superseded by DataFlow.md §4 for partitioning strategy (monthly + weekly pre-agg, not yearly).**
+> **Superseded by PLAN.md Phase 3 for frontend stack (Svelte + LayerCake, not React + Recharts).**
 
 ### ETL & Data Hydration
 *   **Python 3.12:** Scrapes and processes market bulletins.
@@ -71,6 +78,11 @@ graph TD
 ---
 
 ## 3. Data Strategy (Partitioned Columnar)
+
+> ⚠️ **Superseded by DataFlow.md §4.** This section describes year-based partitioning (`prices_YYYY.arrow`).
+> DataFlow.md §4.6 recommends **monthly + weekly pre-agg partitioning** (Option 2):
+> `prices_{YYYY}_{MM}_{product}.arrow` + `weekly_prices_{YYYY}_{product}.arrow`.
+> See DataFlow.md §4.2 for why year partitioning is the wrong granularity.
 
 To maximize performance and minimize initial download size, data is split into manageable chunks.
 
@@ -121,9 +133,10 @@ The app prioritizes **Time to Interactive (TTI)**:
 *   Implement incremental scraping from `api.dane.gov.pl`.
 *   Generate the initial set of yearly `.arrow` chunks and `manifest.json`.
 
-### Phase 3: React TypeScript Frontend Initialization
-*   Initialize Vite + React project.
-*   Implement the Arrow/Arquero data loading layer with support for lazy-loading historical chunks.
+### Phase 3: Svelte TypeScript Frontend Initialization
+*   Initialize Vite + Svelte project.
+*   Implement the Arrow loading layer with support for lazy-loading historical chunks.
+*   Use LayerCake for chart coordinate spaces (heatmap, context chart).
 
 ### Phase 4: UI Implementation & CI/CD Setup
 *   Build the dashboard and interactive charts.

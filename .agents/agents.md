@@ -22,14 +22,14 @@
     - Update scraper for incremental `api.dane.gov.pl` fetches using manifest.json
     - Generate `manifest.json`, `lookups.arrow`, and initial `.arrow` chunks into `public/data/`
 
-### Phase 3 — React TypeScript Frontend
-- **Stack:** Vite + React + TypeScript, Tailwind CSS, Recharts, Apache Arrow JS, Arquero
+### Phase 3 — Svelte TypeScript Frontend
+- **Stack:** Vite + Svelte + TypeScript, Tailwind CSS, LayerCake, Apache Arrow JS
 - **Data loading:** Snapshot (~8 monthly files, ~63KB) + Heatmap (~7 weekly pre-agg files, ~58KB)
 - **Caching:** IndexedDB with immutability awareness (DataFlow.md §5)
 - **Next Steps:**
-    - Initialize Vite + React project
-    - Implement Arrow/Arquero data loading layer with lazy-loading
-    - Build snapshot and heatmap views from `mocks/mock6.html`
+    - Initialize Vite + Svelte project
+    - Implement Arrow data loading layer with lazy-loading
+    - Build snapshot and heatmap views from `mocks/mock6.html` using LayerCake
 
 ### Phase 4 — UI Implementation & CI/CD
 - **Hosting:** GitHub Pages or Cloudflare Pages (free static CDN)
