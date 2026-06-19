@@ -7,6 +7,7 @@
 // easy to understand, and impossible to break accidentally.
 
 import type { PriceRecord, Filters, Product, Manifest } from './types';
+import { isoWeekOf } from './helpers';
 
 /**
  * Keep only records from selected marketplaces.
@@ -29,6 +30,32 @@ export function filterByMarkets(records: PriceRecord[], markets: Set<string>): P
  */
 export function filterByDate(records: PriceRecord[], date: string): PriceRecord[] {
   return records.filter(r => r.date.toISOString().slice(0, 10) === date);
+}
+
+/**
+ * Keep only records whose date falls within the given ISO week.
+ * Multiple dates in the same week (e.g. Mon from market A, Wed from market B)
+ * are all included — that's the whole point of weekly analysis.
+ */
+export function filterByWeek(records: PriceRecord[], isoYear: number, week: number): PriceRecord[] {
+  return records.filter(r => {
+    const { year, week: w } = isoWeekOf(r.date);
+    return year === isoYear && w === week;
+  });
+}
+
+/**
+ * Collect all distinct ISO weeks present in the records, sorted chronologically.
+ * Returns an array of { year, week } objects.
+ */
+export function allWeeks(records: PriceRecord[]): { year: number; week: number }[] {
+  const seen = new Map<string, { year: number; week: number }>();
+  for (const r of records) {
+    const { year, week } = isoWeekOf(r.date);
+    const key = `${year}-W${week}`;
+    if (!seen.has(key)) seen.set(key, { year, week });
+  }
+  return [...seen.values()].sort((a, b) => a.year - b.year || a.week - b.week);
 }
 
 /**
