@@ -14,13 +14,15 @@
 
 <script lang="ts">
   import type { PriceRecord, SnapshotKpis, MarketRow } from '../lib/types';
-  import { filterByWeek, allWeeks, buildWeekSpreadMap } from '../lib/filters';
+  import type { WeekRanges } from '../lib/arrow-loader';
+  import { filterByWeek, allWeeks } from '../lib/filters';
   import { formatPrice, wednesdayOfWeek, weekKey, niceTicks, mergeEnvelope, sortMarketRows, computeKpis } from '../lib/helpers';
 
-  let { records, selectedDate = $bindable(), markets }: {
+  let { records, selectedDate = $bindable(), markets, weekRanges = null }: {
     records: PriceRecord[];
     selectedDate: string;
     markets: Set<string>;
+    weekRanges?: WeekRanges | null;
   } = $props();
 
   // All weeks from ALL records (unfiltered by market), sorted chronologically
@@ -154,8 +156,48 @@
 
   let contextWindow = $state(3);
 
-  // Precomputed market-filtered spread for every (year, week) — O(n) once, O(1) per lookup
-  let weekSpreadMap = $derived(buildWeekSpreadMap(records, markets));
+  // Merge pre-aggregated week ranges from loaded markets into a single flat map.
+  // If weekRanges is null (fallback), derive from raw records.
+  function getWeekSpreadMap(): Map<string, { min: number; max: number }> {
+    if (weekRanges) {
+      const map = new Map<string, { min: number; max: number }>();
+      for (const [market, years] of Object.entries(weekRanges)) {
+        if (markets.size > 0 && !markets.has(market)) continue;
+        for (const [year, weeks] of Object.entries(years)) {
+          for (const [week, range] of Object.entries(weeks)) {
+            const key = `${year}-${week}`;
+            const existing = map.get(key);
+            if (existing) {
+              if (range.min < existing.min) existing.min = range.min;
+              if (range.max > existing.max) existing.max = range.max;
+            } else {
+              map.set(key, { min: range.min, max: range.max });
+            }
+          }
+        }
+      }
+      return map;
+    }
+    // Fallback: build from raw records (slow path, shouldn't happen in normal flow)
+    const map = new Map<string, { min: number; max: number }>();
+    for (const r of records) {
+      if (markets.size > 0 && !markets.has(r.place)) continue;
+      const d = r.date;
+      const yearStart = new Date(d.getFullYear(), 0, 1);
+      const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + d.getDay() + 1) / 7);
+      const key = `${d.getFullYear()}-${weekNum}`;
+      const existing = map.get(key);
+      if (existing) {
+        if (r.price_min < existing.min) existing.min = r.price_min;
+        if (r.price_max > existing.max) existing.max = r.price_max;
+      } else {
+        map.set(key, { min: r.price_min, max: r.price_max });
+      }
+    }
+    return map;
+  }
+
+  let weekSpreadMap = $derived(getWeekSpreadMap());
 
   function getWeekSpread(yr: number, wk: number): { min: number; max: number } | null {
     return weekSpreadMap.get(`${yr}-${wk}`) ?? null;
