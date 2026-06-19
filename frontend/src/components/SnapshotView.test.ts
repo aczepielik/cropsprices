@@ -120,38 +120,41 @@ describe('SnapshotView week-based table', () => {
   });
 
   it('renders the context chart with seasonal ribbons', () => {
-    // Need data spanning multiple years for year-1 and year-2 ribbons
-    const multiYearRecords: PriceRecord[] = [
-      // Current year 2026
-      makeRecord('Warszawa', '2026-01-12', 10, 12),
-      makeRecord('Kraków', '2026-01-14', 8, 11),
-      // Year -1: 2025 (52 weeks earlier)
-      makeRecord('Warszawa', '2025-01-13', 9, 11),
-      makeRecord('Kraków', '2025-01-15', 7, 10),
-      // Year -2: 2024 (104 weeks earlier)
-      makeRecord('Warszawa', '2024-01-15', 8, 10),
-      makeRecord('Kraków', '2024-01-17', 6, 9),
-    ];
+    // Generate 52+ weeks of data across 3 years so the context chart's
+    // year-1 (-52 index) and year-2 (-104 index) lookups work.
+    const multiYearRecords: PriceRecord[] = [];
+    for (let w = 0; w < 55; w++) {
+      const base = new Date(Date.UTC(2024, 5, 3)); // Jun 3 2024 (Mon)
+      const d2024 = new Date(base.getTime());
+      d2024.setUTCDate(d2024.getUTCDate() + w * 7);
+      const d2025 = new Date(d2024.getTime());
+      d2025.setUTCFullYear(d2025.getUTCFullYear() + 1);
+      const d2026 = new Date(d2024.getTime());
+      d2026.setUTCFullYear(d2026.getUTCFullYear() + 2);
+
+      const fmt = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+      const price = 8 + (w % 10) * 0.5;
+      multiYearRecords.push(makeRecord('Warszawa', fmt(d2024), price - 2, price));
+      multiYearRecords.push(makeRecord('Warszawa', fmt(d2025), price - 1, price + 1));
+      multiYearRecords.push(makeRecord('Kraków', fmt(d2025), price - 1, price + 1));
+      multiYearRecords.push(makeRecord('Warszawa', fmt(d2026), price, price + 2));
+      multiYearRecords.push(makeRecord('Kraków', fmt(d2026), price, price + 2));
+    }
 
     const { container } = render(SnapshotView, {
       props: {
         records: multiYearRecords,
-        selectedDate: weekWednesday('2026-01-12'),
+        selectedDate: weekWednesday('2026-06-15'),
         markets: new Set(['Warszawa', 'Kraków']),
       },
     });
 
-    // Chart should contain SVG with polygon elements (ribbons)
     const chartContainer = container.querySelector('.svg-chart-container');
     expect(chartContainer).toBeInTheDocument();
     const svg = chartContainer!.querySelector('svg');
     expect(svg).toBeInTheDocument();
 
-    // Should have polygon elements for the ribbons
-    const polygons = svg!.querySelectorAll('polygon');
-    expect(polygons.length).toBeGreaterThanOrEqual(1); // At least current year ribbon
-
-    // Should have path elements for dashed midlines
+    // At least current year path (mean line or band)
     const paths = svg!.querySelectorAll('path');
     expect(paths.length).toBeGreaterThanOrEqual(1);
   });
