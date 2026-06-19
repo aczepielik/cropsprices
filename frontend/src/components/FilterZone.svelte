@@ -66,32 +66,24 @@
     onFilterChange();
   }
 
-  /**
-   * Toggle a single marketplace checkbox.
-   * Sets are mutated directly, then we create a new object reference
-   * to trigger Svelte's reactivity (mutating a Set alone won't trigger re-renders).
-   */
   function onMarketToggle(place: string) {
-    if (filters.markets.has(place)) {
-      filters.markets.delete(place);
+    const next = new Set(filters.markets);
+    if (next.has(place)) {
+      next.delete(place);
     } else {
-      filters.markets.add(place);
+      next.add(place);
     }
-    // Creating a new object reference triggers Svelte's reactivity.
-    // Without this, Svelte wouldn't know the Set changed.
-    filters = { ...filters };
+    filters = { ...filters, markets: next };
     onFilterChange();
   }
 
   function selectAllMarkets() {
-    manifest.places.forEach(p => filters.markets.add(p));
-    filters = { ...filters };
+    filters = { ...filters, markets: new Set(manifest.places) };
     onFilterChange();
   }
 
   function deselectAllMarkets() {
-    filters.markets.clear();
-    filters = { ...filters };
+    filters = { ...filters, markets: new Set<string>() };
     onFilterChange();
   }
 </script>
@@ -121,9 +113,9 @@
   <div class="filter-group">
     <span class="meta-label">Produkt</span>
     <select class="select" onchange={onProductChange}>
-      <option value="-1">Wybierz produkt...</option>
+      <option value="-1" selected={filters.product === null}>Wybierz produkt...</option>
       {#each categoryProducts as product, i}
-        <option value={i}>
+        <option value={i} selected={filters.product?.name === product.name && filters.product?.unit === product.unit}>
           {product.name} ({product.unit})
         </option>
       {/each}
@@ -131,7 +123,7 @@
   </div>
 
   <!-- Marketplace checkboxes with select/deselect all -->
-  <div class="filter-group">
+  <div class="filter-group filter-group-markets">
     <span class="meta-label">Rynki Hurtowe</span>
     <div class="market-actions">
       <button onclick={selectAllMarkets} class="action-btn">Zaznacz wszystkie</button>
@@ -157,6 +149,11 @@
     background-color: var(--surface); border: 1px solid var(--rule); padding: 20px;
   }
   .filter-group { margin-bottom: 20px; }
+  .filter-group-markets {
+    margin-top: 8px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+  }
   .meta-label {
     font-size: 11px; font-weight: 600; text-transform: uppercase;
     letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; display: block;
@@ -166,7 +163,6 @@
     border: 1px solid var(--rule); background-color: var(--surface);
     font-family: inherit; font-size: 13px; color: var(--ink); outline: none;
   }
-  /* Scrollable checkbox list for many marketplaces */
   .checkbox-group {
     display: flex; flex-direction: column; gap: 8px; margin-top: 6px;
     max-height: 200px; overflow-y: auto;
@@ -180,5 +176,13 @@
   .action-btn {
     font-size: 11px; padding: 2px 8px; border: 1px solid var(--rule);
     background: var(--soft); cursor: pointer;
+  }
+
+  @media (max-width: 768px) {
+    .filter-zone { padding: 14px; }
+    .filter-group { margin-bottom: 14px; }
+    .select { font-size: 14px; padding: 10px 12px; }
+    .checkbox-item { font-size: 14px; }
+    .checkbox-group { max-height: 160px; }
   }
 </style>
