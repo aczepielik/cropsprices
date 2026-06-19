@@ -128,3 +128,66 @@ export async function loadProductData(
   ]);
   return [...archive, ...current];  // Spread operator: combines both arrays
 }
+
+/**
+ * Pre-aggregated week ranges for a product, keyed by market → year → week.
+ *
+ * Structure: { "Bronisze": { "2024": { "3": {"min": 2.5, "max": 4.2}, ... }, ... }, ... }
+ *
+ * This is computed during ETL and shipped as a tiny JSON (~1-3KB per product).
+ * The frontend loads this instead of iterating 2500+ raw records at runtime.
+ */
+export type WeekRanges = Record<string, Record<string, Record<string, { min: number; max: number }>>>;
+
+let weekRangesCache = new Map<string, WeekRanges>();
+
+function weekRangesFilePath(name: string, unit: string, origin: string, year?: number): string {
+  const slug = productNameForFile(name);
+  const fileSlug = `${slug}-${unit}-${origin}.weeks.json`;
+  if (year) {
+    return `${DATA_BASE}/${year}/${fileSlug}`;
+  }
+  return `${DATA_BASE}/archive/${fileSlug}`;
+}
+
+/**
+ * Load pre-aggregated week ranges for a product (archive + current year).
+ *
+ * Merges both files into a single WeekRanges object. If a file is missing,
+ * that portion is simply skipped (some products don't have data for all years).
+ *
+ * Returns null if neither file exists (product has no data at all).
+ */
+export async function loadWeekRanges(
+  name: string,
+  unit: string,
+  origin: string,
+  currentYear: number,
+): Promise<WeekRanges | null> {
+  const cacheKey = `${name}-${unit}-${origin}`;
+  const cached = weekRangesCache.get(cacheKey);
+  if (cached) return cached;
+
+  const [archiveRes, currentRes] = await Promise.all([
+    fetch(weekRangesFilePath(name, unit, origin)).then(r => r.ok ? r.json() : null),
+    fetch(weekRangesFilePath(name, unit, origin, currentYear)).then(r => r.ok ? r.json() : null),
+  ]);
+
+  if (!archiveRes && !currentRes) return null;
+
+  // Merge: current year data overrides archive for overlapping weeks
+  const merged: WeekRanges = {};
+  for (const source of [archiveRes, currentRes]) {
+    if (!source) continue;
+    for (const [market, years] of Object.entries(source)) {
+      const m = (merged[market] ??= {});
+      for (const [year, weeks] of Object.entries(years)) {
+        const y = (m[year] ??= {});
+        Object.assign(y, weeks);
+      }
+    }
+  }
+
+  weekRangesCache.set(cacheKey, merged);
+  return merged;
+}

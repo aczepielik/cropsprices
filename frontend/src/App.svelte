@@ -20,7 +20,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Manifest, Product, PriceRecord, Filters, ViewMode } from './lib/types';
-  import { loadManifest, loadProductData } from './lib/arrow-loader';
+  import { loadManifest, loadProductData, loadWeekRanges } from './lib/arrow-loader';
+  import type { WeekRanges } from './lib/arrow-loader';
   import { isoWeekOf, wednesdayOfWeek } from './lib/helpers';
   import Sidebar from './components/Sidebar.svelte';
   import FilterZone from './components/FilterZone.svelte';
@@ -30,6 +31,7 @@
   let manifest = $state<Manifest | null>(null);
   let activeView = $state<ViewMode>('snapshot');
   let records = $state<PriceRecord[]>([]);
+  let weekRanges = $state<WeekRanges | null>(null);
   let loadState = $state<'idle' | 'loading' | 'loaded'>('idle');
   let sidebarOpen = $state(false);
   let sidebarCollapsed = $state(false);
@@ -91,17 +93,26 @@
     loadState = 'loading';
 
     const gen = ++loadGeneration;
-    const result = await loadProductData(
-      filters.product.name,
-      filters.product.unit,
-      filters.product.origin,
-      manifest.currentYear,
-    );
+    const [result, ranges] = await Promise.all([
+      loadProductData(
+        filters.product.name,
+        filters.product.unit,
+        filters.product.origin,
+        manifest.currentYear,
+      ),
+      loadWeekRanges(
+        filters.product.name,
+        filters.product.unit,
+        filters.product.origin,
+        manifest.currentYear,
+      ),
+    ]);
 
     // Discard stale response — only the latest generation matters
     if (gen !== loadGeneration) return;
 
     records = result;
+    weekRanges = ranges;
 
     if (records.length > 0) {
       let latestYear = 0;
@@ -166,7 +177,7 @@
 
     <div class="canvas">
       {#if activeView === 'snapshot'}
-        <SnapshotView {records} bind:selectedDate={filters.date} markets={filters.markets} />
+        <SnapshotView {records} bind:selectedDate={filters.date} markets={filters.markets} {weekRanges} />
       {:else}
         <HeatmapView {records} markets={filters.markets} />
       {/if}

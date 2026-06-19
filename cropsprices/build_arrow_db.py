@@ -99,6 +99,40 @@ def write_arrow_file(table: pa.Table, filepath: Path) -> None:
     filepath.write_bytes(sink.getvalue().to_pybytes())
 
 
+def compute_week_ranges(group: pd.DataFrame) -> dict:
+    """Pre-aggregate per-market, per-year, per-week min/max from raw records.
+
+    Returns a nested dict: {market: {year: {week: {"min": float, "max": float}}}}.
+    This is shipped alongside arrow files so the frontend can skip the O(n)
+    buildWeekSpreadMap pass at runtime.
+    """
+    result = {}
+    for _, row in group.iterrows():
+        place = row["Place"]
+        dt = row["Date"]
+        year = int(dt.year) if hasattr(dt, "year") else int(pd.Timestamp(dt).year)
+        # ISO week number
+        week = int(pd.Timestamp(dt).isocalendar()[1])
+        p_min = float(row["price_min"]) if pd.notna(row["price_min"]) else None
+        p_max = float(row["price_max"]) if pd.notna(row["price_max"]) else None
+        if p_min is None and p_max is None:
+            continue
+
+        market = result.setdefault(place, {})
+        yr = market.setdefault(str(year), {})
+        w = yr.setdefault(str(week), {"min": p_min or p_max, "max": p_max or p_min})
+        if p_min is not None and p_min < w["min"]:
+            w["min"] = p_min
+        if p_max is not None and p_max > w["max"]:
+            w["max"] = p_max
+    return result
+
+
+def write_weeks_file(week_ranges: dict, filepath: Path) -> None:
+    """Write pre-aggregated week ranges as compact JSON."""
+    filepath.write_text(json.dumps(week_ranges, separators=(",", ":")))
+
+
 def write_archive_files(df: pd.DataFrame, output_dir: Path, current_year: int) -> list[str]:
     past_df = df[df["year"] < current_year]
 
@@ -127,6 +161,11 @@ def write_archive_files(df: pd.DataFrame, output_dir: Path, current_year: int) -
         filepath = archive_dir / filename
         write_arrow_file(table, filepath)
         files_written.append(f"archive/{filename}")
+
+        # Write pre-aggregated week ranges alongside the arrow file
+        week_ranges = compute_week_ranges(group)
+        weeks_filepath = archive_dir / f"{product_key}-{unit_key}-{origin_key}.weeks.json"
+        write_weeks_file(week_ranges, weeks_filepath)
 
     logger.info(f"Wrote {len(files_written)} archive files (all past years concatenated)")
     return files_written
@@ -160,6 +199,11 @@ def write_current_year_files(df: pd.DataFrame, output_dir: Path, current_year: i
         filepath = year_dir / filename
         write_arrow_file(table, filepath)
         files_written.append(f"{current_year}/{filename}")
+
+        # Write pre-aggregated week ranges alongside the arrow file
+        week_ranges = compute_week_ranges(group)
+        weeks_filepath = year_dir / f"{product_key}-{unit_key}-{origin_key}.weeks.json"
+        write_weeks_file(week_ranges, weeks_filepath)
 
     logger.info(f"Wrote {len(files_written)} current-year files ({current_year})")
     return files_written
