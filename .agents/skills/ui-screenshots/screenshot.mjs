@@ -138,12 +138,12 @@ async function main() {
       // to avoid stale view state from a previous breakpoint
       const snapshotTab = page.locator('button', { hasText: 'Widok Aktualny' });
       if (isMobile) {
+        // Always open hamburger first to ensure sidebar is accessible
+        await hamburger.click({ force: true });
+        await page.waitForTimeout(500);
         if (await snapshotTab.isVisible()) {
           await snapshotTab.click({ force: true });
-        } else {
-          await hamburger.click();
           await page.waitForTimeout(300);
-          await snapshotTab.click({ force: true });
         }
       } else {
         if (await snapshotTab.isVisible()) {
@@ -158,7 +158,7 @@ async function main() {
         if (isMobile) {
           if (vi > 0) {
             // Open sidebar drawer to switch view
-            await hamburger.click();
+            await hamburger.click({ force: true });
             await page.waitForTimeout(300);
           }
           const tab = page.locator('button', { hasText: view.tabLabel });
