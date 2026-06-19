@@ -15,24 +15,30 @@
 <script lang="ts">
   import type { ViewMode } from '../lib/types';
 
-  // $props() receives data from the parent component.
-  // The destructuring pattern { activeView = $bindable(), ... } means:
-  //   - activeView is readable AND writable by parent (two-way binding)
-  //   - onFilterChange is readable only (one-way)
-  let { activeView = $bindable(), onFilterChange }: {
+  let { activeView = $bindable(), onFilterChange, closeSidebar }: {
     activeView: ViewMode;
     onFilterChange: () => void;
+    closeSidebar?: () => void;
   } = $props();
 
-  // Tab definitions — easy to add more views later
   const tabs: { id: ViewMode; label: string }[] = [
     { id: 'snapshot', label: 'Widok Aktualny (Snapshot)' },
     { id: 'heatmap', label: 'Mapa Cieplna (Heatmap)' },
   ];
+
+  function selectTab(id: ViewMode) {
+    activeView = id;
+    closeSidebar?.();
+  }
 </script>
 
 <aside class="sidebar">
-  <span class="meta-label">Tryb Analizy</span>
+  <div class="sidebar-top">
+    <span class="meta-label">Tryb Analizy</span>
+    {#if closeSidebar}
+      <button class="close-btn" onclick={closeSidebar} aria-label="Zamknij menu">&times;</button>
+    {/if}
+  </div>
   <nav class="workspace-nav">
     <!-- {#each} is Svelte's loop syntax — like .map() in JavaScript -->
     {#each tabs as tab}
@@ -40,7 +46,7 @@
       <button
         class="tab-item"
         class:active={activeView === tab.id}
-        onclick={() => { activeView = tab.id; }}
+        onclick={() => selectTab(tab.id)}
       >
         {tab.label}
       </button>
@@ -70,10 +76,33 @@
   }
   .tab-item:last-child { border-bottom: none; }
   .tab-item:hover { background-color: var(--soft); }
-
-  /* Active tab: green left border accent + bold text */
   .tab-item.active {
     background-color: var(--soft); border-left: 4px solid var(--green);
     font-weight: 600; padding-left: 12px;
+  }
+
+  .sidebar-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .close-btn {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+  }
+
+  @media (max-width: 768px) {
+    .meta-label { font-size: 10px; }
+    .tab-item { font-size: 14px; padding: 12px 14px; }
+    .workspace-nav { margin-bottom: 16px; }
+    .close-btn { display: block; }
+    .sidebar-top { margin-bottom: 12px; }
   }
 </style>
