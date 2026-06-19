@@ -66,10 +66,10 @@ export interface SnapshotKpis {
 // One row in the market breakdown table.
 export interface MarketRow {
   place: string;
-  priceMin: number;
-  priceMax: number;
-  spread: number;
-  deviation: number;  // How far this market's min is from the overall min
+  priceMin: number | null;
+  priceMax: number | null;
+  spread: number | null;
+  deviation: number | null;
 }
 
 // One cell in the heatmap grid (week × year).
