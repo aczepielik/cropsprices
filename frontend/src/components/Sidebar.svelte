@@ -1,29 +1,22 @@
 <!--
   Sidebar.svelte — Tab navigation between Snapshot and Heatmap views.
-
-  This is a simple component that shows two buttons. The active tab gets
-  a green left border (accent color) to match the mock6.html design.
-
-  PROPS (data passed from parent):
-  - activeView: which tab is currently selected
-  - onFilterChange: callback function to notify parent of changes
-
-  $bindable() means the parent can both read AND write activeView.
-  Without $bindable(), the parent could only read it.
+  Collapsible on desktop: compact mode shows only tabs, expanded mode shows tabs + label.
 -->
 
 <script lang="ts">
   import type { ViewMode } from '../lib/types';
 
-  let { activeView = $bindable(), onFilterChange, closeSidebar }: {
+  let { activeView = $bindable(), onFilterChange, closeSidebar, sidebarCollapsed = false, onToggleCollapse }: {
     activeView: ViewMode;
     onFilterChange: () => void;
     closeSidebar?: () => void;
+    sidebarCollapsed?: boolean;
+    onToggleCollapse?: () => void;
   } = $props();
 
-  const tabs: { id: ViewMode; label: string }[] = [
-    { id: 'snapshot', label: 'Widok Aktualny (Snapshot)' },
-    { id: 'heatmap', label: 'Mapa Cieplna (Heatmap)' },
+  const tabs: { id: ViewMode; label: string; short: string }[] = [
+    { id: 'snapshot', label: 'Widok Aktualny (Snapshot)', short: 'Snapshot' },
+    { id: 'heatmap', label: 'Mapa Cieplna (Heatmap)', short: 'Heatmap' },
   ];
 
   function selectTab(id: ViewMode) {
@@ -32,30 +25,41 @@
   }
 </script>
 
-<aside class="sidebar">
+  <aside class="sidebar" class:collapsed={sidebarCollapsed}>
   <div class="sidebar-top">
-    <span class="meta-label">Tryb Analizy</span>
-    {#if closeSidebar}
-      <button class="close-btn" onclick={closeSidebar} aria-label="Zamknij menu">&times;</button>
+    {#if sidebarCollapsed}
+      <span class="meta-label" style="writing-mode: vertical-lr; text-orientation: mixed; transform: rotate(180deg); font-size: 9px; letter-spacing: 0.12em;">FILTRY</span>
+    {:else}
+      <span class="meta-label">Tryb Analizy</span>
     {/if}
+    <div class="sidebar-actions">
+      {#if onToggleCollapse}
+        <button class="collapse-btn" onclick={onToggleCollapse} aria-label={sidebarCollapsed ? 'Rozwiń panel' : 'Zwiń panel'}>
+          {sidebarCollapsed ? '»' : '«'}
+        </button>
+      {/if}
+      {#if closeSidebar}
+        <button class="close-btn" onclick={closeSidebar} aria-label="Zamknij menu">&times;</button>
+      {/if}
+    </div>
   </div>
   <nav class="workspace-nav">
-    <!-- {#each} is Svelte's loop syntax — like .map() in JavaScript -->
     {#each tabs as tab}
-      <!-- class:active = Svelte directive: adds the "active" CSS class when the expression is true -->
       <button
         class="tab-item"
         class:active={activeView === tab.id}
         onclick={() => selectTab(tab.id)}
+        title={sidebarCollapsed ? tab.label : undefined}
       >
-        {tab.label}
+        {sidebarCollapsed ? tab.short : tab.label}
       </button>
     {/each}
   </nav>
 </aside>
 
 <style>
-  .sidebar { width: 300px; flex-shrink: 0; }
+  .sidebar { width: 300px; flex-shrink: 0; transition: width 0.2s ease; }
+  .sidebar.collapsed { width: 56px; }
 
   .meta-label {
     font-size: 11px; font-weight: 600; text-transform: uppercase;
@@ -73,6 +77,7 @@
     background: none; border: none; border-bottom: 1px solid var(--rule);
     color: var(--ink); font-weight: 500; font-size: 13px;
     cursor: pointer; transition: background-color 0.15s;
+    white-space: nowrap; overflow: hidden;
   }
   .tab-item:last-child { border-bottom: none; }
   .tab-item:hover { background-color: var(--soft); }
@@ -87,22 +92,27 @@
     justify-content: space-between;
     margin-bottom: 6px;
   }
-  .close-btn {
-    display: none;
-    background: none;
-    border: none;
-    font-size: 24px;
-    color: var(--muted);
-    cursor: pointer;
-    padding: 0 4px;
-    line-height: 1;
+  .sidebar-actions { display: flex; gap: 2px; align-items: center; }
+  .collapse-btn, .close-btn {
+    background: none; border: none; font-size: 16px;
+    color: var(--muted); cursor: pointer; padding: 2px 4px; line-height: 1;
+  }
+  .collapse-btn:hover, .close-btn:hover { color: var(--ink); }
+  .close-btn { display: none; }
+
+  .collapsed .tab-item {
+    padding: 12px 8px; text-align: center; font-size: 11px;
+  }
+  .collapsed .tab-item.active {
+    padding-left: 4px; border-left: 3px solid var(--green);
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: 1024px) {
     .meta-label { font-size: 10px; }
     .tab-item { font-size: 14px; padding: 12px 14px; }
     .workspace-nav { margin-bottom: 16px; }
     .close-btn { display: block; }
+    .collapse-btn { display: none; }
     .sidebar-top { margin-bottom: 12px; }
   }
 </style>
