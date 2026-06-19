@@ -16,18 +16,28 @@
  * Returns '#b0a89c' (gray) for missing data (NaN values).
  */
 export function heatColor(value: number, min: number, max: number): string {
-  if (isNaN(value)) return '#b0a89c';  // Missing data = gray
-  if (max === min) return '#d8d3ca';   // All same price = neutral color
+  if (isNaN(value)) return '#b0a89c';
+  if (max === min) return '#d8e1d7';
 
-  // Normalize: where does this value sit between min and max? (0 to 1)
   const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
 
-  // Linear interpolation between two RGB colors
-  // Low prices → rgb(216, 225, 215) (cool gray)
-  // High prices → rgb(236, 209, 198) (warm beige)
-  const r = Math.round(216 + (236 - 216) * t);
-  const g = Math.round(225 + (209 - 225) * t);
-  const b = Math.round(215 + (198 - 215) * t);
+  const stops = [
+    [245, 240, 232],
+    [215, 225, 200],
+    [165, 200, 155],
+    [100, 165, 110],
+    [55, 120, 70],
+    [30, 80, 48],
+    [15, 50, 28],
+  ];
+
+  const seg = t * (stops.length - 1);
+  const lo = Math.floor(seg);
+  const hi = Math.min(lo + 1, stops.length - 1);
+  const f = seg - lo;
+  const r = Math.round(stops[lo][0] + (stops[hi][0] - stops[lo][0]) * f);
+  const g = Math.round(stops[lo][1] + (stops[hi][1] - stops[lo][1]) * f);
+  const b = Math.round(stops[lo][2] + (stops[hi][2] - stops[lo][2]) * f);
   return `rgb(${r},${g},${b})`;
 }
 
@@ -109,4 +119,72 @@ export function getISOWeek(d: Date): number {
  */
 export function getYear(d: Date): number {
   return d.getFullYear();
+}
+
+/**
+ * Compute ISO 8601 week-numbering year and week for a given Date.
+ *
+ * ISO weeks start on Monday. Week 1 is the week containing January 4th.
+ * The week-numbering year can differ from the calendar year
+ * (e.g., 2025-12-31 is ISO week 1 of 2026).
+ */
+export function isoWeekOf(d: Date): { year: number; week: number } {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  // Set to nearest Thursday (current date + 4 - current day of week, making Sunday = 7)
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return { year: date.getUTCFullYear(), week: weekNo };
+}
+
+/**
+ * Return the Wednesday (YYYY-MM-DD) of the given ISO week.
+ * Wednesday is day 3 of an ISO week (Mon=1 … Sun=7), the "center" day.
+ */
+export function wednesdayOfWeek(isoYear: number, week: number): string {
+  // Jan 4 is always in ISO week 1 of its year.
+  // From Jan 4, week W is at offset (W - 1) * 7 days. Wednesday is day offset 2.
+  const jan4 = new Date(Date.UTC(isoYear, 0, 4));
+  const dayOfWeekJan4 = jan4.getUTCDay() || 7; // 1=Mon … 7=Sun
+  // Monday of week 1 is Jan 4 minus (dayOfWeekJan4 - 1) days
+  const mondayW1 = new Date(jan4.getTime() - (dayOfWeekJan4 - 1) * 86400000);
+  const wednesday = new Date(mondayW1.getTime() + (week - 1) * 7 * 86400000 + 2 * 86400000);
+  return wednesday.toISOString().slice(0, 10);
+}
+
+/**
+ * Return the Monday (YYYY-MM-DD) of the given ISO week.
+ */
+export function mondayOfWeek(isoYear: number, week: number): string {
+  const jan4 = new Date(Date.UTC(isoYear, 0, 4));
+  const dayOfWeekJan4 = jan4.getUTCDay() || 7;
+  const mondayW1 = new Date(jan4.getTime() - (dayOfWeekJan4 - 1) * 86400000);
+  const monday = new Date(mondayW1.getTime() + (week - 1) * 7 * 86400000);
+  return monday.toISOString().slice(0, 10);
+}
+
+/**
+ * Return the Sunday (YYYY-MM-DD) of the given ISO week.
+ */
+export function sundayOfWeek(isoYear: number, week: number): string {
+  const jan4 = new Date(Date.UTC(isoYear, 0, 4));
+  const dayOfWeekJan4 = jan4.getUTCDay() || 7;
+  const mondayW1 = new Date(jan4.getTime() - (dayOfWeekJan4 - 1) * 86400000);
+  const sunday = new Date(mondayW1.getTime() + (week - 1) * 7 * 86400000 + 6 * 86400000);
+  return sunday.toISOString().slice(0, 10);
+}
+
+/**
+ * Canonical week key for sorting and deduplication: "YYYY-Www".
+ */
+export function weekKey(isoYear: number, week: number): string {
+  return `${isoYear}-W${String(week).padStart(2, '0')}`;
+}
+
+/**
+ * Parse a week key "YYYY-Www" back into { year, week }.
+ */
+export function parseWeekKey(key: string): { year: number; week: number } {
+  const [y, w] = key.split('-W');
+  return { year: Number(y), week: Number(w) };
 }
