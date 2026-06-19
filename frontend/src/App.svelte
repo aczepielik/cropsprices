@@ -30,7 +30,7 @@
   let manifest = $state<Manifest | null>(null);
   let activeView = $state<ViewMode>('snapshot');
   let records = $state<PriceRecord[]>([]);
-  let loading = $state(true);
+  let loadState = $state<'idle' | 'loading' | 'loaded'>('idle');
   let sidebarOpen = $state(false);
   let sidebarCollapsed = $state(false);
   let loadGeneration = 0;
@@ -77,20 +77,18 @@
       filters.product = defaultProduct;
       await loadData();
     }
-    loading = false;
+    loadState = 'loaded';
   });
 
   async function loadData() {
     if (!manifest || !filters.product) {
       records = [];
       filters.date = '';
+      loadState = 'loaded';
       return;
     }
 
-    // Clear state synchronously so views never show stale data
-    records = [];
-    filters.date = '';
-    loading = true;
+    loadState = 'loading';
 
     const gen = ++loadGeneration;
     const result = await loadProductData(
@@ -119,13 +117,14 @@
     } else {
       filters.date = '';
     }
-    loading = false;
+    loadState = 'loaded';
   }
 
   async function onFilterChange() {
     if (!filters.product) {
       records = [];
       filters.date = '';
+      loadState = 'loaded';
       return;
     }
     await loadData();
@@ -171,14 +170,14 @@
       {:else}
         <HeatmapView {records} markets={filters.markets} />
       {/if}
-      {#if records.length === 0 && filters.product && !loading}
+      {#if records.length === 0 && filters.product && loadState === 'loaded'}
         <div class="empty-banner">
           Brak danych dla <strong>{filters.product.name} ({filters.product.unit})</strong> w archiwum. Wybierz inny produkt.
         </div>
       {/if}
     </div>
   </div>
-{:else if loading}
+{:else if loadState === 'loading' || loadState === 'idle'}
   <p style="text-align: center; color: var(--muted); padding: 48px;">Ładowanie danych...</p>
 {:else}
   <p style="text-align: center; color: var(--muted); padding: 48px;">Nie załadowano manifestu.</p>
