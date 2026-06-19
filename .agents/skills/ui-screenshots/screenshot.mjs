@@ -134,13 +134,29 @@ async function main() {
       const hamburger = page.locator('.hamburger');
       const isMobile = await hamburger.isVisible();
 
+      // Reset to snapshot view at the start of each breakpoint
+      // to avoid stale view state from a previous breakpoint
+      const snapshotTab = page.locator('button', { hasText: 'Widok Aktualny' });
+      if (isMobile) {
+        if (await snapshotTab.isVisible()) {
+          await snapshotTab.click({ force: true });
+        } else {
+          await hamburger.click();
+          await page.waitForTimeout(300);
+          await snapshotTab.click({ force: true });
+        }
+      } else {
+        if (await snapshotTab.isVisible()) {
+          await snapshotTab.click();
+        }
+      }
+      await page.waitForTimeout(500);
+
       for (let vi = 0; vi < VIEWS.length; vi++) {
         const view = VIEWS[vi];
 
         if (isMobile) {
-          if (vi === 0) {
-            // First view is the default (snapshot) — sidebar is already closed, view is showing
-          } else {
+          if (vi > 0) {
             // Open sidebar drawer to switch view
             await hamburger.click();
             await page.waitForTimeout(300);
