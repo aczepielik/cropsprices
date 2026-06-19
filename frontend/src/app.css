@@ -45,6 +45,47 @@ h2 { font-size: 16px; margin-bottom: 12px; }
   gap: 32px;
   max-width: 1520px;
   margin: 0 auto;
+  position: relative;
 }
 
 .canvas { flex-grow: 1; min-width: 0; }
+
+/* ── Mobile sidebar overlay ── */
+.sidebar-overlay {
+  display: none;
+}
+
+/* ── Responsive breakpoints ── */
+@media (max-width: 1024px) {
+  body { padding: 16px; }
+  h1 { font-size: 17px; margin-bottom: 16px; }
+  .layout-container { gap: 20px; }
+}
+
+@media (max-width: 768px) {
+  body { padding: 12px; }
+  h1 {
+    font-size: 15px;
+    padding-bottom: 6px;
+    margin-bottom: 12px;
+  }
+  h1 span { display: none; }
+  .layout-container {
+    flex-direction: column;
+    gap: 0;
+  }
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 90;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .sidebar-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
