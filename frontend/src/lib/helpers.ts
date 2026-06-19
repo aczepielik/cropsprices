@@ -4,14 +4,70 @@
 // touch the outside world. This makes them trivial to test and reuse.
 
 /**
+ * Merge two data series into a single envelope (min-of-min, max-of-max at each position).
+ * Null entries in either series are skipped.
+ * Used to combine year-1 and year-2 into one "past years" ribbon.
+ */
+export function mergeEnvelope(
+  a: ({ min: number; max: number } | null)[],
+  b: ({ min: number; max: number } | null)[]
+): ({ min: number; max: number } | null)[] {
+  const len = Math.max(a.length, b.length);
+  const result: ({ min: number; max: number } | null)[] = [];
+  for (let i = 0; i < len; i++) {
+    const pts = [a[i], b[i]].filter((p): p is { min: number; max: number } => !!p);
+    if (pts.length > 0) {
+      result.push({
+        min: Math.min(...pts.map(p => p.min)),
+        max: Math.max(...pts.map(p => p.max)),
+      });
+    } else {
+      result.push(null);
+    }
+  }
+  return result;
+}
+
+/**
+ * Sort market rows so markets with data appear first, then alphabetically.
+ * Pure function — extracts the sort comparator from SnapshotView's marketRows derived.
+ */
+export function sortMarketRows(rows: { place: string; priceMin: number | null }[]): void {
+  rows.sort((a, b) => {
+    if (a.priceMin !== null && b.priceMin === null) return -1;
+    if (a.priceMin === null && b.priceMin !== null) return 1;
+    return a.place.localeCompare(b.place);
+  });
+}
+
+/**
+ * Compute KPI summary from a list of price records for a single week.
+ * Returns price range string, spread string, and raw values.
+ */
+export function computeKpis(records: { price_min: number; price_max: number }[]): {
+  priceRange: string;
+  spread: string;
+  overallMin: number;
+  overallMax: number;
+} | null {
+  if (records.length === 0) return null;
+  const overallMin = Math.min(...records.map(r => r.price_min));
+  const overallMax = Math.max(...records.map(r => r.price_max));
+  const spread = overallMax - overallMin;
+  return {
+    priceRange: `${overallMin.toFixed(2)} – ${overallMax.toFixed(2)} zł`,
+    spread: `${spread.toFixed(2)} zł`,
+    overallMin,
+    overallMax,
+  };
+}
+
+/**
  * Convert a price value to a color for the heatmap.
  *
- * Uses linear interpolation between two colors:
- *   - Cool gray (#d8d3ca) for low prices
- *   - Warm beige (#ece1c8) for high prices
- *
- * The 't' variable is a value between 0 and 1 representing where the price
- * falls between the global min and max. This is called "normalization."
+ * Uses linear interpolation between colour stops:
+ *   - Light sage green for low prices (distinct from blank/pale cells)
+ *   - Deep forest green for high prices
  *
  * Returns '#b0a89c' (gray) for missing data (NaN values).
  */
@@ -22,8 +78,8 @@ export function heatColor(value: number, min: number, max: number): string {
   const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
 
   const stops = [
-    [245, 240, 232],
-    [215, 225, 200],
+    [170, 195, 155],
+    [190, 210, 170],
     [165, 200, 155],
     [100, 165, 110],
     [55, 120, 70],
