@@ -32,6 +32,7 @@
   let records = $state<PriceRecord[]>([]);
   let loading = $state(true);
   let sidebarOpen = $state(false);
+  let sidebarCollapsed = $state(false);
   let loadGeneration = 0;
 
   let filters = $state<Filters>({
@@ -51,15 +52,25 @@
     sidebarOpen = false;
   }
 
+  function toggleSidebarCollapse() {
+    sidebarCollapsed = !sidebarCollapsed;
+  }
+
   onMount(async () => {
     manifest = await loadManifest();
 
-    if (manifest.places.length > 0) {
+    // Default to the 4 markets with the best data coverage across products
+    const bestMarkets = ['Bronisze', 'Kalisz', 'Poznań', 'Łódź'];
+    const defaultMarkets = manifest.places.filter(p => bestMarkets.includes(p));
+    if (defaultMarkets.length > 0) {
+      filters.markets = new Set(defaultMarkets);
+    } else if (manifest.places.length > 0) {
       filters.markets = new Set(manifest.places.slice(0, 4));
     }
 
+    // Default to the owoce/KRAJOWE product with the best recent data coverage
     const defaultProduct = manifest.products.find(
-      p => p.name === 'Truskawki' && p.unit === 'kg' && p.origin === 'KRAJOWE'
+      p => p.name === 'Gruszki' && p.unit === 'kg' && p.origin === 'KRAJOWE'
     ) ?? manifest.products[0];
 
     if (defaultProduct) {
@@ -123,7 +134,16 @@
 
 <!-- Header with mobile hamburger -->
 <div class="header-bar">
-  <h1>Notowania Rolne <span class="header-sub">| BIULETYN RYNKOWY</span></h1>
+  <div class="header-text">
+    <h1>Notowania Rolne <span class="header-sub">| BIULETYN RYNKOWY</span></h1>
+    {#if filters.product}
+      <div class="mobile-breadcrumb">
+        {filters.category === 'owoce' ? 'Owoce' : 'Warzywa'} ›
+        {filters.origin === 'KRAJOWE' ? 'Krajowe' : 'Importowane'} ›
+        {filters.product.name} ({filters.product.unit})
+      </div>
+    {/if}
+  </div>
   <button class="hamburger" onclick={toggleSidebar} aria-label="Menu">
     <span class="hamburger-line"></span>
     <span class="hamburger-line"></span>
@@ -138,9 +158,11 @@
   <div class="sidebar-overlay" class:open={sidebarOpen} onclick={closeSidebar}></div>
 
   <div class="layout-container">
-    <div class="sidebar-col" class:open={sidebarOpen}>
-      <Sidebar bind:activeView {onFilterChange} {closeSidebar} />
-      <FilterZone {manifest} bind:filters {onFilterChange} />
+    <div class="sidebar-col" class:open={sidebarOpen} class:collapsed={sidebarCollapsed}>
+      <Sidebar bind:activeView {onFilterChange} {closeSidebar} {sidebarCollapsed} onToggleCollapse={toggleSidebarCollapse} />
+      {#if !sidebarCollapsed}
+        <FilterZone {manifest} bind:filters {onFilterChange} />
+      {/if}
     </div>
 
     <div class="canvas">
@@ -148,6 +170,11 @@
         <SnapshotView {records} bind:selectedDate={filters.date} markets={filters.markets} />
       {:else}
         <HeatmapView {records} markets={filters.markets} />
+      {/if}
+      {#if records.length === 0 && filters.product && !loading}
+        <div class="empty-banner">
+          Brak danych dla <strong>{filters.product.name} ({filters.product.unit})</strong> w archiwum. Wybierz inny produkt.
+        </div>
       {/if}
     </div>
   </div>
@@ -166,6 +193,13 @@
     margin-bottom: 24px;
   }
   .header-bar h1 { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+
+  .mobile-breadcrumb {
+    display: none;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
 
   .hamburger {
     display: none;
@@ -195,11 +229,25 @@
     display: flex;
     flex-direction: column;
     gap: 0;
+    transition: width 0.2s ease;
+  }
+  .sidebar-col.collapsed {
+    width: 56px;
   }
 
-  @media (max-width: 768px) {
+  .empty-banner {
+    background: var(--soft);
+    border: 1px solid var(--rule);
+    padding: 16px 20px;
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 16px;
+  }
+
+  @media (max-width: 1024px) {
     .header-bar { margin-bottom: 12px; }
     .hamburger { display: flex; }
+    .mobile-breadcrumb { display: block; }
     .sidebar-col {
       position: fixed;
       top: 0;
