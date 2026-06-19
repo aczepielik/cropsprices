@@ -149,3 +149,31 @@ export function aggregateByWeekYear(records: PriceRecord[]): Map<string, { value
   }
   return result;
 }
+
+/**
+ * Precompute a lookup map of market-filtered min/max spread for every (year, week).
+ *
+ * This replaces the per-week filterByWeek() calls in SnapshotView with a single
+ * O(n) pass over records, making chart rendering O(1) per lookup instead of O(n).
+ *
+ * Returns a Map keyed by "YYYY-WW" → { min, max }.
+ */
+export function buildWeekSpreadMap(
+  records: PriceRecord[],
+  markets: Set<string>
+): Map<string, { min: number; max: number }> {
+  const map = new Map<string, { min: number; max: number }>();
+  for (const r of records) {
+    if (markets.size > 0 && !markets.has(r.place)) continue;
+    const { year, week } = isoWeekOf(r.date);
+    const key = `${year}-${week}`;
+    const existing = map.get(key);
+    if (existing) {
+      if (r.price_min < existing.min) existing.min = r.price_min;
+      if (r.price_max > existing.max) existing.max = r.price_max;
+    } else {
+      map.set(key, { min: r.price_min, max: r.price_max });
+    }
+  }
+  return map;
+}

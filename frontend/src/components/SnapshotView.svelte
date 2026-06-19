@@ -14,8 +14,8 @@
 
 <script lang="ts">
   import type { PriceRecord, SnapshotKpis, MarketRow } from '../lib/types';
-  import { filterByWeek, allWeeks } from '../lib/filters';
-  import { formatPrice, wednesdayOfWeek, weekKey, parseWeekKey, niceTicks, mergeEnvelope, sortMarketRows, computeKpis } from '../lib/helpers';
+  import { filterByWeek, allWeeks, buildWeekSpreadMap } from '../lib/filters';
+  import { formatPrice, wednesdayOfWeek, weekKey, niceTicks, mergeEnvelope, sortMarketRows, computeKpis } from '../lib/helpers';
 
   let { records, selectedDate = $bindable(), markets }: {
     records: PriceRecord[];
@@ -154,15 +154,11 @@
 
   let contextWindow = $state(3);
 
-  // Helper: get market-filtered national spread { min, max } for a given week
+  // Precomputed market-filtered spread for every (year, week) — O(n) once, O(1) per lookup
+  let weekSpreadMap = $derived(buildWeekSpreadMap(records, markets));
+
   function getWeekSpread(yr: number, wk: number): { min: number; max: number } | null {
-    const recs = filterByWeek(records, yr, wk)
-      .filter(r => markets.size === 0 || markets.has(r.place));
-    if (recs.length === 0) return null;
-    return {
-      min: Math.min(...recs.map(r => r.price_min)),
-      max: Math.max(...recs.map(r => r.price_max)),
-    };
+    return weekSpreadMap.get(`${yr}-${wk}`) ?? null;
   }
 
   // Chart data: three series of { label, data[] } for current, year-1, year-2
