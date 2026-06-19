@@ -21,122 +21,202 @@
   import { onMount } from 'svelte';
   import type { Manifest, Product, PriceRecord, Filters, ViewMode } from './lib/types';
   import { loadManifest, loadProductData } from './lib/arrow-loader';
+  import { isoWeekOf, wednesdayOfWeek } from './lib/helpers';
   import Sidebar from './components/Sidebar.svelte';
   import FilterZone from './components/FilterZone.svelte';
   import SnapshotView from './components/SnapshotView.svelte';
   import HeatmapView from './components/HeatmapView.svelte';
 
-  // $state() makes these variables reactive — when they change, the UI updates.
-  let manifest = $state<Manifest | null>(null);  // null until loaded
-  let activeView = $state<ViewMode>('snapshot');  // which tab is active
-  let records = $state<PriceRecord[]>([]);        // price data for selected product
-  let loading = $state(true);                      // true while fetching data
+  let manifest = $state<Manifest | null>(null);
+  let activeView = $state<ViewMode>('snapshot');
+  let records = $state<PriceRecord[]>([]);
+  let loading = $state(true);
+  let sidebarOpen = $state(false);
+  let loadGeneration = 0;
 
-  // All filter state in one object. When any filter changes, we re-fetch data.
   let filters = $state<Filters>({
-    category: 'owoce',           // default to fruits
-    origin: 'KRAJOWE',           // default to domestic
-    product: null,               // will be set after manifest loads
-    markets: new Set<string>(),  // empty until manifest loads
-    date: '',                    // will be set to most recent date after data loads
-    windowWeeks: 3,              // ±3 weeks around selected date for context chart
+    category: 'owoce',
+    origin: 'KRAJOWE',
+    product: null,
+    markets: new Set<string>(),
+    date: '',
+    windowWeeks: 3,
   });
 
-  // onMount runs once when the component first appears on screen.
-  // This is where we fetch initial data — similar to componentDidMount in React.
+  function toggleSidebar() {
+    sidebarOpen = !sidebarOpen;
+  }
+
+  function closeSidebar() {
+    sidebarOpen = false;
+  }
+
   onMount(async () => {
-    // Step 1: Load the manifest (table of contents for all data)
     manifest = await loadManifest();
 
-    // Step 2: Pre-select the first 4 marketplaces
     if (manifest.places.length > 0) {
       filters.markets = new Set(manifest.places.slice(0, 4));
     }
 
-    // Step 3: Pick a default product (Truskawki = Strawberries, popular in Poland)
     const defaultProduct = manifest.products.find(
       p => p.name === 'Truskawki' && p.unit === 'kg' && p.origin === 'KRAJOWE'
-    ) ?? manifest.products[0];  // fallback to first product if Truskawki not found
+    ) ?? manifest.products[0];
 
     if (defaultProduct) {
       filters.product = defaultProduct;
-      await loadData();  // Fetch the actual price data
+      await loadData();
     }
     loading = false;
   });
 
-  /**
-   * Fetch Arrow data for the currently selected product.
-   * Called on startup and whenever the user changes the product filter.
-   */
   async function loadData() {
-    if (!manifest || !filters.product) return;
+    if (!manifest || !filters.product) {
+      records = [];
+      filters.date = '';
+      return;
+    }
+
+    // Clear state synchronously so views never show stale data
+    records = [];
+    filters.date = '';
     loading = true;
 
-    // loadProductData fetches two files in parallel (archive + current year)
-    records = await loadProductData(
+    const gen = ++loadGeneration;
+    const result = await loadProductData(
       filters.product.name,
       filters.product.unit,
       filters.product.origin,
       manifest.currentYear,
     );
 
-    // Auto-select the most recent date after loading new data
+    // Discard stale response — only the latest generation matters
+    if (gen !== loadGeneration) return;
+
+    records = result;
+
     if (records.length > 0) {
-      const dates = [...new Set(records.map(r => r.date.toISOString().slice(0, 10)))].sort();
-      filters.date = dates[dates.length - 1];  // last date = most recent
+      let latestYear = 0;
+      let latestWeek = 0;
+      for (const r of records) {
+        const { year, week } = isoWeekOf(r.date);
+        if (year > latestYear || (year === latestYear && week > latestWeek)) {
+          latestYear = year;
+          latestWeek = week;
+        }
+      }
+      filters.date = wednesdayOfWeek(latestYear, latestWeek);
+    } else {
+      filters.date = '';
     }
     loading = false;
   }
 
-  /**
-   * Called by child components when any filter changes.
-   * Re-fetches data for the new product (market toggles don't need re-fetching
-   * because all markets are in the same Arrow file).
-   */
   async function onFilterChange() {
-    if (filters.product) {
-      await loadData();
+    if (!filters.product) {
+      records = [];
+      filters.date = '';
+      return;
     }
+    await loadData();
   }
 </script>
 
-<!-- The header — stays fixed at the top -->
-<h1>Notowania Rolne <span style="font-weight: 300; font-size: 16px; color: var(--muted);">| BIULETYN RYNKOWY</span></h1>
+<!-- Header with mobile hamburger -->
+<div class="header-bar">
+  <h1>Notowania Rolne <span class="header-sub">| BIULETYN RYNKOWY</span></h1>
+  <button class="hamburger" onclick={toggleSidebar} aria-label="Menu">
+    <span class="hamburger-line"></span>
+    <span class="hamburger-line"></span>
+    <span class="hamburger-line"></span>
+  </button>
+</div>
 
 {#if manifest}
-  <!-- Main layout: sidebar (filters) + canvas (visualization) -->
+  <!-- Mobile sidebar overlay backdrop -->
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="sidebar-overlay" class:open={sidebarOpen} onclick={closeSidebar}></div>
+
   <div class="layout-container">
-    <div class="sidebar-col">
-      <!-- Sidebar: tab navigation between Snapshot and Heatmap views -->
-      <Sidebar bind:activeView {onFilterChange} />
-      <!-- FilterZone: category, product, and market selectors -->
+    <div class="sidebar-col" class:open={sidebarOpen}>
+      <Sidebar bind:activeView {onFilterChange} {closeSidebar} />
       <FilterZone {manifest} bind:filters {onFilterChange} />
     </div>
 
     <div class="canvas">
-      <!-- Show the active view based on which tab is selected -->
       {#if activeView === 'snapshot'}
-        <SnapshotView {records} selectedDate={filters.date} />
+        <SnapshotView {records} bind:selectedDate={filters.date} markets={filters.markets} />
       {:else}
         <HeatmapView {records} markets={filters.markets} />
       {/if}
     </div>
   </div>
 {:else if loading}
-  <!-- Loading state while manifest is being fetched -->
   <p style="text-align: center; color: var(--muted); padding: 48px;">Ładowanie danych...</p>
 {:else}
-  <!-- Error state if manifest failed to load -->
   <p style="text-align: center; color: var(--muted); padding: 48px;">Nie załadowano manifestu.</p>
 {/if}
 
 <style>
+  .header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .header-bar h1 { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+
+  .hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 40px;
+    height: 40px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 8px;
+    flex-shrink: 0;
+  }
+  .hamburger-line {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: var(--ink);
+    border-radius: 1px;
+  }
+
   .sidebar-col {
     width: 300px;
-    flex-shrink: 0;  /* Don't let the sidebar shrink — keep it at 300px */
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     gap: 0;
+  }
+
+  @media (max-width: 768px) {
+    .header-bar { margin-bottom: 12px; }
+    .hamburger { display: flex; }
+    .sidebar-col {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 300px;
+      max-width: 85vw;
+      background: var(--bg);
+      z-index: 100;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      overflow-y: auto;
+      padding: 16px;
+      border-right: 1px solid var(--rule);
+    }
+    .sidebar-col.open {
+      transform: translateX(0);
+    }
   }
 </style>
