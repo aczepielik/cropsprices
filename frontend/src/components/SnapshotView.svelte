@@ -15,7 +15,7 @@
 <script lang="ts">
   import type { PriceRecord, SnapshotKpis, MarketRow } from '../lib/types';
   import { filterByWeek, allWeeks } from '../lib/filters';
-  import { formatPrice, wednesdayOfWeek, weekKey, parseWeekKey, niceTicks } from '../lib/helpers';
+  import { formatPrice, wednesdayOfWeek, weekKey, parseWeekKey, niceTicks, mergeEnvelope, sortMarketRows, computeKpis } from '../lib/helpers';
 
   let { records, selectedDate = $bindable(), markets }: {
     records: PriceRecord[];
@@ -88,20 +88,11 @@
   });
 
   let kpis = $derived.by(() => {
-    const dayRecords = filteredWeekRecords;
-    if (dayRecords.length === 0) {
-      return { priceRange: '-', spread: '-', wowRange: '-' } as SnapshotKpis;
-    }
-
-    const mins = dayRecords.map(r => r.price_min);
-    const maxs = dayRecords.map(r => r.price_max);
-    const overallMin = Math.min(...mins);
-    const overallMax = Math.max(...maxs);
-    const spread = overallMax - overallMin;
-
+    const k = computeKpis(filteredWeekRecords);
+    if (!k) return { priceRange: '-', spread: '-', wowRange: '-' } as SnapshotKpis;
     return {
-      priceRange: `${formatPrice(overallMin)} – ${formatPrice(overallMax)} zł`,
-      spread: `${formatPrice(spread)} zł`,
+      priceRange: k.priceRange,
+      spread: k.spread,
       wowRange: '',
     };
   });
@@ -132,6 +123,7 @@
         row.deviation = row.priceMin - globalMin;
       }
     }
+    sortMarketRows(rows);
     return rows;
   });
 
@@ -182,14 +174,20 @@
     if (curIdx < 0) return null;
 
     const win = contextWindow;
+    // Clamp window to available data — shift if near edges
+    const listLen = allWeekList.length;
+    let startIdx = curIdx - win;
+    let endIdx = curIdx + win;
+    if (startIdx < 0) { startIdx = 0; endIdx = Math.min(win * 2, listLen - 1); }
+    if (endIdx >= listLen) { endIdx = listLen - 1; startIdx = Math.max(0, endIdx - win * 2); }
+
     const labels: string[] = [];
     const currentData: ({ min: number; max: number } | null)[] = [];
     const yr1Data: ({ min: number; max: number } | null)[] = [];
     const yr2Data: ({ min: number; max: number } | null)[] = [];
 
-    for (let i = -win; i <= win; i++) {
-      const baseIdx = curIdx + i;
-      if (baseIdx < 0 || baseIdx >= allWeekList.length) {
+    for (let i = startIdx; i <= endIdx; i++) {
+      if (i < 0 || i >= allWeekList.length) {
         labels.push('');
         currentData.push(null);
         yr1Data.push(null);
@@ -197,7 +195,7 @@
         continue;
       }
 
-      const baseWeek = allWeekList[baseIdx];
+      const baseWeek = allWeekList[i];
       const label = wednesdayOfWeek(baseWeek.year, baseWeek.week).slice(5); // "MM-DD"
       labels.push(label);
 
@@ -205,25 +203,42 @@
       currentData.push(getWeekSpread(baseWeek.year, baseWeek.week));
 
       // Year -1: subtract ~52 weeks
-      const yr1Idx = baseIdx - 52;
+      const yr1Idx = i - 52;
       yr1Data.push(yr1Idx >= 0 && yr1Idx < allWeekList.length
         ? getWeekSpread(allWeekList[yr1Idx].year, allWeekList[yr1Idx].week)
         : null);
 
       // Year -2: subtract ~104 weeks
-      const yr2Idx = baseIdx - 104;
+      const yr2Idx = i - 104;
       yr2Data.push(yr2Idx >= 0 && yr2Idx < allWeekList.length
         ? getWeekSpread(allWeekList[yr2Idx].year, allWeekList[yr2Idx].week)
         : null);
     }
 
-    return { labels, currentData, yr1Data, yr2Data };
+    return { labels, currentData, yr1Data, yr2Data, startIdx };
   });
 
-  // SVG chart rendering
+  // Global Y-axis range across ALL data (so the axis doesn't rescale on slider drag)
+  let globalYRange = $derived.by(() => {
+    let gMin = Infinity;
+    let gMax = -Infinity;
+    for (const w of allWeekList) {
+      const spread = getWeekSpread(w.year, w.week);
+      if (spread) {
+        if (spread.min < gMin) gMin = spread.min;
+        if (spread.max > gMax) gMax = spread.max;
+      }
+    }
+    if (gMin === Infinity) return null;
+    const ticks = niceTicks(gMin, gMax, 5);
+    const range = ticks[ticks.length - 1] - ticks[0];
+    return { yMin: ticks[0] - range * 0.1, yMax: ticks[ticks.length - 1] + range * 0.1, ticks };
+  });
+
+  // SVG chart rendering — shaded bands
   let chartSvg = $derived.by(() => {
-    if (!chartData) return '';
-    const { labels, currentData, yr1Data, yr2Data } = chartData;
+    if (!chartData || !globalYRange) return '';
+    const { labels, currentData, yr1Data, yr2Data, startIdx } = chartData;
     const n = labels.length;
     if (n === 0) return '';
 
@@ -231,66 +246,66 @@
     const h = 320;
     const pad = { t: 20, r: 20, b: 40, l: 48 };
 
-    // Find global min/max across all three series
-    let dataMin = Infinity;
-    let dataMax = -Infinity;
-    for (const ds of [currentData, yr1Data, yr2Data]) {
-      for (const pt of ds) {
-        if (pt) {
-          if (pt.min < dataMin) dataMin = pt.min;
-          if (pt.max > dataMax) dataMax = pt.max;
-        }
-      }
-    }
-    if (dataMin === Infinity) return '';
-
-    const ticks = niceTicks(dataMin, dataMax, 5);
-    const yMin = ticks[0];
-    const yMax = ticks[ticks.length - 1];
+    const { yMin, yMax, ticks } = globalYRange;
 
     function getX(idx: number) { return pad.l + (idx / (n - 1 || 1)) * (w - pad.l - pad.r); }
     function getY(val: number) { return pad.t + (1 - (val - yMin) / (yMax - yMin || 1)) * (h - pad.t - pad.b); }
 
-    function buildPolygon(dataset: ({ min: number; max: number } | null)[]) {
-      const top: string[] = [];
-      const bot: string[] = [];
+    function buildBand(dataset: ({ min: number; max: number } | null)[]) {
+      const topPts: string[] = [];
+      const botPts: string[] = [];
       dataset.forEach((pt, i) => {
         if (pt) {
-          top.push(`${getX(i)},${getY(pt.max)}`);
-          bot.unshift(`${getX(i)},${getY(pt.min)}`);
+          topPts.push(`${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(pt.max)}`);
+          botPts.unshift(`L ${getX(i)} ${getY(pt.min)}`);
         }
       });
-      return top.length ? [...top, ...bot].join(' ') : '0,0';
+      if (topPts.length < 2) return '';
+      return topPts.join(' ') + ' ' + botPts.join(' ') + ' Z';
     }
 
-    function buildLine(dataset: ({ min: number; max: number } | null)[], accessor: (p: { min: number; max: number }) => number) {
-      return dataset.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${pt ? getY(accessor(pt)) : ''}`)
-        .filter(s => !s.endsWith('NaN')).join(' ');
+    let crosshairIdx = -1;
+    if (selectedWeek) {
+      const curIdx = allWeekList.findIndex(
+        w => w.year === selectedWeek!.year && w.week === selectedWeek!.week
+      );
+      crosshairIdx = curIdx - startIdx;
+      if (crosshairIdx < 0 || crosshairIdx >= n) crosshairIdx = -1;
     }
 
     let s = '';
 
-    // Grid lines + Y-axis ticks
     for (const v of ticks) {
       const y = getY(v);
       s += `<line x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}" stroke="var(--soft)" stroke-width="1" />`;
       s += `<text x="${pad.l - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${v.toFixed(v % 1 === 0 ? 0 : 1)}</text>`;
     }
+    s += `<text x="14" y="${(pad.t + h - pad.b) / 2}" font-size="11" fill="var(--muted)" text-anchor="middle" transform="rotate(-90, 14, ${(pad.t + h - pad.b) / 2})">Cena (zł)</text>`;
 
-    // Ribbons (back to front: year-2, year-1, current)
-    s += `<polygon points="${buildPolygon(yr2Data)}" fill="var(--rust-soft)" opacity="0.22" />`;
-    s += `<polygon points="${buildPolygon(yr1Data)}" fill="var(--blue-soft)" opacity="0.22" />`;
-    s += `<polygon points="${buildPolygon(currentData)}" fill="var(--green-soft)" opacity="0.7" stroke="var(--green)" stroke-width="2.5" />`;
+    const pastEnvelope = mergeEnvelope(yr1Data, yr2Data);
+    const validPastWeeks = pastEnvelope.filter(Boolean).length;
 
-    // Midlines (dashed for past years)
-    const mid = (p: { min: number; max: number }) => (p.min + p.max) / 2;
-    s += `<path d="${buildLine(yr2Data, mid)}" fill="none" stroke="var(--rust)" stroke-width="1.2" opacity="0.4" stroke-dasharray="3,3" />`;
-    s += `<path d="${buildLine(yr1Data, mid)}" fill="none" stroke="var(--blue)" stroke-width="1.2" opacity="0.4" stroke-dasharray="3,3" />`;
+    if (crosshairIdx >= 0 && crosshairIdx < n) {
+      const cx = getX(crosshairIdx);
+      s += `<line x1="${cx}" y1="${pad.t}" x2="${cx}" y2="${h - pad.b}" stroke="var(--muted)" stroke-width="1" opacity="0.3" stroke-dasharray="4,4" />`;
+    }
 
-    // X-axis labels
+    if (validPastWeeks >= 3) {
+      const bandPath = buildBand(pastEnvelope);
+      if (bandPath) {
+        s += `<path d="${bandPath}" fill="var(--muted)" opacity="0.08" />`;
+      }
+    }
+
+    const curBand = buildBand(currentData);
+    if (curBand) {
+      s += `<path d="${curBand}" fill="var(--green)" opacity="0.2" />`;
+    }
+
     labels.forEach((label, i) => {
       if (label) {
-        s += `<text x="${getX(i)}" y="${h - 12}" font-size="10" fill="var(--muted)" text-anchor="middle">${label}</text>`;
+        const isCenter = i === crosshairIdx;
+        s += `<text x="${getX(i)}" y="${h - 12}" font-size="10" fill="${isCenter ? 'var(--green)' : 'var(--muted)'}" font-weight="${isCenter ? '600' : '400'}" text-anchor="middle">${label}</text>`;
       }
     });
 
@@ -299,30 +314,7 @@
 </script>
 
 <main class="workspace-grid">
-  <!-- Week Slider -->
-  {#if allWeekList.length > 0}
-    <div class="date-slider-zone">
-      <span class="meta-label">Tydzień (Snapshot)</span>
-      <div class="date-readout tabular-nums">
-        {#if selectedWeek}
-          {wednesdayOfWeek(selectedWeek.year, selectedWeek.week)}
-        {:else}
-          –
-        {/if}
-      </div>
-      <div class="slider-track"></div>
-      <input
-        type="range"
-        class="time-slider"
-        min={0}
-        max={Math.max(0, allWeekList.length - 1)}
-        value={sliderValue}
-        oninput={onSliderInput}
-      />
-    </div>
-  {/if}
-
-  <!-- KPI Cards -->
+  <!-- KPI Cards (first — these answer "what's happening?") -->
   <div class="kpi-row">
     <div class="kpi-card">
       <span class="meta-label">Przedział Cenowy (Wybrane Rynki)</span>
@@ -353,6 +345,29 @@
     </div>
   </div>
 
+  <!-- Date slider (compact, secondary — answers "when?") -->
+  {#if allWeekList.length > 0}
+    <div class="date-slider-zone">
+      <span class="meta-label">Tydzień (Snapshot)</span>
+      <div class="date-readout tabular-nums">
+        {#if selectedWeek}
+          {wednesdayOfWeek(selectedWeek.year, selectedWeek.week)}
+        {:else}
+          –
+        {/if}
+      </div>
+      <div class="slider-track"></div>
+      <input
+        type="range"
+        class="time-slider"
+        min={0}
+        max={Math.max(0, allWeekList.length - 1)}
+        value={sliderValue}
+        oninput={onSliderInput}
+      />
+    </div>
+  {/if}
+
   <!-- Context Chart -->
   <div class="chart-box">
     <div class="chart-header">
@@ -364,9 +379,8 @@
             oninput={(e) => { contextWindow = Number((e.target as HTMLInputElement).value); }} />
         </div>
         <div class="chart-legend">
-          <div class="legend-item"><div class="legend-color" style="background-color: var(--rust-soft); border-color: var(--rust);"></div>Rok -2</div>
-          <div class="legend-item"><div class="legend-color" style="background-color: var(--blue-soft); border-color: var(--blue);"></div>Rok -1</div>
-          <div class="legend-item"><div class="legend-color" style="background-color: var(--green-soft); border-color: var(--green);"></div>Aktualny Rok</div>
+          <div class="legend-item"><div class="legend-swatch" style="background: var(--muted); opacity: 0.08;"></div>Lata ubiegłe</div>
+          <div class="legend-item"><div class="legend-swatch" style="background: var(--green); opacity: 0.2;"></div>Aktualny Rok</div>
         </div>
       </div>
     </div>
@@ -424,7 +438,7 @@
   .kpi-card {
     background-color: var(--surface); border: 1px solid var(--rule); padding: 16px;
   }
-  .kpi-value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+  .kpi-value { font-size: 28px; font-weight: 700; margin-top: 4px; }
   .kpi-change { font-size: 12px; margin-top: 6px; }
   .muted { color: var(--muted); }
   .meta-label {
@@ -440,9 +454,9 @@
   }
   .chart-title { font-size: 14px; font-weight: 600; color: var(--ink); }
   .svg-chart-container { width: 100%; position: relative; }
-  .chart-legend { display: flex; gap: 16px; font-size: 11px; font-weight: 500; }
+  .chart-legend { display: flex; gap: 16px; font-size: 11px; font-weight: 500; flex-wrap: wrap; }
   .legend-item { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-  .legend-color { width: 12px; height: 12px; border: 1px solid var(--rule); }
+  .legend-swatch { width: 12px; height: 12px; }
   .micro-slider-container { display: flex; align-items: center; gap: 8px; opacity: 0.7; }
   .micro-slider-container:hover { opacity: 1; }
   .micro-slider {
@@ -465,7 +479,7 @@
   .table-header-bar {
     padding: 16px 20px; border-bottom: 1px solid var(--rule); background-color: var(--soft);
   }
-  .data-table { width: 100%; border-collapse: collapse; min-width: 540px; }
+  .data-table { width: 100%; border-collapse: collapse; min-width: 640px; }
   .data-table th {
     background-color: var(--soft); font-size: 11px; font-weight: 600; text-transform: uppercase;
     color: var(--muted); padding: 10px 20px; border-bottom: 1px solid var(--rule);
@@ -537,11 +551,11 @@
   }
 
   .wow-row {
-    font-size: 14px;
+    font-size: 20px;
     margin-top: 6px;
   }
-  .wow-up { color: var(--rust); }
-  .wow-down { color: var(--green); }
+  .wow-up { color: var(--green); }
+  .wow-down { color: var(--rust); }
   .wow-sep { color: var(--muted); margin: 0 4px; }
 
   @media (max-width: 768px) {
@@ -549,6 +563,11 @@
     .kpi-value { font-size: 18px; }
     .chart-box { padding: 12px; }
     .chart-title { font-size: 13px; }
+    .chart-header { flex-direction: column; gap: 6px; }
+    .chart-header > div { gap: 12px; }
+    .micro-slider { width: 100px; height: 6px; }
+    .micro-slider::-webkit-slider-thumb { width: 16px; height: 16px; }
+    .micro-slider::-moz-range-thumb { width: 16px; height: 16px; }
     .table-header-bar { padding: 12px 16px; }
     .data-table th, .data-table td { padding: 8px 12px; font-size: 12px; }
   }
