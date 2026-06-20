@@ -201,19 +201,35 @@
       }
     }
     const pastSorted = [...pastWeeks.entries()].sort((a, b) => a[0] - b[0]);
-    if (pastSorted.length >= 2) {
-      let d = `M ${weekX(pastSorted[0][0])} ${priceY(pastSorted[0][1].ribbonMax)}`;
-      for (let i = 1; i < pastSorted.length; i++) d += ` L ${weekX(pastSorted[i][0])} ${priceY(pastSorted[i][1].ribbonMax)}`;
-      for (let i = pastSorted.length - 1; i >= 0; i--) d += ` L ${weekX(pastSorted[i][0])} ${priceY(pastSorted[i][1].ribbonMin)}`;
+    const pastSegs: { week: number; ribbonMin: number; ribbonMax: number }[][] = [];
+    let cur: { week: number; ribbonMin: number; ribbonMax: number }[] = [];
+    for (const [w, v] of pastSorted) {
+      if (cur.length && w - cur[cur.length - 1].week > 1) { pastSegs.push(cur); cur = []; }
+      cur.push({ week: w, ribbonMin: v.ribbonMin, ribbonMax: v.ribbonMax });
+    }
+    if (cur.length) pastSegs.push(cur);
+    for (const seg of pastSegs) {
+      if (seg.length < 2) continue;
+      let d = `M ${weekX(seg[0].week)} ${priceY(seg[0].ribbonMax)}`;
+      for (let i = 1; i < seg.length; i++) d += ` L ${weekX(seg[i].week)} ${priceY(seg[i].ribbonMax)}`;
+      for (let i = seg.length - 1; i >= 0; i--) d += ` L ${weekX(seg[i].week)} ${priceY(seg[i].ribbonMin)}`;
       d += ' Z';
       s += `<path d="${d}" fill="var(--muted)" opacity="0.1" />`;
     }
     // Current year: shaded band (dominant, no stroke)
     const curWeeks = cells.cells.filter(c => c.year === currentYear).sort((a, b) => a.week - b.week);
-    if (curWeeks.length >= 2) {
-      let d = `M ${weekX(curWeeks[0].week)} ${priceY(curWeeks[0].ribbonMax)}`;
-      for (let i = 1; i < curWeeks.length; i++) d += ` L ${weekX(curWeeks[i].week)} ${priceY(curWeeks[i].ribbonMax)}`;
-      for (let i = curWeeks.length - 1; i >= 0; i--) d += ` L ${weekX(curWeeks[i].week)} ${priceY(curWeeks[i].ribbonMin)}`;
+    const curSegs: { week: number; ribbonMin: number; ribbonMax: number }[][] = [];
+    let seg: { week: number; ribbonMin: number; ribbonMax: number }[] = [];
+    for (const c of curWeeks) {
+      if (seg.length && c.week - seg[seg.length - 1].week > 1) { curSegs.push(seg); seg = []; }
+      seg.push({ week: c.week, ribbonMin: c.ribbonMin, ribbonMax: c.ribbonMax });
+    }
+    if (seg.length) curSegs.push(seg);
+    for (const s2 of curSegs) {
+      if (s2.length < 2) continue;
+      let d = `M ${weekX(s2[0].week)} ${priceY(s2[0].ribbonMax)}`;
+      for (let i = 1; i < s2.length; i++) d += ` L ${weekX(s2[i].week)} ${priceY(s2[i].ribbonMax)}`;
+      for (let i = s2.length - 1; i >= 0; i--) d += ` L ${weekX(s2[i].week)} ${priceY(s2[i].ribbonMin)}`;
       d += ' Z';
       s += `<path d="${d}" fill="var(--green)" opacity="0.2" />`;
     }

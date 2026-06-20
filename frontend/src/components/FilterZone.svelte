@@ -76,28 +76,49 @@
   <div class="selectors-row">
     <div class="filter-group">
       <span class="meta-label">Kategoria</span>
-      <select class="select" onchange={onCategoryChange}>
-        <option value="owoce" selected={filters.category === 'owoce'}>Owoce</option>
-        <option value="warzywa" selected={filters.category === 'warzywa'}>Warzywa</option>
-      </select>
+      <div class="select-container">
+        <select class="select" onchange={onCategoryChange}>
+          <option value="owoce" selected={filters.category === 'owoce'}>Owoce</option>
+          <option value="warzywa" selected={filters.category === 'warzywa'}>Warzywa</option>
+        </select>
+        <div class="select-arrow">
+          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
     </div>
     <div class="filter-group">
       <span class="meta-label">Pochodzenie</span>
-      <select class="select" onchange={onOriginChange}>
-        <option value="KRAJOWE" selected={filters.origin === 'KRAJOWE'}>Krajowe</option>
-        <option value="IMPORTOWANE" selected={filters.origin === 'IMPORTOWANE'}>Importowane</option>
-      </select>
+      <div class="select-container">
+        <select class="select" onchange={onOriginChange}>
+          <option value="KRAJOWE" selected={filters.origin === 'KRAJOWE'}>Krajowe</option>
+          <option value="IMPORTOWANE" selected={filters.origin === 'IMPORTOWANE'}>Importowane</option>
+        </select>
+        <div class="select-arrow">
+          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
     </div>
     <div class="filter-group">
       <span class="meta-label">Produkt</span>
-      <select class="select" onchange={onProductChange}>
-        <option value="-1" selected={filters.product === null}>Wybierz produkt...</option>
-        {#each categoryProducts as product, i}
-          <option value={i} selected={filters.product?.name === product.name && filters.product?.unit === product.unit}>
-            {product.name} ({product.unit})
-          </option>
-        {/each}
-      </select>
+      <div class="select-container">
+        <select class="select" onchange={onProductChange}>
+          <option value="-1" selected={filters.product === null}>Wybierz produkt...</option>
+          {#each categoryProducts as product, i}
+            <option value={i} selected={filters.product?.name === product.name && filters.product?.unit === product.unit}>
+              {product.name} ({product.unit})
+            </option>
+          {/each}
+        </select>
+        <div class="select-arrow">
+          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -127,48 +148,118 @@
 
 <style>
   .filter-zone {
-    background-color: var(--surface); border: 1px solid var(--rule); padding: 12px;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    padding: 12px;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
   }
   .selectors-row {
-    display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;
-    padding-bottom: 12px; border-bottom: 1px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
   }
   .meta-label {
-    font-size: 10px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.08em; color: var(--muted); margin-bottom: 3px; display: block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 3px;
+    display: block;
+  }
+  .select-container {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
   }
   .select {
-    width: 100%; padding: 6px 8px;
-    border: 1px solid var(--rule); background-color: var(--surface);
-    font-family: inherit; font-size: 12px; color: var(--ink); outline: none;
+    width: 100%;
+    padding: 6px 26px 6px 8px;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    background-color: var(--surface);
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--ink);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+  .select:hover {
+    border-color: var(--muted);
+  }
+  .select:focus {
+    border-color: var(--green);
+  }
+  .select-arrow {
+    position: absolute;
+    right: 8px;
+    pointer-events: none;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
   }
   .filter-group-markets {
     margin-top: 4px;
   }
   .markets-header {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     margin-bottom: 4px;
   }
   .markets-header .meta-label { margin-bottom: 0; }
   .checkbox-group {
-    display: flex; flex-direction: column; gap: 4px; margin-top: 4px;
-    max-height: 220px; overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+    max-height: 220px;
+    overflow-y: auto;
   }
   .checkbox-item {
-    display: flex; align-items: center; gap: 6px;
-    cursor: pointer; font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 0;
+    transition: color 0.15s ease;
   }
-  .checkbox-item input { accent-color: var(--green); }
+  .checkbox-item:hover {
+    color: var(--green);
+  }
+  .checkbox-item input {
+    accent-color: var(--green);
+    cursor: pointer;
+  }
   .market-actions { display: flex; gap: 4px; }
   .action-btn {
-    font-size: 10px; padding: 2px 6px; border: 1px solid var(--rule);
-    background: var(--soft); cursor: pointer;
+    font-size: 10px;
+    padding: 2px 6px;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--soft);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .action-btn:hover {
+    background: var(--green-soft);
+    border-color: var(--green);
+    color: var(--green);
   }
 
   @media (max-width: 1024px) {
     .filter-zone { padding: 14px; }
     .selectors-row { gap: 10px; padding-bottom: 14px; }
-    .select { font-size: 14px; padding: 8px 10px; }
+    .select { font-size: 14px; padding: 8px 28px 8px 10px; }
     .checkbox-item { font-size: 14px; }
     .checkbox-group { max-height: 180px; }
     .action-btn { min-height: 32px; padding: 4px 10px; }
