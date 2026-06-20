@@ -2,9 +2,9 @@
   SnapshotView.svelte — "Current snapshot" view showing today's market state.
 
   This view displays:
-  1. KPI cards (price range, spread, week-over-week change)
-  2. Context chart (placeholder — will show ±3 weeks across 3 years)
-  3. Market breakdown table (per-marketplace min/max/spread)
+  1. KPI cards (price range, YoY change, WoW change, date selector)
+  2. Context chart (shows +/-3 weeks across 3 years)
+  3. Market breakdown table (per-marketplace min/max/spread/deviation)
 
   DATA FLOW:
   Receives `records` (all price data for selected product) and `selectedDate`.
@@ -69,8 +69,26 @@
     sliderValue = idx >= 0 ? idx : allWeekList.length - 1;
   });
 
-  function onSliderInput(e: Event) {
-    const val = Number((e.target as HTMLInputElement).value);
+  function goPrevWeek() {
+    if (sliderValue > 0) {
+      sliderValue -= 1;
+      if (weekLabels[sliderValue]) {
+        selectedDate = weekLabels[sliderValue];
+      }
+    }
+  }
+
+  function goNextWeek() {
+    if (sliderValue < allWeekList.length - 1) {
+      sliderValue += 1;
+      if (weekLabels[sliderValue]) {
+        selectedDate = weekLabels[sliderValue];
+      }
+    }
+  }
+
+  function onDateSelectChange(e: Event) {
+    const val = Number((e.target as HTMLSelectElement).value);
     sliderValue = val;
     if (weekLabels[val]) {
       selectedDate = weekLabels[val];
@@ -91,12 +109,8 @@
 
   let kpis = $derived.by(() => {
     const k = computeKpis(filteredWeekRecords);
-    if (!k) return { priceRange: '-', spread: '-', wowRange: '-' } as SnapshotKpis;
-    return {
-      priceRange: k.priceRange,
-      spread: k.spread,
-      wowRange: '',
-    };
+    if (!k) return { priceRange: '–', spread: '–', overallMin: 0, overallMax: 0 };
+    return k;
   });
 
   let marketRows = $derived.by(() => {
@@ -129,6 +143,31 @@
     return rows;
   });
 
+  // Year-over-Year (YoY) change: comparing the average price of current week to same week last year
+  let ytyChange = $derived.by(() => {
+    if (!selectedWeek || records.length === 0) return null;
+    const targetYear = selectedWeek.year - 1;
+    const targetWeek = selectedWeek.week;
+
+    const curRecs = filterByWeek(records, selectedWeek.year, selectedWeek.week)
+      .filter(r => markets.size === 0 || markets.has(r.place));
+    const prevRecs = filterByWeek(records, targetYear, targetWeek)
+      .filter(r => markets.size === 0 || markets.has(r.place));
+
+    if (curRecs.length === 0 || prevRecs.length === 0) return null;
+
+    const curAvg = curRecs.reduce((sum, r) => sum + (r.price_min + r.price_max) / 2, 0) / curRecs.length;
+    const prevAvg = prevRecs.reduce((sum, r) => sum + (r.price_min + r.price_max) / 2, 0) / prevRecs.length;
+    const avgDiff = curAvg - prevAvg;
+    const pctDiff = prevAvg > 0 ? (avgDiff / prevAvg) * 100 : 0;
+
+    return {
+      avgDiff,
+      pctDiff,
+    };
+  });
+
+  // Week-over-Week (WoW) change: comparing the average price of current week to previous week
   let wowChange = $derived.by(() => {
     if (!selectedWeek || allWeekList.length < 2) return null;
     const curIdx = allWeekList.findIndex(
@@ -143,14 +182,14 @@
       .filter(r => markets.size === 0 || markets.has(r.place));
     if (curRecs.length === 0 || prevRecs.length === 0) return null;
 
-    const curMin = Math.min(...curRecs.map(r => r.price_min));
-    const curMax = Math.max(...curRecs.map(r => r.price_max));
-    const prevMin = Math.min(...prevRecs.map(r => r.price_min));
-    const prevMax = Math.max(...prevRecs.map(r => r.price_max));
+    const curAvg = curRecs.reduce((sum, r) => sum + (r.price_min + r.price_max) / 2, 0) / curRecs.length;
+    const prevAvg = prevRecs.reduce((sum, r) => sum + (r.price_min + r.price_max) / 2, 0) / prevRecs.length;
+    const avgDiff = curAvg - prevAvg;
+    const pctDiff = prevAvg > 0 ? (avgDiff / prevAvg) * 100 : 0;
 
     return {
-      minDiff: curMin - prevMin,
-      maxDiff: curMax - prevMax,
+      avgDiff,
+      pctDiff,
     };
   });
 
@@ -302,6 +341,16 @@
       return topPts.join(' ') + ' ' + botPts.join(' ') + ' Z';
     }
 
+    function buildLinePath(dataset: ({ min: number; max: number } | null)[], type: 'min' | 'max') {
+      const pts: string[] = [];
+      dataset.forEach((pt, i) => {
+        if (pt) {
+          pts.push(`${pts.length === 0 ? 'M' : 'L'} ${getX(i)} ${getY(pt[type])}`);
+        }
+      });
+      return pts.join(' ');
+    }
+
     let crosshairIdx = -1;
     if (selectedWeek) {
       const curIdx = allWeekList.findIndex(
@@ -323,23 +372,53 @@
     const pastEnvelope = mergeEnvelope(yr1Data, yr2Data);
     const validPastWeeks = pastEnvelope.filter(Boolean).length;
 
+    // Draw vertical crosshair guide
     if (crosshairIdx >= 0 && crosshairIdx < n) {
       const cx = getX(crosshairIdx);
-      s += `<line x1="${cx}" y1="${pad.t}" x2="${cx}" y2="${h - pad.b}" stroke="var(--muted)" stroke-width="1" opacity="0.3" stroke-dasharray="4,4" />`;
+      s += `<line x1="${cx}" y1="${pad.t}" x2="${cx}" y2="${h - pad.b}" stroke="var(--green)" stroke-width="1.5" opacity="0.35" stroke-dasharray="4,4" />`;
     }
 
+    // Draw past years envelope band and borders
     if (validPastWeeks >= 3) {
       const bandPath = buildBand(pastEnvelope);
       if (bandPath) {
         s += `<path d="${bandPath}" fill="var(--muted)" opacity="0.08" />`;
       }
+      const pastTopPath = buildLinePath(pastEnvelope, 'max');
+      const pastBotPath = buildLinePath(pastEnvelope, 'min');
+      if (pastTopPath) {
+        s += `<path d="${pastTopPath}" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3,3" opacity="0.4" stroke-linejoin="round" />`;
+      }
+      if (pastBotPath) {
+        s += `<path d="${pastBotPath}" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3,3" opacity="0.4" stroke-linejoin="round" />`;
+      }
     }
 
+    // Draw current year band and outlines
     const curBand = buildBand(currentData);
     if (curBand) {
-      s += `<path d="${curBand}" fill="var(--green)" opacity="0.2" />`;
+      s += `<path d="${curBand}" fill="var(--green)" opacity="0.15" />`;
+    }
+    const curTopPath = buildLinePath(currentData, 'max');
+    const curBotPath = buildLinePath(currentData, 'min');
+    if (curTopPath) {
+      s += `<path d="${curTopPath}" fill="none" stroke="var(--green)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />`;
+    }
+    if (curBotPath) {
+      s += `<path d="${curBotPath}" fill="none" stroke="var(--green)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />`;
     }
 
+    // Highlight current selected week value nodes
+    if (crosshairIdx >= 0 && crosshairIdx < n) {
+      const cx = getX(crosshairIdx);
+      const curPt = currentData[crosshairIdx];
+      if (curPt) {
+        s += `<circle cx="${cx}" cy="${getY(curPt.max)}" r="5" fill="var(--surface)" stroke="var(--green)" stroke-width="2.5" />`;
+        s += `<circle cx="${cx}" cy="${getY(curPt.min)}" r="5" fill="var(--surface)" stroke="var(--green)" stroke-width="2.5" />`;
+      }
+    }
+
+    // Date X-axis labels
     labels.forEach((label, i) => {
       if (label) {
         const isCenter = i === crosshairIdx;
@@ -352,265 +431,508 @@
 </script>
 
 <main class="workspace-grid">
-  <!-- KPI Cards (first — these answer "what's happening?") -->
-  <div class="kpi-row">
+  <!-- KPI Grid (first — these answer "what's happening?") -->
+  <div class="kpi-grid">
     <div class="kpi-card">
-      <span class="meta-label">Przedział Cenowy (Wybrane Rynki)</span>
+      <span class="meta-label">Przedział Cenowy</span>
       <div class="kpi-value tabular-nums">{kpis.priceRange}</div>
-      <div class="kpi-change muted">Stan na wybraną datę</div>
+      <div class="kpi-change muted">Rozpiętość (Spread): {kpis.spread}</div>
     </div>
+
     <div class="kpi-card">
-      <span class="meta-label">Rozpiętość (Spread)</span>
-      <div class="kpi-value tabular-nums">{kpis.spread}</div>
-      <div class="kpi-change">Zróżnicowanie rynkowe (max-min)</div>
-    </div>
-    <div class="kpi-card">
-      <span class="meta-label">Dynamika Zmian WoW</span>
-      {#if wowChange}
-        <div class="kpi-value tabular-nums wow-row">
-          <span class:wow-up={wowChange.minDiff > 0} class:wow-down={wowChange.minDiff < 0}>
-            Min: {wowChange.minDiff > 0 ? '+' : ''}{formatPrice(wowChange.minDiff)} zł
-          </span>
-          <span class="wow-sep">|</span>
-          <span class:wow-up={wowChange.maxDiff > 0} class:wow-down={wowChange.maxDiff < 0}>
-            Max: {wowChange.maxDiff > 0 ? '+' : ''}{formatPrice(wowChange.maxDiff)} zł
-          </span>
+      <span class="meta-label">Dynamika YoY (Rok-do-Roku)</span>
+      {#if ytyChange}
+        <div class="kpi-value tabular-nums YoY-row" class:value-up={ytyChange.avgDiff > 0} class:value-down={ytyChange.avgDiff < 0}>
+          {ytyChange.avgDiff > 0 ? '+' : ''}{formatPrice(ytyChange.avgDiff)} zł
+        </div>
+        <div class="kpi-change" class:value-up={ytyChange.avgDiff > 0} class:value-down={ytyChange.avgDiff < 0}>
+          {ytyChange.pctDiff > 0 ? '+' : ''}{ytyChange.pctDiff.toFixed(1)}% vs ubiegły rok
         </div>
       {:else}
         <div class="kpi-value tabular-nums muted">–</div>
+        <div class="kpi-change muted">Brak danych historycznych</div>
       {/if}
-      <div class="kpi-change">Zmiana podłogi i sufitu</div>
     </div>
-  </div>
 
-  <!-- Date slider (compact, secondary — answers "when?") -->
-  {#if allWeekList.length > 0}
-    <div class="date-slider-zone">
-      <span class="meta-label">Tydzień (Snapshot)</span>
-      <div class="date-readout tabular-nums">
-        {#if selectedWeek}
-          {wednesdayOfWeek(selectedWeek.year, selectedWeek.week)}
-        {:else}
-          –
-        {/if}
-      </div>
-      <div class="slider-track"></div>
-      <input
-        type="range"
-        class="time-slider"
-        min={0}
-        max={Math.max(0, allWeekList.length - 1)}
-        value={sliderValue}
-        oninput={onSliderInput}
-      />
-    </div>
-  {/if}
-
-  <!-- Context Chart -->
-  <div class="chart-box">
-    <div class="chart-header">
-      <div class="chart-title">Kontekst Sezonowy (+/-{contextWindow} Tygodni)</div>
-      <div style="display: flex; align-items: center; gap: 24px;">
-        <div class="micro-slider-container">
-          <span class="meta-label" style="margin:0; font-size:10px;">Okno:</span>
-          <input type="range" class="micro-slider" min={1} max={6} value={contextWindow}
-            oninput={(e) => { contextWindow = Number((e.target as HTMLInputElement).value); }} />
+    <div class="kpi-card">
+      <span class="meta-label">Dynamika WoW (Tydzień-do-Tygodnia)</span>
+      {#if wowChange}
+        <div class="kpi-value tabular-nums wow-row" class:value-up={wowChange.avgDiff > 0} class:value-down={wowChange.avgDiff < 0}>
+          {wowChange.avgDiff > 0 ? '+' : ''}{formatPrice(wowChange.avgDiff)} zł
         </div>
-        <div class="chart-legend">
-          <div class="legend-item"><div class="legend-swatch" style="background: var(--muted); opacity: 0.08;"></div>Lata ubiegłe</div>
-          <div class="legend-item"><div class="legend-swatch" style="background: var(--green); opacity: 0.2;"></div>Aktualny Rok</div>
+        <div class="kpi-change" class:value-up={wowChange.avgDiff > 0} class:value-down={wowChange.avgDiff < 0}>
+          {wowChange.pctDiff > 0 ? '+' : ''}{wowChange.pctDiff.toFixed(1)}% vs poprz. tydzień
         </div>
-      </div>
-    </div>
-    <div class="svg-chart-container">
-      {#if chartSvg}
-        <svg viewBox="0 0 800 320" preserveAspectRatio="xMidYMid meet">
-          {@html chartSvg}
-        </svg>
       {:else}
-        <svg viewBox="0 0 800 320" preserveAspectRatio="xMidYMid meet">
-          <text x="400" y="160" text-anchor="middle" fill="#6e6a61" font-size="14">
-            Brak danych w wybranym oknie czasowym
-          </text>
-        </svg>
+        <div class="kpi-value tabular-nums muted">–</div>
+        <div class="kpi-change muted">Brak danych z poprz. tyg.</div>
       {/if}
+    </div>
+
+    <!-- Date selector (answers "when?") -->
+    <div class="kpi-card date-card">
+      <span class="meta-label">Tydzień (Snapshot)</span>
+      <div class="date-selector-wrapper">
+        <button
+          class="date-nav-btn"
+          onclick={goPrevWeek}
+          disabled={sliderValue <= 0}
+          aria-label="Poprzedni tydzień"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+
+        <div class="date-select-container">
+          <select class="date-select tabular-nums" value={sliderValue} onchange={onDateSelectChange}>
+            {#each weekLabels as label, idx}
+              <option value={idx}>{label}</option>
+            {/each}
+          </select>
+          <div class="select-arrow">
+            <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+        </div>
+
+        <button
+          class="date-nav-btn"
+          onclick={goNextWeek}
+          disabled={sliderValue >= allWeekList.length - 1}
+          aria-label="Następny tydzień"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+      </div>
+      <div class="kpi-change muted">Wybierz lub przełącz datę</div>
     </div>
   </div>
 
-  <!-- Market Breakdown Table -->
-  <div class="table-zone">
-    <div class="table-header-bar">
-      <span class="meta-label" style="margin-bottom:0;">Przekrój Rynków</span>
-    </div>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Rynek Hurtowy</th>
-          <th class="text-right">Cena Min (zl)</th>
-          <th class="text-right">Cena Max (zl)</th>
-          <th class="text-right">Rozpietosc (Spread)</th>
-          <th class="text-right">Odchylenie od min. wybranych</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each marketRows as row}
-          <tr>
-            <td>{row.place}</td>
-            <td class="text-right tabular-nums">{row.priceMin !== null ? formatPrice(row.priceMin) : '-'}</td>
-            <td class="text-right tabular-nums">{row.priceMax !== null ? formatPrice(row.priceMax) : '-'}</td>
-            <td class="text-right tabular-nums">{row.spread !== null ? formatPrice(row.spread) : '-'}</td>
-            <td class="text-right tabular-nums">{row.deviation !== null ? formatPrice(row.deviation) : '-'}</td>
-          </tr>
-        {/each}
-        {#if marketRows.length === 0}
-          <tr><td colspan="5" style="text-align: center; color: var(--muted);">Brak danych</td></tr>
+  <!-- Dashboard layout: Side-by-side elements on desktop -->
+  <div class="dashboard-content">
+    <!-- Context Chart -->
+    <div class="chart-box">
+      <div class="chart-header">
+        <div class="chart-title">Kontekst Sezonowy (+/-{contextWindow} Tygodni)</div>
+        <div class="chart-actions">
+          <div class="micro-slider-container">
+            <span class="meta-label">Okno:</span>
+            <input type="range" class="micro-slider" min={1} max={6} value={contextWindow}
+              oninput={(e) => { contextWindow = Number((e.target as HTMLInputElement).value); }} />
+          </div>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-swatch past-swatch"></div>Lata ubiegłe</div>
+            <div class="legend-item"><div class="legend-swatch current-swatch"></div>Aktualny Rok</div>
+          </div>
+        </div>
+      </div>
+      <div class="svg-chart-container">
+        {#if chartSvg}
+          <svg viewBox="0 0 800 320" preserveAspectRatio="xMidYMid meet">
+            {@html chartSvg}
+          </svg>
+        {:else}
+          <svg viewBox="0 0 800 320" preserveAspectRatio="xMidYMid meet">
+            <text x="400" y="160" text-anchor="middle" fill="#6e6a61" font-size="14">
+              Brak danych w wybranym oknie czasowym
+            </text>
+          </svg>
         {/if}
-      </tbody>
-    </table>
+      </div>
+    </div>
+
+    <!-- Market Breakdown Table -->
+    <div class="table-zone">
+      <div class="table-header-bar">
+        <span class="meta-label">Przekrój Rynków</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Rynek Hurtowy</th>
+            <th class="text-right">Min (zł)</th>
+            <th class="text-right">Max (zł)</th>
+            <th class="text-right">Spread (zł)</th>
+            <th class="text-right">Odchylenie (zł)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each marketRows as row}
+            <tr>
+              <td>{row.place}</td>
+              <td class="text-right tabular-nums">{row.priceMin !== null ? formatPrice(row.priceMin) : '–'}</td>
+              <td class="text-right tabular-nums">{row.priceMax !== null ? formatPrice(row.priceMax) : '–'}</td>
+              <td class="text-right tabular-nums">{row.spread !== null ? formatPrice(row.spread) : '–'}</td>
+              <td class="text-right tabular-nums">{row.deviation !== null ? (row.deviation === 0 ? '0.00' : `+${formatPrice(row.deviation)}`) : '–'}</td>
+            </tr>
+          {/each}
+          {#if marketRows.length === 0}
+            <tr><td colspan="5" style="text-align: center; color: var(--muted); padding: 24px;">Brak danych</td></tr>
+          {/if}
+        </tbody>
+      </table>
+    </div>
   </div>
 </main>
 
 <style>
-  .workspace-grid { display: flex; flex-direction: column; gap: 24px; }
-  .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .kpi-card {
-    background-color: var(--surface); border: 1px solid var(--rule); padding: 16px;
+  .workspace-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
   }
-  .kpi-value { font-size: 28px; font-weight: 700; margin-top: 4px; }
-  .kpi-change { font-size: 12px; margin-top: 6px; }
-  .muted { color: var(--muted); }
-  .meta-label {
-    font-size: 11px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; display: block;
-  }
-  .chart-box {
-    background-color: var(--surface); border: 1px solid var(--rule); padding: 20px;
-  }
-  .chart-header {
-    display: flex; justify-content: space-between; align-items: baseline;
-    margin-bottom: 16px; flex-wrap: wrap; gap: 12px;
-  }
-  .chart-title { font-size: 14px; font-weight: 600; color: var(--ink); }
-  .svg-chart-container { width: 100%; position: relative; }
-  .chart-legend { display: flex; gap: 16px; font-size: 11px; font-weight: 500; flex-wrap: wrap; }
-  .legend-item { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-  .legend-swatch { width: 12px; height: 12px; }
-  .micro-slider-container { display: flex; align-items: center; gap: 8px; opacity: 0.7; }
-  .micro-slider-container:hover { opacity: 1; }
-  .micro-slider {
-    width: 72px; height: 4px;
-    -webkit-appearance: none; appearance: none;
-    background: var(--rule); border-radius: 2px; outline: none;
-  }
-  .micro-slider::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 12px; height: 12px;
-    background: var(--ink); border-radius: 50%;
-  }
-  .micro-slider::-moz-range-thumb {
-    width: 12px; height: 12px;
-    background: var(--ink); border-radius: 50%; border: none;
-  }
-  .table-zone {
-    background-color: var(--surface); border: 1px solid var(--rule);
-    overflow-x: auto; -webkit-overflow-scrolling: touch;
-  }
-  .table-header-bar {
-    padding: 16px 20px; border-bottom: 1px solid var(--rule); background-color: var(--soft);
-  }
-  .data-table { width: 100%; border-collapse: collapse; min-width: 640px; }
-  .data-table th {
-    background-color: var(--soft); font-size: 11px; font-weight: 600; text-transform: uppercase;
-    color: var(--muted); padding: 10px 20px; border-bottom: 1px solid var(--rule);
-    white-space: nowrap;
-  }
-  .data-table td {
-    padding: 12px 20px; border-bottom: 1px solid var(--soft); font-size: 13px;
-    white-space: nowrap;
-  }
-  .text-right { text-align: right; }
-  .tabular-nums { font-variant-numeric: tabular-nums; }
 
-  .date-slider-zone {
+  /* KPI Grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .kpi-card {
     background-color: var(--surface);
     border: 1px solid var(--rule);
-    padding: 16px 20px;
+    border-radius: 6px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 106px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   }
-  .date-readout {
-    font-size: 14px;
+
+  .kpi-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    border-color: var(--muted);
+  }
+
+  .kpi-value {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 4px 0;
+    line-height: 1.2;
+    color: var(--ink);
+  }
+
+  .kpi-change {
+    font-size: 11px;
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+  .muted {
+    color: var(--muted);
+  }
+
+  .meta-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    display: block;
+  }
+
+  /* Compact Date Picker styles */
+  .date-card {
+    background-color: var(--pale);
+  }
+
+  .date-selector-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0;
+  }
+
+  .date-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .date-nav-btn:hover:not(:disabled) {
+    background: var(--green-soft);
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  .date-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    background: var(--pale);
+  }
+
+  .date-select-container {
+    position: relative;
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .date-select {
+    width: 100%;
+    height: 28px;
+    padding: 0 24px 0 8px;
+    font-family: inherit;
+    font-size: 13px;
     font-weight: 600;
     color: var(--green);
-    margin-bottom: 10px;
-    display: block;
-  }
-  .slider-track {
-    height: 6px;
-    border-radius: 3px;
-    background: var(--soft);
+    background: var(--surface);
     border: 1px solid var(--rule);
-    position: relative;
-  }
-  .time-slider {
-    width: 100%;
+    border-radius: 4px;
+    cursor: pointer;
     -webkit-appearance: none;
     appearance: none;
-    background: transparent;
-    height: 22px;
-    margin-top: -14px;
-    display: block;
-    position: relative;
-    z-index: 2;
+    outline: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
   }
-  .time-slider::-webkit-slider-runnable-track { height: 6px; }
-  .time-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    height: 18px;
-    width: 18px;
-    border-radius: 50%;
-    background: var(--surface);
-    border: 2px solid var(--green);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-    cursor: pointer;
-    margin-top: -6px;
+
+  .date-select:focus {
+    border-color: var(--green);
   }
-  .time-slider::-moz-range-thumb {
-    height: 18px;
-    width: 18px;
-    border-radius: 50%;
-    background: var(--surface);
-    border: 2px solid var(--green);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-    cursor: pointer;
+
+  .select-arrow {
+    position: absolute;
+    right: 8px;
+    pointer-events: none;
+    color: var(--green);
+    display: flex;
+    align-items: center;
   }
-  .time-slider::-moz-range-track {
-    height: 6px;
-    background: var(--soft);
+
+  /* Dynamika coloring */
+  .value-up {
+    color: var(--green) !important;
+  }
+
+  .value-down {
+    color: var(--rust) !important;
+  }
+
+  /* Content Row (side by side layout) */
+  .dashboard-content {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* Chart Box */
+  .chart-box {
+    background-color: var(--surface);
     border: 1px solid var(--rule);
-    border-radius: 3px;
+    border-radius: 6px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
   }
 
-  .wow-row {
-    font-size: 20px;
-    margin-top: 6px;
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
   }
-  .wow-up { color: var(--green); }
-  .wow-down { color: var(--rust); }
-  .wow-sep { color: var(--muted); margin: 0 4px; }
 
-  @media (max-width: 768px) {
-    .kpi-row { grid-template-columns: 1fr; gap: 10px; }
-    .kpi-value { font-size: 18px; }
-    .chart-box { padding: 12px; }
-    .chart-title { font-size: 13px; }
-    .chart-header { flex-direction: column; gap: 6px; }
-    .chart-header > div { gap: 12px; }
-    .micro-slider { width: 100px; height: 6px; }
-    .micro-slider::-webkit-slider-thumb { width: 16px; height: 16px; }
-    .micro-slider::-moz-range-thumb { width: 16px; height: 16px; }
-    .table-header-bar { padding: 12px 16px; }
-    .data-table th, .data-table td { padding: 8px 12px; font-size: 12px; }
+  .chart-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
-  @media (min-width: 769px) and (max-width: 1024px) {
-    .kpi-row { grid-template-columns: repeat(3, 1fr); gap: 12px; }
-    .kpi-value { font-size: 19px; }
+
+  .chart-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .svg-chart-container {
+    width: 100%;
+    position: relative;
+  }
+
+  .chart-legend {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--muted);
+  }
+
+  .legend-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+
+  .past-swatch {
+    background: var(--muted);
+    opacity: 0.15;
+  }
+
+  .current-swatch {
+    background: var(--green);
+    opacity: 0.3;
+  }
+
+  .micro-slider-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0.8;
+  }
+
+  .micro-slider-container .meta-label {
+    font-size: 10px;
+  }
+
+  .micro-slider {
+    width: 60px;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--rule);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .micro-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px;
+    height: 10px;
+    background: var(--ink);
+    border-radius: 50%;
+  }
+
+  .micro-slider::-moz-range-thumb {
+    width: 10px;
+    height: 10px;
+    background: var(--ink);
+    border-radius: 50%;
+    border: none;
+  }
+
+  /* Table Zone */
+  .table-zone {
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    overflow: hidden;
+  }
+
+  .table-header-bar {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--rule);
+    background-color: var(--soft);
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .data-table th {
+    background-color: var(--surface);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+    text-align: left;
+  }
+
+  .data-table td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--soft);
+    font-size: 12px;
+    white-space: nowrap;
+    color: var(--ink);
+  }
+
+  .data-table tr:hover td {
+    background-color: var(--pale);
+  }
+
+  .text-right {
+    text-align: right !important;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 1200px) {
+    .dashboard-content {
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .kpi-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .kpi-grid {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .kpi-value {
+      font-size: 22px;
+    }
+    .dashboard-content {
+      gap: 16px;
+    }
+    .chart-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .chart-actions {
+      width: 100%;
+      justify-content: space-between;
+    }
+    .data-table th, .data-table td {
+      padding: 8px 10px;
+      font-size: 11px;
+    }
   }
 </style>
