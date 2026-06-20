@@ -17,6 +17,9 @@
   import type { WeekRanges } from '../lib/arrow-loader';
   import { filterByWeek, allWeeks } from '../lib/filters';
   import { formatPrice, wednesdayOfWeek, weekKey, niceTicks, mergeEnvelope, sortMarketRows, computeKpis } from '../lib/helpers';
+  import { debug } from '../lib/logger';
+
+  const log = debug('SnapshotView');
 
   let { records, selectedDate = $bindable(), markets, weekRanges = null }: {
     records: PriceRecord[];
@@ -513,6 +516,7 @@
   </div>
 
   <!-- Dashboard layout: Side-by-side elements on desktop -->
+  {#if records.length > 0}
   <div class="dashboard-content">
     <!-- Context Chart -->
     <div class="chart-box">
@@ -577,13 +581,19 @@
       </table>
     </div>
   </div>
+  {:else}
+  <div class="empty-dashboard">
+    <p class="empty-title">Brak danych</p>
+    <p class="empty-desc">Dla wybranego produktu i rynków nie ma danych w archiwum. Wybierz inny produkt lub zmień filtrowanie rynków.</p>
+  </div>
+  {/if}
 </main>
 
 <style>
   .workspace-grid {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 24px;
   }
 
   /* KPI Grid */
@@ -597,33 +607,31 @@
     background-color: var(--surface);
     border: 1px solid var(--rule);
     border-radius: 6px;
-    padding: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    padding: 16px 18px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 106px;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    min-height: 110px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
 
   .kpi-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     border-color: var(--muted);
   }
 
   .kpi-value {
-    font-size: 26px;
+    font-size: 28px;
     font-weight: 700;
-    margin: 4px 0;
-    line-height: 1.2;
+    margin: 6px 0 2px;
+    line-height: 1.15;
     color: var(--ink);
   }
 
   .kpi-change {
     font-size: 11px;
     font-weight: 500;
-    margin-top: 2px;
+    margin-top: 4px;
   }
 
   .muted {
@@ -742,25 +750,24 @@
     background-color: var(--surface);
     border: 1px solid var(--rule);
     border-radius: 6px;
-    padding: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    padding: 20px;
   }
 
   .chart-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
     flex-wrap: wrap;
     gap: 12px;
   }
 
   .chart-title {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
-    color: var(--ink);
+    color: var(--muted);
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.06em;
   }
 
   .chart-actions {
@@ -847,14 +854,12 @@
     background-color: var(--surface);
     border: 1px solid var(--rule);
     border-radius: 6px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
     overflow: hidden;
   }
 
   .table-header-bar {
     padding: 12px 16px;
     border-bottom: 1px solid var(--rule);
-    background-color: var(--soft);
   }
 
   .data-table {
@@ -863,11 +868,11 @@
   }
 
   .data-table th {
-    background-color: var(--surface);
+    background-color: var(--pale);
     font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     color: var(--muted);
     padding: 10px 16px;
     border-bottom: 1px solid var(--rule);
@@ -876,11 +881,15 @@
   }
 
   .data-table td {
-    padding: 10px 16px;
+    padding: 11px 16px;
     border-bottom: 1px solid var(--soft);
-    font-size: 12px;
+    font-size: 13px;
     white-space: nowrap;
     color: var(--ink);
+  }
+
+  .data-table tr:last-child td {
+    border-bottom: none;
   }
 
   .data-table tr:hover td {
@@ -934,5 +943,26 @@
       padding: 8px 10px;
       font-size: 11px;
     }
+  }
+
+  .empty-dashboard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 24px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .empty-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .empty-desc {
+    font-size: 13px;
+    max-width: 400px;
+    line-height: 1.5;
   }
 </style>
