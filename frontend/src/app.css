@@ -13,6 +13,9 @@
   --blue: #2c4f6e;
   --blue-soft: #e1e9ef;
   --missing: #b0a89c;
+
+  --font-serif: 'Lora', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -20,30 +23,33 @@
 body {
   background-color: var(--bg);
   color: var(--ink);
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
-  padding: 24px;
+  padding: 32px 40px;
   -webkit-font-smoothing: antialiased;
 }
 
 h1 {
-  font-size: 20px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: -0.02em;
   border-bottom: 1px solid var(--rule);
   padding-bottom: 8px;
   margin-bottom: 24px;
+  line-height: 1.1;
 }
 
-h2 { font-size: 16px; margin-bottom: 12px; }
+h2 { font-family: var(--font-sans); font-size: 16px; font-weight: 600; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
 
 .tabular-nums { font-variant-numeric: tabular-nums; }
 
 .layout-container {
   display: flex;
-  gap: 32px;
-  max-width: 1520px;
+  gap: 40px;
+  max-width: 1600px;
   margin: 0 auto;
   position: relative;
 }
@@ -58,7 +64,7 @@ h2 { font-size: 16px; margin-bottom: 12px; }
 /* ── Responsive breakpoints ── */
 @media (max-width: 1024px) {
   body { padding: 16px; }
-  h1 { font-size: 17px; margin-bottom: 16px; }
+  h1 { font-size: 22px; margin-bottom: 16px; }
   .layout-container { flex-direction: column; gap: 0; }
   .sidebar-overlay {
     display: block;
@@ -79,7 +85,7 @@ h2 { font-size: 16px; margin-bottom: 12px; }
 @media (max-width: 768px) {
   body { padding: 12px; }
   h1 {
-    font-size: 15px;
+    font-size: 18px;
     padding-bottom: 6px;
     margin-bottom: 12px;
     border-bottom: none;

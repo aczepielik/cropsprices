@@ -62,7 +62,7 @@
   .sidebar.collapsed { width: 56px; }
 
   .meta-label {
-    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
     letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; display: block;
   }
 
@@ -70,20 +70,23 @@
     display: flex; flex-direction: column;
     border: 1px solid var(--rule); background-color: var(--surface);
     margin-bottom: 24px;
+    border-radius: 6px;
+    overflow: hidden;
   }
 
   .tab-item {
     display: block; padding: 14px 16px; text-align: left;
-    background: none; border: none; border-bottom: 1px solid var(--rule);
+    background: none; border: none; border-bottom: 1px solid var(--soft);
     color: var(--ink); font-weight: 500; font-size: 13px;
-    cursor: pointer; transition: background-color 0.15s;
+    cursor: pointer; transition: background-color 0.12s ease;
     white-space: nowrap; overflow: hidden;
   }
   .tab-item:last-child { border-bottom: none; }
-  .tab-item:hover { background-color: var(--soft); }
+  .tab-item:hover { background-color: var(--pale); }
   .tab-item.active {
-    background-color: var(--soft); border-left: 4px solid var(--green);
-    font-weight: 600; padding-left: 12px;
+    background-color: var(--pale);
+    border-left: 3px solid var(--green);
+    font-weight: 600; padding-left: 13px;
   }
 
   .sidebar-top {

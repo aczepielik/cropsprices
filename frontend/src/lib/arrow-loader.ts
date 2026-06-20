@@ -19,6 +19,9 @@
 
 import { tableFromIPC } from 'apache-arrow';
 import type { Manifest, PriceRecord } from './types';
+import { debug } from './logger';
+
+const log = debug('arrow-loader');
 
 // Base URL for data files. In dev, Vite serves these from /public/data/.
 // In production, they're served from the same domain root.
@@ -82,7 +85,13 @@ export async function loadArrowFile(path: string): Promise<PriceRecord[]> {
   const buffer = await res.arrayBuffer();
 
   // Decode Arrow IPC format into a table
-  const table = tableFromIPC(buffer);
+  let table;
+  try {
+    table = tableFromIPC(buffer);
+  } catch (e) {
+    log('failed to decode arrow file', { path, error: String(e) });
+    return [];  // Corrupt or non-Arrow file (e.g. HTML fallback) — treat as no data
+  }
 
   // Convert Arrow table rows into plain JS objects
   const records: PriceRecord[] = [];

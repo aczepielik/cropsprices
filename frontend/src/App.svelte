@@ -19,14 +19,18 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { Manifest, Product, PriceRecord, Filters, ViewMode } from './lib/types';
+  import type { Manifest, PriceRecord, Filters, ViewMode } from './lib/types';
   import { loadManifest, loadProductData, loadWeekRanges } from './lib/arrow-loader';
   import type { WeekRanges } from './lib/arrow-loader';
   import { isoWeekOf, wednesdayOfWeek } from './lib/helpers';
+  import { debug, error } from './lib/logger';
   import Sidebar from './components/Sidebar.svelte';
   import FilterZone from './components/FilterZone.svelte';
   import SnapshotView from './components/SnapshotView.svelte';
   import HeatmapView from './components/HeatmapView.svelte';
+
+  const log = debug('App');
+  const logError = error('App');
 
   let manifest = $state<Manifest | null>(null);
   let activeView = $state<ViewMode>('snapshot');
@@ -91,28 +95,39 @@
     }
 
     loadState = 'loading';
+    log('start', { product: filters.product.name });
 
     const gen = ++loadGeneration;
-    const [result, ranges] = await Promise.all([
-      loadProductData(
-        filters.product.name,
-        filters.product.unit,
-        filters.product.origin,
-        manifest.currentYear,
-      ),
-      loadWeekRanges(
-        filters.product.name,
-        filters.product.unit,
-        filters.product.origin,
-        manifest.currentYear,
-      ),
-    ]);
+    let result: PriceRecord[] = [];
+    let ranges: WeekRanges | null = null;
+    try {
+      [result, ranges] = await Promise.all([
+        loadProductData(
+          filters.product.name,
+          filters.product.unit,
+          filters.product.origin,
+          manifest.currentYear,
+        ),
+        loadWeekRanges(
+          filters.product.name,
+          filters.product.unit,
+          filters.product.origin,
+          manifest.currentYear,
+        ),
+      ]);
+    } catch (e) {
+      logError('load failed', { error: String(e) });
+    }
 
     // Discard stale response — only the latest generation matters
-    if (gen !== loadGeneration) return;
+    if (gen !== loadGeneration) {
+      log('stale response discarded', { gen, loadGeneration });
+      return;
+    }
 
     records = result;
     weekRanges = ranges;
+    log('complete', { product: filters.product.name, recordsLen: records.length });
 
     if (records.length > 0) {
       let latestYear = 0;
@@ -143,14 +158,24 @@
 </script>
 
 <!-- Header with mobile hamburger -->
-<div class="header-bar">
-  <div class="header-text">
-    <h1>Notowania Rolne <span class="header-sub">| BIULETYN RYNKOWY</span></h1>
-    {#if filters.product}
-      <div class="mobile-breadcrumb">
-        {filters.category === 'owoce' ? 'Owoce' : 'Warzywa'} ›
-        {filters.origin === 'KRAJOWE' ? 'Krajowe' : 'Importowane'} ›
-        {filters.product.name} ({filters.product.unit})
+<div class="masthead">
+  <div class="masthead-left">
+    <div class="masthead-title-row">
+      <h1 class="masthead-title">Notowania Rolne</h1>
+      <div class="masthead-divider" aria-hidden="true"></div>
+      <span class="masthead-subtitle">Biuletyn Rynkowy</span>
+    </div>
+    {#if manifest}
+      <div class="masthead-meta">
+        <span>Aktualizacja: {new Date(manifest.lastUpdate).toLocaleDateString('pl-PL', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+        {#if filters.product}
+          <span class="masthead-sep" aria-hidden="true">·</span>
+          <span>{filters.category === 'owoce' ? 'Owoce' : 'Warzywa'}</span>
+          <span class="masthead-sep" aria-hidden="true">·</span>
+          <span>{filters.origin === 'KRAJOWE' ? 'Krajowe' : 'Importowane'}</span>
+          <span class="masthead-sep" aria-hidden="true">·</span>
+          <span class="masthead-product">{filters.product.name} ({filters.product.unit})</span>
+        {/if}
       </div>
     {/if}
   </div>
@@ -181,11 +206,6 @@
       {:else}
         <HeatmapView {records} markets={filters.markets} />
       {/if}
-      {#if records.length === 0 && filters.product && loadState === 'loaded'}
-        <div class="empty-banner">
-          Brak danych dla <strong>{filters.product.name} ({filters.product.unit})</strong> w archiwum. Wybierz inny produkt.
-        </div>
-      {/if}
     </div>
   </div>
 {:else if loadState === 'loading' || loadState === 'idle'}
@@ -195,20 +215,77 @@
 {/if}
 
 <style>
-  .header-bar {
+  .masthead {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
-    gap: 12px;
+    gap: 16px;
     margin-bottom: 24px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
   }
-  .header-bar h1 { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
 
-  .mobile-breadcrumb {
-    display: none;
+  .masthead-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .masthead-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .masthead-title {
+    font-family: var(--font-serif);
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin: 0;
+    border: none;
+    padding: 0;
+  }
+
+  .masthead-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--muted);
+    opacity: 0.4;
+    align-self: center;
+    flex-shrink: 0;
+  }
+
+  .masthead-subtitle {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    align-self: center;
+    white-space: nowrap;
+  }
+
+  .masthead-meta {
     font-size: 12px;
     color: var(--muted);
-    margin-top: 2px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .masthead-sep {
+    opacity: 0.5;
+  }
+
+  .masthead-product {
+    font-weight: 500;
+    color: var(--ink);
   }
 
   .hamburger {
@@ -224,6 +301,7 @@
     cursor: pointer;
     padding: 8px;
     flex-shrink: 0;
+    margin-bottom: 4px;
   }
   .hamburger-line {
     display: block;
@@ -245,19 +323,9 @@
     width: 56px;
   }
 
-  .empty-banner {
-    background: var(--soft);
-    border: 1px solid var(--rule);
-    padding: 16px 20px;
-    font-size: 13px;
-    color: var(--muted);
-    margin-top: 16px;
-  }
-
   @media (max-width: 1024px) {
-    .header-bar { margin-bottom: 12px; }
+    .masthead { margin-bottom: 16px; }
     .hamburger { display: flex; }
-    .mobile-breadcrumb { display: block; }
     .sidebar-col {
       position: fixed;
       top: 0;

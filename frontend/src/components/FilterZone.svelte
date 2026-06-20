@@ -150,16 +150,15 @@
   .filter-zone {
     background-color: var(--surface);
     border: 1px solid var(--rule);
-    padding: 12px;
+    padding: 16px;
     border-radius: 6px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
   }
   .selectors-row {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-bottom: 12px;
-    padding-bottom: 12px;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
     border-bottom: 1px solid var(--rule);
   }
   .meta-label {
@@ -168,7 +167,7 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--muted);
-    margin-bottom: 3px;
+    margin-bottom: 4px;
     display: block;
   }
   .select-container {
@@ -179,12 +178,12 @@
   }
   .select {
     width: 100%;
-    padding: 6px 26px 6px 8px;
+    padding: 7px 28px 7px 10px;
     border: 1px solid var(--rule);
     border-radius: 4px;
     background-color: var(--surface);
     font-family: inherit;
-    font-size: 12px;
+    font-size: 13px;
     color: var(--ink);
     outline: none;
     -webkit-appearance: none;
@@ -213,13 +212,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
   }
   .markets-header .meta-label { margin-bottom: 0; }
   .checkbox-group {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     margin-top: 4px;
     max-height: 220px;
     overflow-y: auto;
@@ -227,26 +226,30 @@
   .checkbox-item {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     cursor: pointer;
-    font-size: 12px;
-    padding: 2px 0;
-    transition: color 0.15s ease;
+    font-size: 13px;
+    padding: 3px 4px;
+    border-radius: 3px;
+    transition: background-color 0.1s ease;
   }
   .checkbox-item:hover {
-    color: var(--green);
+    background-color: var(--pale);
   }
   .checkbox-item input {
     accent-color: var(--green);
     cursor: pointer;
+    width: 14px;
+    height: 14px;
   }
-  .market-actions { display: flex; gap: 4px; }
+  .market-actions { display: flex; gap: 6px; }
   .action-btn {
     font-size: 10px;
-    padding: 2px 6px;
+    font-weight: 500;
+    padding: 3px 8px;
     border: 1px solid var(--rule);
     border-radius: 3px;
-    background: var(--soft);
+    background: var(--surface);
     cursor: pointer;
     transition: all 0.15s ease;
   }
@@ -257,10 +260,10 @@
   }
 
   @media (max-width: 1024px) {
-    .filter-zone { padding: 14px; }
-    .selectors-row { gap: 10px; padding-bottom: 14px; }
-    .select { font-size: 14px; padding: 8px 28px 8px 10px; }
-    .checkbox-item { font-size: 14px; }
+    .filter-zone { padding: 16px; }
+    .selectors-row { gap: 12px; padding-bottom: 16px; }
+    .select { font-size: 14px; padding: 9px 28px 9px 10px; }
+    .checkbox-item { font-size: 14px; padding: 4px 6px; }
     .checkbox-group { max-height: 180px; }
     .action-btn { min-height: 32px; padding: 4px 10px; }
   }

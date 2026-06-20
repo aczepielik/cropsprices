@@ -2,6 +2,9 @@
   import type { PriceRecord, HeatmapCell } from '../lib/types';
   import { aggregateByWeekYear, filterByMarkets } from '../lib/filters';
   import { heatColor, getISOWeek, getYear, niceTicks } from '../lib/helpers';
+  import { debug } from '../lib/logger';
+
+  const log = debug('HeatmapView');
 
   let { records, markets }: {
     records: PriceRecord[];
@@ -23,6 +26,7 @@
       globalMin = Math.min(globalMin, data.ribbonMin);
       globalMax = Math.max(globalMax, data.ribbonMax);
     }
+    log('cells computed', { recordsLen: records.length, cellsLen: result.length });
     return { cells: result, globalMin, globalMax };
   });
 
@@ -135,7 +139,7 @@
       if (w <= MAX_WEEKS) {
         const x = weekX(w);
         s += `<line x1="${x}" y1="${hmMT}" x2="${x}" y2="${hmB}" stroke="var(--soft)" stroke-width="1" />`;
-        s += `<text x="${x + 2}" y="${hmMT - 10}" font-size="11" fill="var(--muted)" text-anchor="start" font-weight="500">${monthNames[mi]}</text>`;
+        s += `<text x="${x + 2}" y="${hmMT - 10}" font-size="12" fill="var(--muted)" text-anchor="start" font-weight="500">${monthNames[mi]}</text>`;
       }
     });
 
@@ -143,7 +147,7 @@
     yrList.forEach((yr, yi) => {
       const y = hmMT + yi * cellH;
       s += `<line x1="${hmML}" y1="${y}" x2="${hmR}" y2="${y}" stroke="var(--rule)" stroke-width="0.5" />`;
-      s += `<text x="${hmML - 10}" y="${yearMidY(yi) + 4}" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="end">${yr}</text>`;
+      s += `<text x="${hmML - 10}" y="${yearMidY(yi) + 4}" font-size="14" font-weight="600" fill="var(--ink)" text-anchor="end">${yr}</text>`;
     });
     s += `<line x1="${hmML}" y1="${hmB}" x2="${hmR}" y2="${hmB}" stroke="var(--rule)" stroke-width="0.5" />`;
 
@@ -170,11 +174,11 @@
 
     // Week labels
     for (let w = 1; w <= MAX_WEEKS; w += 4) {
-      s += `<text x="${weekX(w)}" y="${hmB + 16}" font-size="10" fill="var(--muted)" text-anchor="middle">T${w}</text>`;
+      s += `<text x="${weekX(w)}" y="${hmB + 16}" font-size="11" fill="var(--muted)" text-anchor="middle">T${w}</text>`;
     }
 
     // Bottom marginal: weekly price ribbons
-    s += `<text x="${hmML}" y="${bmT - 14}" font-size="12" font-weight="600" fill="var(--muted)">Zakres cen (min–max) (zł)</text>`;
+    s += `<text x="${hmML}" y="${bmT - 14}" font-size="11" font-weight="600" fill="var(--muted)">Zakres cen (min–max) (zł)</text>`;
     s += `<rect x="${hmML}" y="${bmT}" width="${hmW}" height="${bmH}" fill="var(--bg)" stroke="var(--rule)" stroke-width="0.5" />`;
 
     const bmTicks = niceTicks(pMin, pMax, 4);
@@ -184,7 +188,7 @@
     bmTicks.forEach(pv => {
       const y = priceY(pv);
       s += `<line x1="${hmML}" y1="${y}" x2="${hmR}" y2="${y}" stroke="var(--soft)" stroke-width="0.5" />`;
-      s += `<text x="${hmML - 6}" y="${y + 3}" font-size="10" fill="var(--muted)" text-anchor="end">${pv.toFixed(pv % 1 === 0 ? 0 : 1)}</text>`;
+      s += `<text x="${hmML - 6}" y="${y + 4}" font-size="11" fill="var(--muted)" text-anchor="end">${pv.toFixed(pv % 1 === 0 ? 0 : 1)}</text>`;
     });
 
     s += `<g clip-path="url(#clip-bm)">`;
@@ -236,14 +240,14 @@
     s += `</g>`;
 
     // Right marginal: yearly mini ranges
-    s += `<text x="${rmL}" y="${hmMT - 14}" font-size="12" font-weight="600" fill="var(--muted)">Cena (zł) — wg roku</text>`;
+    s += `<text x="${rmL}" y="${hmMT - 14}" font-size="11" font-weight="600" fill="var(--muted)">Cena wg roku (zł)</text>`;
     s += `<rect x="${rmL}" y="${hmMT}" width="${rmW}" height="${hmH}" fill="var(--bg)" stroke="var(--rule)" stroke-width="0.5" />`;
 
     const rmTicks = niceTicks(pMin, pMax, 3);
     rmTicks.forEach(pv => {
       const x = priceX(pv);
       s += `<line x1="${x}" y1="${hmMT}" x2="${x}" y2="${hmB}" stroke="var(--soft)" stroke-width="0.5" />`;
-      s += `<text x="${x}" y="${hmB + 16}" font-size="10" fill="var(--muted)" text-anchor="middle">${pv.toFixed(pv % 1 === 0 ? 0 : 1)}</text>`;
+      s += `<text x="${x}" y="${hmB + 16}" font-size="11" fill="var(--muted)" text-anchor="middle">${pv.toFixed(pv % 1 === 0 ? 0 : 1)}</text>`;
     });
 
     s += `<g clip-path="url(#clip-rm)">`;
@@ -255,15 +259,18 @@
       const x1 = priceX(a.overallMin);
       const x2 = priceX(a.overallMax);
       s += `<rect x="${x1}" y="${ya - bandH/2}" width="${Math.max(2, x2 - x1)}" height="${bandH}" rx="3" fill="var(--muted)" opacity="0.1" stroke="var(--muted)" stroke-width="0.5" />`;
-      // Label to the right of the band
-      const labelX = Math.max(x2 + 4, rmL + 2);
       const labelText = `${a.overallMin.toFixed(1)}–${a.overallMax.toFixed(1)}`;
-      // Use smaller font and ellipsis if too wide
       const labelWidth = labelText.length * 5.5;
-      if (labelX + labelWidth > rmL + rmW) {
-        s += `<text x="${rmL + rmW - 2}" y="${ya + 3}" font-size="9" fill="var(--muted)" text-anchor="end">${a.overallMin.toFixed(1)}–${a.overallMax.toFixed(1)}</text>`;
+      const labelX = Math.max(x2 + 6, rmL + 2);
+      if (labelX + labelWidth <= rmL + rmW) {
+        s += `<text x="${labelX}" y="${ya + 3}" font-size="10" fill="var(--muted)" text-anchor="start">${labelText}</text>`;
       } else {
-        s += `<text x="${labelX}" y="${ya + 3}" font-size="9" fill="var(--muted)" text-anchor="start">${a.overallMin.toFixed(1)}–${a.overallMax.toFixed(1)}</text>`;
+        const altX = x1 - 6;
+        if (altX - labelWidth >= rmL) {
+          s += `<text x="${altX}" y="${ya + 3}" font-size="10" fill="var(--muted)" text-anchor="end">${labelText}</text>`;
+        } else {
+          s += `<text x="${rmL + rmW - 2}" y="${ya + 3}" font-size="10" fill="var(--muted)" text-anchor="end">${labelText}</text>`;
+        }
       }
     });
     const curA = yAgg.get(currentYear);
@@ -272,30 +279,32 @@
       const x1 = priceX(curA.overallMin);
       const x2 = priceX(curA.overallMax);
       s += `<rect x="${x1}" y="${ya - bandH/2}" width="${Math.max(2, x2 - x1)}" height="${bandH}" rx="3" fill="var(--green)" opacity="0.15" stroke="var(--green)" stroke-width="1.5" />`;
-      const labelX = Math.max(x2 + 4, rmL + 2);
-      s += `<text x="${labelX}" y="${ya + 3}" font-size="9" fill="var(--green)" font-weight="600" text-anchor="start">${curA.overallMin.toFixed(1)}–${curA.overallMax.toFixed(1)}</text>`;
+      const curLabel = `${curA.overallMin.toFixed(1)}–${curA.overallMax.toFixed(1)}`;
+      const curLabelWidth = curLabel.length * 5.5;
+      const curLabelX = Math.max(x2 + 6, rmL + 2);
+      if (curLabelX + curLabelWidth <= rmL + rmW) {
+        s += `<text x="${curLabelX}" y="${ya + 3}" font-size="10" fill="var(--green)" font-weight="600" text-anchor="start">${curLabel}</text>`;
+      } else {
+        s += `<text x="${rmL + rmW - 2}" y="${ya + 3}" font-size="10" fill="var(--green)" font-weight="600" text-anchor="end">${curLabel}</text>`;
+      }
     }
     s += `</g>`;
 
-    // Single legend row
+    // Legend row (single consolidated legend)
     const legY = bmB + 26;
     const legH = 10;
     let legX = hmML;
-    // Cell colour swatch + label
     s += `<rect x="${legX}" y="${legY}" width="${legH}" height="${legH}" rx="1" fill="url(#hg)" stroke="var(--rule)" stroke-width="0.5" />`;
-    s += `<text x="${legX + legH + 4}" y="${legY + legH - 1}" font-size="10" fill="var(--muted)">Śr. cena tyg.</text>`;
-    legX += 110;
-    // Blank cell swatch + label
+    s += `<text x="${legX + legH + 4}" y="${legY + legH - 1}" font-size="11" fill="var(--muted)">Śr. cena tyg.</text>`;
+    legX += 115;
     s += `<rect x="${legX}" y="${legY}" width="${legH}" height="${legH}" rx="1" fill="var(--pale)" stroke="var(--rule)" stroke-width="0.5" />`;
-    s += `<text x="${legX + legH + 4}" y="${legY + legH - 1}" font-size="10" fill="var(--muted)">Brak danych</text>`;
-    legX += 105;
-    // Current year band swatch + label
+    s += `<text x="${legX + legH + 4}" y="${legY + legH - 1}" font-size="11" fill="var(--muted)">Brak danych</text>`;
+    legX += 110;
     s += `<rect x="${legX}" y="${legY}" width="20" height="${legH}" rx="2" fill="var(--green)" opacity="0.2" />`;
-    s += `<text x="${legX + 24}" y="${legY + legH - 1}" font-size="10" fill="var(--green)">Rok bieżący (zakres)</text>`;
-    legX += 145;
-    // Past years band swatch + label
+    s += `<text x="${legX + 24}" y="${legY + legH - 1}" font-size="11" fill="var(--green)">Rok bieżący (zakres)</text>`;
+    legX += 150;
     s += `<rect x="${legX}" y="${legY}" width="20" height="${legH}" rx="2" fill="var(--muted)" opacity="0.1" />`;
-    s += `<text x="${legX + 24}" y="${legY + legH - 1}" font-size="10" fill="var(--muted)">Lata ubiegłe (zakres)</text>`;
+    s += `<text x="${legX + 24}" y="${legY + legH - 1}" font-size="11" fill="var(--muted)">Lata ubiegłe (zakres)</text>`;
 
     return `<svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
   });
@@ -305,14 +314,23 @@
   <div class="chart-box">
     <div class="chart-header">
       <div class="chart-title">Mapa Cieplna Sezonowa (Tydzień × Rok)</div>
-      <div class="chart-legend">
-        <div class="legend-item"><div class="legend-swatch" style="background: var(--green); opacity: 0.2;"></div><span>Rok bieżący (zakres min–max)</span></div>
-        <div class="legend-item"><div class="legend-swatch" style="background: var(--muted); opacity: 0.1;"></div><span>Lata ubiegłe (zakres min–max)</span></div>
+    </div>
+    {#if cells.cells.length === 0}
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M3 9h18M9 21V9" />
+          </svg>
+        </div>
+        <p class="empty-title">Brak danych</p>
+        <p class="empty-desc">Dla wybranego produktu i rynków nie ma danych w archiwum. Wybierz inny produkt lub zmień filtrowanie rynków.</p>
       </div>
-    </div>
-    <div class="heatmap-scroll" bind:this={containerEl}>
-      {@html svgMarkup}
-    </div>
+    {:else}
+      <div class="heatmap-scroll" bind:this={containerEl}>
+        {@html svgMarkup}
+      </div>
+    {/if}
   </div>
 </main>
 
@@ -320,16 +338,13 @@
   .workspace-grid { display: flex; flex-direction: column; gap: 24px; }
   .chart-box {
     background-color: var(--surface); border: 1px solid var(--rule); padding: 20px;
+    border-radius: 6px;
   }
   .chart-header {
     display: flex; justify-content: space-between; align-items: baseline;
-    margin-bottom: 16px; flex-wrap: wrap; gap: 12px;
+    margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
   }
-  .chart-title { font-size: 14px; font-weight: 600; color: var(--ink); }
-  .chart-legend { display: flex; gap: 16px; font-size: 11px; font-weight: 500; flex-wrap: wrap; }
-  .legend-item { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-
-  .legend-swatch { width: 16px; height: 12px; }
+  .chart-title { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
   .heatmap-scroll {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -340,8 +355,34 @@
     height: auto;
   }
 
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 24px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .empty-icon {
+    margin-bottom: 16px;
+    opacity: 0.4;
+  }
+  .empty-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .empty-desc {
+    font-size: 13px;
+    max-width: 400px;
+    line-height: 1.5;
+  }
+
   @media (max-width: 768px) {
     .chart-box { padding: 12px; }
-    .chart-title { font-size: 13px; }
+    .chart-title { font-size: 11px; }
+    .empty-state { padding: 40px 16px; }
   }
 </style>
