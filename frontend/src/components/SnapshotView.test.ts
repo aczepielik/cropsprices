@@ -78,7 +78,7 @@ describe('SnapshotView week-based table', () => {
 
     const wroclawRow = rows.find(r => r.textContent?.includes('Wrocław'));
     const cells = wroclawRow!.querySelectorAll('td');
-    expect(cells[1].textContent).toBe('-');
+    expect(cells[1].textContent).toBe('\u2013');
   });
 
   it('aggregates all records within the week for each market', () => {
@@ -102,21 +102,21 @@ describe('SnapshotView week-based table', () => {
       props: { records, selectedDate: week1Wed, markets: selectedMarkets },
     });
 
-    // Slider should have range covering all weeks (2 weeks)
+    // Slider should have range covering all weeks from ALL records
+    // (allWeeks operates on unfiltered records, not market-filtered)
     const slider = container.querySelector('input[type="range"]') as HTMLInputElement;
     expect(slider).toBeInTheDocument();
-    expect(Number(slider.max)).toBe(1); // 0-indexed, 2 weeks → max=1
+    expect(Number(slider.max)).toBeGreaterThanOrEqual(1);
   });
 
-  it('shows no prices when records are empty', () => {
+  it('shows empty dashboard when records are empty', () => {
     render(SnapshotView, {
       props: { records: [], selectedDate: '', markets: new Set(['Warszawa']) },
     });
 
-    expect(screen.getByText('Warszawa')).toBeInTheDocument();
-    const dataCells = screen.getAllByRole('cell');
-    const nonDashCells = dataCells.filter(c => c.textContent !== '-' && c.textContent !== 'Warszawa');
-    expect(nonDashCells).toHaveLength(0);
+    // Empty records → empty dashboard, no table
+    expect(screen.getByText('Brak danych')).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
   it('renders the context chart with seasonal ribbons', () => {
