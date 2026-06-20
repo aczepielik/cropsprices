@@ -1,20 +1,46 @@
 {
+  // ═══════════════════════════════════════════════════════════════════════
+  // TypeScript Configuration for Application Code
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  // WHAT IS TYPESCRIPT? A superset of JavaScript that adds static typing.
+  // It catches bugs at compile time (before you run the code).
+  //
+  // WHY TWO tsconfig FILES?
+  // - tsconfig.app.json: for your app code (src/**)
+  // - tsconfig.node.json: for build tools (vite.config.ts)
+  // They need different settings because they run in different environments.
+  //
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // Inherit settings from Svelte's base TypeScript config
   "extends": "@tsconfig/svelte/tsconfig.json",
   "compilerOptions": {
+    // Build info file for incremental compilation (speeds up repeated builds)
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+
+    // Target: which JavaScript version to compile to
+    // ES2023 = modern browsers (Chrome 110+, Firefox 110+, Safari 16.4+)
     "target": "es2023",
+
+    // Module system: ESNext = use import/export syntax (not CommonJS)
     "module": "esnext",
+
+    // Type definitions for Svelte and Vite client-side APIs
     "types": ["svelte", "vite/client"],
+
+    // Don't emit JavaScript files — Vite handles compilation
     "noEmit": true,
-    /**
-     * Typecheck JS in `.svelte` and `.js` files by default.
-     * Disable checkJs if you'd like to use dynamic types in JS.
-     * Note that setting allowJs false does not prevent the use
-     * of JS in `.svelte` files.
-     */
+
+    // Allow JavaScript files (not just TypeScript)
     "allowJs": true,
+
+    // Type-check JavaScript files too (catches errors in .js and .svelte)
     "checkJs": true,
+
+    // Treat all files as modules (not scripts)
     "moduleDetection": "force"
   },
+  // Which files to type-check:
   "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte"]
 }

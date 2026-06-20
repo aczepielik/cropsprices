@@ -1,3 +1,18 @@
 {
+  // ═══════════════════════════════════════════════════════════════════════
+  // VS Code Recommended Extensions
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  // This file lists extensions that VS Code recommends when opening this
+  // project. When a team member opens the project for the first time,
+  // VS Code will prompt them to install these extensions.
+  //
+  // svelte.svelte-vscode provides:
+  // - Syntax highlighting for .svelte files
+  // - IntelliSense (autocomplete) for Svelte components
+  // - Error checking and type information
+  // - Formatting support
+  //
+  // ═══════════════════════════════════════════════════════════════════════
   "recommendations": ["svelte.svelte-vscode"]
 }

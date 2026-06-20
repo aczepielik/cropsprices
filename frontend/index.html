@@ -1,16 +1,41 @@
+<!--
+  index.html — HTML entry point for the Svelte application
+
+  This is the ONLY HTML file in the project. It provides:
+  1. The <div id="app"> container where Svelte mounts the app
+  2. The <script> tag that loads main.ts (the JavaScript entry point)
+  3. Meta tags for SEO and browser behavior
+  4. Google Fonts for typography (Lora + Inter)
+
+  HOW IT WORKS:
+  1. Browser loads this HTML file
+  2. It fetches and runs main.ts (which imports App.svelte)
+  3. Svelte compiles App.svelte into JavaScript
+  4. The compiled code mounts into <div id="app">
+
+  WHAT IS THE "#" in "id="app""?
+  In HTML, # refers to an element's id. When you see getElementById('app'),
+  it finds this <div id="app"> and Svelte renders inside it.
+-->
+
 <!doctype html>
 <html lang="pl">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Google Fonts: Lora (serif) for headings, Inter (sans) for body text -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
     <title>Notowania Rolne | Heatmap Dashboard</title>
   </head>
   <body>
+    <!-- This empty div is where Svelte renders the entire application -->
     <div id="app"></div>
+
+    <!-- Main entry point: loads all JavaScript starting from main.ts -->
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
