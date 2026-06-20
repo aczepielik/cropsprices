@@ -1,11 +1,29 @@
 <!--
   Sidebar.svelte — Tab navigation between Snapshot and Heatmap views.
-  Collapsible on desktop: compact mode shows only tabs, expanded mode shows tabs + label.
+
+  WHAT IS A SIDEBAR? A vertical navigation panel on the left side of the screen.
+  This one has:
+  1. View mode tabs (Snapshot vs Heatmap)
+  2. Collapsible behavior (compact mode shows only icons, expanded shows labels)
+  3. Mobile support (slides in/out on small screens)
+
+  HOW IT WORKS:
+  - Receives `activeView` as a prop with $bindable() (two-way binding)
+  - When user clicks a tab, it updates `activeView` in the parent (App.svelte)
+  - The parent then shows the corresponding view (SnapshotView or HeatmapView)
+
+  SVELTE 5 PROPS:
+  - `activeView = $bindable()` — parent can read AND write this prop
+  - `sidebarCollapsed` — read-only prop (parent controls collapse state)
+  - `onFilterChange` — callback function prop (not a direct prop, but a function)
 -->
 
 <script lang="ts">
   import type { ViewMode } from '../lib/types';
 
+  // ── PROPS ─────────────────────────────────────────────────────────────
+  // Props are like function parameters — they pass data from parent to child.
+  // $bindable() means the parent can also read changes from this component.
   let { activeView = $bindable(), onFilterChange, closeSidebar, sidebarCollapsed = false, onToggleCollapse }: {
     activeView: ViewMode;
     onFilterChange: () => void;
@@ -14,14 +32,16 @@
     onToggleCollapse?: () => void;
   } = $props();
 
+  // Tab definitions: id, full label (expanded), short label (collapsed)
   const tabs: { id: ViewMode; label: string; short: string }[] = [
     { id: 'snapshot', label: 'Widok Aktualny (Snapshot)', short: 'Snapshot' },
     { id: 'heatmap', label: 'Mapa Cieplna (Heatmap)', short: 'Heatmap' },
   ];
 
+  // ── TAB SELECTION ─────────────────────────────────────────────────────
   function selectTab(id: ViewMode) {
-    activeView = id;
-    closeSidebar?.();
+    activeView = id;           // Update parent's state (two-way binding)
+    closeSidebar?.();          // Close mobile sidebar if open (?. = optional chaining)
   }
 </script>
 

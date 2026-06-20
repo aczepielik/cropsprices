@@ -1,4 +1,25 @@
-# Logs
+# ═══════════════════════════════════════════════════════════════════════════
+# .gitignore — Files to ignore in version control (Git)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# WHAT IS .gitignore? A list of files/folders that Git should NOT track.
+# These are either:
+# - Generated files (can be recreated from source)
+# - Sensitive files (API keys, passwords)
+# - Large files (node_modules, build output)
+# - Local-only files (editor settings, OS files)
+#
+# WHY IGNORE node_modules? It contains ~1000+ packages (50MB+).
+# Instead of storing them in Git, we store package.json and run `npm install`
+# to recreate the exact same dependencies. This keeps the repo small.
+#
+# WHY IGNORE dist/? It's the build output — generated from source code.
+# You can recreate it by running `npm run build`.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── Logs ──────────────────────────────────────────────────────────────────
+# Log files are created by npm/yarn/pnpm when things go wrong
+# They're local debugging artifacts, not source code
 logs
 *.log
 npm-debug.log*
@@ -7,18 +28,42 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# ── Dependencies ──────────────────────────────────────────────────────────
+# node_modules contains all installed packages (50MB+)
+# Recreated by running: npm install
 node_modules
+
+# ── Build Output ──────────────────────────────────────────────────────────
+# dist/ contains the production build (minified JS/CSS/HTML)
+# Recreated by running: npm run build
 dist
+
+# dist-ssr/ contains server-side rendering build output
 dist-ssr
+
+# ── Local Configuration ──────────────────────────────────────────────────
+# .local files contain machine-specific settings (e.g., API keys for dev)
+# Never commit these — they're different on every developer's machine
 *.local
 
-# Editor directories and files
+# ── Editor Directories and Files ─────────────────────────────────────────
+# Each developer has their own editor settings — don't force yours on others
+
+# VS Code (most common)
 .vscode/*
-!.vscode/extensions.json
+!.vscode/extensions.json  # But DO track recommended extensions
+
+# JetBrains IDEs (WebStorm, IntelliJ)
 .idea
+
+# macOS system files
 .DS_Store
+
+# Visual Studio
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
+
+# Vim/Neovim swap files
 *.sw?

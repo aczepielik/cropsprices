@@ -1,65 +1,83 @@
 <!--
   FilterZone.svelte — Category, origin, product, and marketplace filter controls.
 
-  This component has three cascading selectors:
-  1. Kategoria (Category) — "Owoce" (fruits) or "Warzywa" (vegetables)
-  2. Pochodzenie (Origin) — "Krajowe" (domestic) or "Importowane" (imported)
-  3. Produkt (Product) — filtered by both category AND origin above
+  WHAT IS THIS COMPONENT? It's a form that lets users filter the data by:
+  1. Category (Owoce/Fruits or Warzywa/Vegetables)
+  2. Origin (Krajowe/Domestic or Importowane/Imported)
+  3. Product (specific fruit/vegetable, filtered by category + origin)
+  4. Marketplaces (which wholesale markets to include)
 
-  And a marketplace checkbox list for toggling which markets to include.
+  HOW FILTERS WORK:
+  This is a "controlled component" pattern — the filter state lives in the
+  parent (App.svelte), not here. When the user changes a filter:
+  1. This component calls onFilterChange() to notify the parent
+  2. The parent updates the global filter state
+  3. The parent re-fetches/re-computes data based on new filters
+  4. The UI updates automatically via Svelte's reactivity
+
+  WHY LIFT STATE UP?
+  If filter state lived in this component, other parts of the app couldn't
+  access it. By keeping it in the parent (App.svelte), both Sidebar and
+  FilterZone can read/write the same state. This is a core pattern in
+  React/Svelte called "lifting state up."
 
   DATA FLOW:
-  Parent (App.svelte) owns the filters state and passes it down via props.
-  When the user changes a filter, this component calls onFilterChange()
-  to notify the parent, which then re-fetches/re-computes data.
-
-  This is "lifting state up" — a core React/Svelte pattern. The state lives
-  in the parent so both Sidebar and FilterZone can access it.
+  App.svelte (owns state) → passes to FilterZone → FilterZone calls onFilterChange →
+  App.svelte updates state → data reloads → UI updates
 -->
 
 <script lang="ts">
   import type { Manifest, Product, Category, Origin, Filters } from '../lib/types';
   import { productsForCategory } from '../lib/filters';
 
+  // ── PROPS ─────────────────────────────────────────────────────────────
   let { manifest, filters = $bindable(), onFilterChange }: {
     manifest: Manifest;
     filters: Filters;
     onFilterChange: () => void;
   } = $props();
 
+  // ── DERIVED STATE ─────────────────────────────────────────────────────
+  // productsForCategory() returns only products matching the current category + origin
+  // $derived() recalculates automatically when filters.category or filters.origin change
   let categoryProducts = $derived(
     manifest ? productsForCategory(manifest, filters.category, filters.origin) : []
   );
 
+  // ── EVENT HANDLERS ────────────────────────────────────────────────────
+  // Each handler updates the appropriate filter and notifies the parent
+
   function onCategoryChange(e: Event) {
     filters.category = (e.target as HTMLSelectElement).value as Category;
-    filters.product = null;
+    filters.product = null;  // Reset product when category changes
     onFilterChange();
   }
 
   function onOriginChange(e: Event) {
     filters.origin = (e.target as HTMLSelectElement).value as Origin;
-    filters.product = null;
+    filters.product = null;  // Reset product when origin changes
     onFilterChange();
   }
 
   function onProductChange(e: Event) {
     const idx = Number((e.target as HTMLSelectElement).value);
-    filters.product = categoryProducts[idx] ?? null;
+    filters.product = categoryProducts[idx] ?? null;  // ?? = nullish coalescing
     onFilterChange();
   }
 
+  // Toggle a marketplace in the Set (add if missing, remove if present)
   function onMarketToggle(place: string) {
-    const next = new Set(filters.markets);
+    const next = new Set(filters.markets);  // Create copy (Sets are mutable)
     if (next.has(place)) {
       next.delete(place);
     } else {
       next.add(place);
     }
-    filters = { ...filters, markets: next };
+    filters = { ...filters, markets: next };  // Trigger reactivity with spread
     onFilterChange();
   }
 
+  // Select/deselect all marketplaces at once
   function selectAllMarkets() {
     filters = { ...filters, markets: new Set(manifest.places) };
     onFilterChange();

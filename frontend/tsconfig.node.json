@@ -1,24 +1,52 @@
 {
+  // ═══════════════════════════════════════════════════════════════════════
+  // TypeScript Configuration for Node.js Build Tools
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  // This config is for files that run in Node.js (not the browser):
+  // - vite.config.ts (build configuration)
+  // - Any future Node.js scripts
+  //
+  // WHY DIFFERENT FROM tsconfig.app.json?
+  // - Node.js has different APIs (fs, path, etc.)
+  // - Different module resolution (bundler vs Node)
+  // - Different linting rules (stricter for build tools)
+  //
+  // ═══════════════════════════════════════════════════════════════════════
   "compilerOptions": {
+    // Build info for incremental compilation
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+
+    // Target: modern JavaScript (same as app config)
     "target": "es2023",
+
+    // Include ES2023 standard library (adds modern JS APIs)
     "lib": ["ES2023"],
+
+    // Use ESNext module system (import/export)
     "module": "esnext",
+
+    // Type definitions for Node.js APIs (fs, path, process, etc.)
     "types": ["node"],
+
+    // Skip type-checking declaration files (.d.ts) for speed
     "skipLibCheck": true,
 
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
-    "noEmit": true,
+    // ── Bundler Mode ───────────────────────────────────────────────────
+    // These settings are optimized for Vite's bundling behavior
+    "moduleResolution": "bundler",           // How TypeScript resolves imports
+    "allowImportingTsExtensions": true,      // Allow importing .ts files directly
+    "verbatimModuleSyntax": true,            // Preserve exact import/export syntax
+    "moduleDetection": "force",              // Treat all files as modules
+    "noEmit": true,                          // Don't emit JS (Vite handles it)
 
-    /* Linting */
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    // ── Linting Rules ──────────────────────────────────────────────────
+    // Stricter rules for build tools (catches more potential bugs)
+    "noUnusedLocals": true,          // Error on unused variables
+    "noUnusedParameters": true,      // Error on unused function parameters
+    "erasableSyntaxOnly": true,      // Only use TypeScript syntax that can be erased
+    "noFallthroughCasesInSwitch": true  // Error on switch case fallthrough
   },
+  // Only type-check the Vite config file
   "include": ["vite.config.ts"]
 }
