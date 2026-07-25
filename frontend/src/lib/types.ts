@@ -63,6 +63,16 @@ export interface SnapshotKpis {
   wowRange: string;  // WoW = Week over Week change
 }
 
+// A single change in price between two periods, used for the "compare" section of the snapshot view.
+export interface ComparisonChange {
+  prevLow: number;
+  prevUpper: number;
+  lowerChange: number;
+  upperChange: number;
+  lowerPct: number;
+  upperPct: number;
+}
+
 // One row in the market breakdown table.
 export interface MarketRow {
   place: string;

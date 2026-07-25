@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Notowania Rolne — mock: Widok Aktualny</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fdfdfb;
+    --ink: #18171a;
+    --muted: #6f6d6a;
+    --hairline: #e2ded6;
+    --hairline-strong: #cfcabf;
+    --accent: #b8461f;
+    --active: #18171a;
+
+    --font-display: 'Archivo Black', 'Arial Black', sans-serif;
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 48px 56px 72px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+
+  /* ── Masthead ── */
+  .masthead { margin-bottom: 40px; }
+
+  .masthead-title {
+    font-family: var(--font-display);
+    font-size: 52px;
+    line-height: 1;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .masthead-subtitle {
+    font-size: 19px;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+    margin-bottom: 10px;
+  }
+
+  .masthead-meta {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .masthead-meta .product { color: var(--ink); font-weight: 500; }
+
+  /* ── Layout: three columns, thin hairline dividers ── */
+  .layout-container {
+    display: flex;
+    max-width: 1560px;
+    margin: 0 auto;
+  }
+
+  .sidebar-col {
+    width: 240px;
+    flex-shrink: 0;
+    padding-right: 40px;
+  }
+
+  .canvas {
+    flex-grow: 1;
+    min-width: 0;
+    padding: 0 40px;
+    border-left: 1px solid var(--hairline-strong);
+    border-right: 1px solid var(--hairline-strong);
+  }
+
+  .table-col {
+    width: 400px;
+    flex-shrink: 0;
+    padding-left: 40px;
+  }
+
+  .meta-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  /* ── Sidebar nav ── */
+  .workspace-nav {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 32px;
+    gap: 6px;
+  }
+
+  .tab-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 12px 14px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .tab-item.active {
+    background-color: var(--active);
+    color: #fdfdfb;
+    font-weight: 600;
+  }
+
+  /* ── Filter zone: plain bordered dropdowns, like an ordinary form ── */
+  .selectors-row {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .select-container { position: relative; display: flex; align-items: center; }
+
+  .select {
+    width: 100%;
+    padding: 8px 30px 8px 10px;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 6px;
+    background-color: var(--bg);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--ink);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+  }
+  .select:hover { border-color: var(--muted); }
+
+  .select-arrow {
+    position: absolute;
+    right: 10px;
+    pointer-events: none;
+    color: var(--muted);
+    display: flex;
+  }
+
+  .markets-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .markets-header .meta-label { margin-bottom: 0; }
+
+  .market-actions { display: flex; gap: 10px; }
+  .action-btn {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .action-btn:hover { color: var(--ink); }
+
+  .checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  .checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 400;
+  }
+
+  .checkbox-item input {
+    accent-color: var(--ink);
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+  }
+
+  /* ── Stat row: plain typographic blocks + a compact date widget, divided by hairlines ── */
+  .stat-row {
+    display: flex;
+    align-items: stretch;
+    padding-bottom: 26px;
+    margin-bottom: 26px;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .stat-block { flex: 1 1 auto; padding-right: 28px; }
+  .stat-block + .stat-block {
+    padding-left: 28px;
+    padding-right: 28px;
+    border-left: 1px solid var(--hairline);
+  }
+
+  .stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 8px 0 14px;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+
+  .stat-value.down { color: var(--accent); }
+
+  .stat-sub-row {
+    display: flex;
+    gap: 20px;
+    padding-top: 12px;
+    border-top: 1px solid var(--hairline);
+  }
+
+  .stat-sub {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .stat-sub + .stat-sub { padding-left: 20px; border-left: 1px solid var(--hairline); }
+  .stat-sub b { color: var(--ink); font-weight: 600; }
+  .stat-sub b.down { color: var(--accent); }
+
+  /* Compact date widget: its own slim column at the end of the stat row */
+  .date-widget {
+    flex: 0 0 168px;
+    padding-left: 28px;
+    border-left: 1px solid var(--hairline);
+  }
+
+  .date-selector-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 8px 0 14px;
+  }
+  .date-nav-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; flex-shrink: 0;
+    background: none; border: 1px solid var(--hairline-strong); border-radius: 5px;
+    color: var(--ink); cursor: pointer; padding: 0;
+  }
+  .date-nav-btn:hover { border-color: var(--ink); }
+  .date-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .date-select {
+    flex: 1 1 auto; min-width: 0;
+    font-family: inherit; font-size: 15px; font-weight: 600; color: var(--ink);
+    background: none; border: none; outline: none; cursor: pointer;
+    -webkit-appearance: none; appearance: none; padding: 0;
+    text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+  }
+  .date-widget .stat-sub-row { border-top: 1px solid var(--hairline); padding-top: 12px; }
+
+  /* ── Chart block ── */
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .chart-title { font-size: 13px; font-weight: 500; color: var(--ink); }
+
+  .chart-legend { display: flex; gap: 18px; font-size: 12px; color: var(--muted); }
+  .legend-item { display: flex; align-items: center; gap: 7px; }
+  .legend-swatch { width: 16px; height: 0; border-top: 2px solid; }
+  .past-swatch { border-color: var(--muted); border-top-style: dashed; }
+  .current-swatch { border-color: var(--ink); }
+
+  .svg-chart-container { width: 100%; }
+
+  /* ── Table column ── */
+  .table-header-bar { margin-bottom: 18px; }
+  .table-header-bar .meta-label { margin-bottom: 0; }
+
+  .data-table { width: 100%; border-collapse: collapse; }
+
+  .data-table th {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    padding: 0 8px 10px 0;
+    border-bottom: 1px solid var(--hairline-strong);
+    white-space: nowrap;
+    text-align: left;
+  }
+
+  .data-table td {
+    padding: 10px 8px 10px 0;
+    border-bottom: 1px solid var(--hairline);
+    font-size: 13px;
+    font-weight: 400;
+    white-space: nowrap;
+    color: var(--ink);
+  }
+
+  .data-table tr:last-child td { border-bottom: none; }
+  .text-right { text-align: right !important; }
+  .down { color: var(--accent); }
+</style>
+</head>
+<body>
+
+  <div class="masthead">
+    <h1 class="masthead-title">Notowania Rolne</h1>
+    <div class="masthead-subtitle">Biuletyn Rynkowy</div>
+    <div class="masthead-meta">
+      Aktualizacja: 19 czerwca 2026 · Owoce · Krajowe · <span class="product">Gruszki (kg)</span>
+    </div>
+  </div>
+
+  <div class="layout-container">
+    <div class="sidebar-col">
+      <span class="meta-label">Tryb Analizy</span>
+      <nav class="workspace-nav">
+        <button class="tab-item active">Widok Aktualny (Snapshot)</button>
+        <button class="tab-item">Mapa Cieplna (Heatmap)</button>
+      </nav>
+
+      <div class="filter-zone">
+        <div class="selectors-row">
+          <div class="filter-group">
+            <span class="meta-label">Kategoria</span>
+            <div class="select-container">
+              <select class="select"><option selected>Owoce</option><option>Warzywa</option></select>
+              <div class="select-arrow">
+                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+            </div>
+          </div>
+          <div class="filter-group">
+            <span class="meta-label">Pochodzenie</span>
+            <div class="select-container">
+              <select class="select"><option selected>Krajowe</option><option>Importowane</option></select>
+              <div class="select-arrow">
+                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+            </div>
+          </div>
+          <div class="filter-group">
+            <span class="meta-label">Produkt</span>
+            <div class="select-container">
+              <select class="select"><option selected>Gruszki (kg)</option><option>Jabłka (kg)</option><option>Truskawki (kg)</option></select>
+              <div class="select-arrow">
+                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="filter-group-markets">
+          <div class="markets-header">
+            <span class="meta-label">Rynki Hurtowe</span>
+            <div class="market-actions">
+              <button class="action-btn">Wszystkie</button>
+              <button class="action-btn">Żadne</button>
+            </div>
+          </div>
+          <div class="checkbox-group">
+            <label class="checkbox-item"><input type="checkbox">Białystok</label>
+            <label class="checkbox-item"><input type="checkbox" checked>Bronisze</label>
+            <label class="checkbox-item"><input type="checkbox">Bydgoszcz</label>
+            <label class="checkbox-item"><input type="checkbox">Gdańsk</label>
+            <label class="checkbox-item"><input type="checkbox">Gorzów Wlkp.</label>
+            <label class="checkbox-item"><input type="checkbox" checked>Kalisz</label>
+            <label class="checkbox-item"><input type="checkbox">Kielce</label>
+            <label class="checkbox-item"><input type="checkbox">Kraków</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="canvas">
+      <div class="stat-row">
+        <div class="stat-block">
+          <span class="meta-label">Przedział Cenowy</span>
+          <div class="stat-value tabular-nums">4.00 – 6.50 zł</div>
+          <div class="stat-sub-row">
+            <div class="stat-sub">Rozpiętość <b>2.50 zł</b></div>
+            <div class="stat-sub">WoW <b>0.00 zł</b> (0.0%)</div>
+          </div>
+        </div>
+
+        <div class="stat-block">
+          <span class="meta-label">Dynamika YoY (Rok-do-Roku)</span>
+          <div class="stat-value tabular-nums down">-0.58 zł</div>
+          <div class="stat-sub-row">
+            <div class="stat-sub">Zmiana <b class="down">-10.0%</b> vs ubiegły rok</div>
+          </div>
+        </div>
+
+        <div class="date-widget">
+          <span class="meta-label">Tydzień (Snapshot)</span>
+          <div class="date-selector-wrapper">
+            <button class="date-nav-btn" aria-label="Poprzedni tydzień">
+              <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <select class="date-select tabular-nums"><option selected>2026-06-10</option></select>
+            <button class="date-nav-btn" aria-label="Następny tydzień">
+              <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+          <div class="stat-sub-row">
+            <div class="stat-sub">Wybierz lub przełącz datę</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-header">
+        <div class="chart-title">Kontekst Sezonowy (+/-3 Tygodni)</div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-swatch past-swatch"></div>Lata ubiegłe</div>
+          <div class="legend-item"><div class="legend-swatch current-swatch"></div>Aktualny Rok</div>
+        </div>
+      </div>
+      <div class="svg-chart-container">
+        <svg viewBox="0 0 800 320" preserveAspectRatio="xMidYMid meet" width="100%">
+          <line x1="48" y1="40" x2="780" y2="40" stroke="#f0ece3" stroke-width="1" />
+          <text x="40" y="44" text-anchor="end" font-size="12" fill="#6f6d6a">8.00</text>
+          <line x1="48" y1="120" x2="780" y2="120" stroke="#f0ece3" stroke-width="1" />
+          <text x="40" y="124" text-anchor="end" font-size="12" fill="#6f6d6a">6.00</text>
+          <line x1="48" y1="200" x2="780" y2="200" stroke="#f0ece3" stroke-width="1" />
+          <text x="40" y="204" text-anchor="end" font-size="12" fill="#6f6d6a">4.00</text>
+          <line x1="48" y1="280" x2="780" y2="280" stroke="#f0ece3" stroke-width="1" />
+          <text x="40" y="284" text-anchor="end" font-size="12" fill="#6f6d6a">2.00</text>
+
+          <path d="M 96 165 L 202 108 L 308 92 L 414 68 L 520 96 L 626 200 L 732 210" fill="none" stroke="#6f6d6a" stroke-width="1.5" stroke-dasharray="4,4" stroke-linejoin="round" />
+          <path d="M 96 190 L 202 148 L 308 128 L 414 120 L 520 130 L 626 224 L 732 235" fill="none" stroke="#6f6d6a" stroke-width="1.5" stroke-dasharray="4,4" stroke-linejoin="round" />
+
+          <path d="M 96 220 L 202 210 L 308 180 L 414 148 L 520 168 L 626 205 L 732 216" fill="none" stroke="#18171a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+          <path d="M 96 238 L 202 228 L 308 200 L 414 172 L 520 190 L 626 220 L 732 236" fill="none" stroke="#18171a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+
+          <circle cx="414" cy="148" r="4.5" fill="#fdfdfb" stroke="#b8461f" stroke-width="2.5" />
+          <circle cx="414" cy="172" r="4.5" fill="#fdfdfb" stroke="#b8461f" stroke-width="2.5" />
+
+          <text x="96" y="300" font-size="11" fill="#6f6d6a" text-anchor="middle">05-20</text>
+          <text x="202" y="300" font-size="11" fill="#6f6d6a" text-anchor="middle">05-27</text>
+          <text x="308" y="300" font-size="11" fill="#6f6d6a" text-anchor="middle">06-03</text>
+          <text x="414" y="300" font-size="11" fill="#b8461f" font-weight="600" text-anchor="middle">06-10</text>
+          <text x="520" y="300" font-size="11" fill="#6f6d6a" text-anchor="middle">06-17</text>
+          <text x="626" y="300" font-size="11" fill="#6f6d6a" text-anchor="middle">06-24</text>
+          <text x="732" y="300" font-size="11" fill="#6f6d6a" text-anchor="middle">07-01</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="table-col">
+      <div class="table-header-bar">
+        <span class="meta-label">Przegląd Rynków</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Rynek Hurtowy</th>
+            <th class="text-right">Min (zł)</th>
+            <th class="text-right">Max (zł)</th>
+            <th class="text-right">Spread</th>
+            <th class="text-right">Odch.</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Bronisze</td><td class="text-right tabular-nums">4.50</td><td class="text-right tabular-nums">6.50</td><td class="text-right tabular-nums">2.00</td><td class="text-right tabular-nums down">-4.00</td></tr>
+          <tr><td>Kalisz</td><td class="text-right tabular-nums">5.00</td><td class="text-right tabular-nums">5.00</td><td class="text-right tabular-nums">0.00</td><td class="text-right tabular-nums">0.12</td></tr>
+          <tr><td>Łódź</td><td class="text-right tabular-nums">4.00</td><td class="text-right tabular-nums">5.50</td><td class="text-right tabular-nums">1.50</td><td class="text-right tabular-nums down">-1.32</td></tr>
+          <tr><td>Poznań</td><td class="text-right tabular-nums">5.00</td><td class="text-right tabular-nums">6.50</td><td class="text-right tabular-nums">1.50</td><td class="text-right tabular-nums">0.27</td></tr>
+          <tr><td>Wrocław</td><td class="text-right tabular-nums">4.20</td><td class="text-right tabular-nums">6.00</td><td class="text-right tabular-nums">1.80</td><td class="text-right tabular-nums down">-0.02</td></tr>
+          <tr><td>Gdańsk</td><td class="text-right tabular-nums">4.80</td><td class="text-right tabular-nums">6.10</td><td class="text-right tabular-nums">1.30</td><td class="text-right tabular-nums down">-0.18</td></tr>
+          <tr><td>Katowice</td><td class="text-right tabular-nums">4.60</td><td class="text-right tabular-nums">6.20</td><td class="text-right tabular-nums">1.60</td><td class="text-right tabular-nums">0.14</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</body>
+</html>
