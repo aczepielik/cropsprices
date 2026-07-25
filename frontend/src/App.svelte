@@ -26,7 +26,8 @@
   import { debug, error } from './lib/logger';
   import Sidebar from './components/Sidebar.svelte';
   import FilterZone from './components/FilterZone.svelte';
-  import SnapshotView from './components/SnapshotView.svelte';
+  import SnapshotStats from './components/SnapshotStats.svelte';
+  import SnapshotTable from './components/SnapshotTable.svelte';
   import HeatmapView from './components/HeatmapView.svelte';
 
   const log = debug('App');
@@ -38,7 +39,6 @@
   let weekRanges = $state<WeekRanges | null>(null);
   let loadState = $state<'idle' | 'loading' | 'loaded'>('idle');
   let sidebarOpen = $state(false);
-  let sidebarCollapsed = $state(false);
   let loadGeneration = 0;
 
   let filters = $state<Filters>({
@@ -56,10 +56,6 @@
 
   function closeSidebar() {
     sidebarOpen = false;
-  }
-
-  function toggleSidebarCollapse() {
-    sidebarCollapsed = !sidebarCollapsed;
   }
 
   onMount(async () => {
@@ -87,7 +83,9 @@
   });
 
   async function loadData() {
+    console.log('[loadData] called', { product: filters.product?.name, hasManifest: !!manifest });
     if (!manifest || !filters.product) {
+      console.log('[loadData] early return — no product or manifest');
       records = [];
       filters.date = '';
       loadState = 'loaded';
@@ -98,6 +96,7 @@
     log('start', { product: filters.product.name });
 
     const gen = ++loadGeneration;
+    console.log('[loadData] gen incremented', { gen, loadGeneration });
     let result: PriceRecord[] = [];
     let ranges: WeekRanges | null = null;
     try {
@@ -116,8 +115,11 @@
         ),
       ]);
     } catch (e) {
+      console.error('[loadData] fetch failed', e);
       logError('load failed', { error: String(e) });
     }
+
+    console.log('[loadData] fetch done', { gen, loadGeneration, recordsLen: result.length, stale: gen !== loadGeneration });
 
     // Discard stale response — only the latest generation matters
     if (gen !== loadGeneration) {
@@ -147,7 +149,9 @@
   }
 
   async function onFilterChange() {
+    console.log('[onFilterChange]', { product: filters.product?.name ?? null });
     if (!filters.product) {
+      console.log('[onFilterChange] clearing records — no product');
       records = [];
       filters.date = '';
       loadState = 'loaded';
@@ -157,23 +161,20 @@
   }
 </script>
 
-<!-- Header with mobile hamburger -->
+<!-- Masthead: editorial newspaper-style header -->
 <div class="masthead">
-  <div class="masthead-left">
-    <div class="masthead-title-row">
-      <h1 class="masthead-title">Notowania Rolne</h1>
-      <div class="masthead-divider" aria-hidden="true"></div>
-      <span class="masthead-subtitle">Biuletyn Rynkowy</span>
-    </div>
+  <div class="masthead-text">
+    <h1 class="masthead-title">Notowania Rolne</h1>
+    <div class="masthead-subtitle">Biuletyn Rynkowy</div>
     {#if manifest}
       <div class="masthead-meta">
-        <span>Aktualizacja: {new Date(manifest.lastUpdate).toLocaleDateString('pl-PL', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+        Aktualizacja: {new Date(manifest.lastUpdate).toLocaleDateString('pl-PL', { year: 'numeric', month: 'long', day: 'numeric' })}
         {#if filters.product}
-          <span class="masthead-sep" aria-hidden="true">·</span>
+          <span class="masthead-sep" aria-hidden="true">&middot;</span>
           <span>{filters.category === 'owoce' ? 'Owoce' : 'Warzywa'}</span>
-          <span class="masthead-sep" aria-hidden="true">·</span>
+          <span class="masthead-sep" aria-hidden="true">&middot;</span>
           <span>{filters.origin === 'KRAJOWE' ? 'Krajowe' : 'Importowane'}</span>
-          <span class="masthead-sep" aria-hidden="true">·</span>
+          <span class="masthead-sep" aria-hidden="true">&middot;</span>
           <span class="masthead-product">{filters.product.name} ({filters.product.unit})</span>
         {/if}
       </div>
@@ -193,20 +194,26 @@
   <div class="sidebar-overlay" class:open={sidebarOpen} onclick={closeSidebar}></div>
 
   <div class="layout-container">
-    <div class="sidebar-col" class:open={sidebarOpen} class:collapsed={sidebarCollapsed}>
-      <Sidebar bind:activeView {onFilterChange} {closeSidebar} {sidebarCollapsed} onToggleCollapse={toggleSidebarCollapse} />
-      {#if !sidebarCollapsed}
-        <FilterZone {manifest} bind:filters {onFilterChange} />
-      {/if}
+    <!-- Sidebar column -->
+    <div class="sidebar-col" class:open={sidebarOpen}>
+      <Sidebar bind:activeView {onFilterChange} {closeSidebar} />
+      <FilterZone {manifest} bind:filters {onFilterChange} />
     </div>
 
-    <div class="canvas">
-      {#if activeView === 'snapshot'}
-        <SnapshotView {records} bind:selectedDate={filters.date} markets={filters.markets} {weekRanges} />
-      {:else}
+    {#if activeView === 'snapshot'}
+      <!-- Snapshot: 3-column layout (sidebar | canvas | table) -->
+      <div class="canvas">
+        <SnapshotStats {records} bind:selectedDate={filters.date} markets={filters.markets} {weekRanges} />
+      </div>
+      <div class="table-col">
+        <SnapshotTable {records} selectedDate={filters.date} markets={filters.markets} />
+      </div>
+    {:else}
+      <!-- Heatmap: 2-column layout (sidebar | canvas) -->
+      <div class="canvas" style="border-left: 1px solid var(--hairline-strong);">
         <HeatmapView {records} markets={filters.markets} />
-      {/if}
-    </div>
+      </div>
+    {/if}
   </div>
 {:else if loadState === 'loading' || loadState === 'idle'}
   <p style="text-align: center; color: var(--muted); padding: 48px;">Ładowanie danych...</p>
@@ -215,93 +222,63 @@
 {/if}
 
 <style>
-  .masthead {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 24px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--rule);
-  }
+  /* ── Masthead ── */
+  .masthead { margin-bottom: 40px; display: flex; align-items: flex-start; justify-content: space-between; }
 
-  .masthead-left {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-  }
-
-  .masthead-title-row {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
+  .masthead-text { flex: 1 1 auto; }
 
   .masthead-title {
-    font-family: var(--font-serif);
-    font-size: 32px;
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    line-height: 1.1;
-    margin: 0;
+    font-family: var(--font-display);
+    font-size: 52px;
+    line-height: 1;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
     border: none;
     padding: 0;
   }
 
-  .masthead-divider {
-    width: 1px;
-    height: 24px;
-    background: var(--muted);
-    opacity: 0.4;
-    align-self: center;
-    flex-shrink: 0;
-  }
-
   .masthead-subtitle {
-    font-family: var(--font-sans);
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--muted);
-    align-self: center;
-    white-space: nowrap;
+    font-size: 19px;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+    margin-bottom: 10px;
   }
 
   .masthead-meta {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--muted);
     display: flex;
-    gap: 6px;
+    gap: 0;
     flex-wrap: wrap;
     align-items: center;
   }
 
   .masthead-sep {
+    margin: 0 6px;
     opacity: 0.5;
   }
 
   .masthead-product {
-    font-weight: 500;
     color: var(--ink);
+    font-weight: 500;
   }
 
+  /* ── Hamburger ── */
   .hamburger {
     display: none;
     flex-direction: column;
     justify-content: center;
-    gap: 5px;
+    gap: 4px;
     width: 40px;
     height: 40px;
-    background: var(--surface);
-    border: 1px solid var(--rule);
-    border-radius: 4px;
-    cursor: pointer;
     padding: 8px;
+    background: none;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 6px;
+    cursor: pointer;
     flex-shrink: 0;
-    margin-bottom: 4px;
   }
   .hamburger-line {
     display: block;
@@ -310,39 +287,58 @@
     background: var(--ink);
     border-radius: 1px;
   }
+  .hamburger:hover { border-color: var(--ink); }
 
+  /* ── Layout ── */
   .sidebar-col {
-    width: 300px;
+    width: 240px;
     flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    transition: width 0.2s ease;
+    padding-right: 40px;
   }
-  .sidebar-col.collapsed {
-    width: 56px;
+
+  .canvas {
+    padding: 0 40px;
+    border-left: 1px solid var(--hairline-strong);
+    border-right: 1px solid var(--hairline-strong);
+  }
+
+  .table-col {
+    width: 400px;
+    flex-shrink: 0;
+    padding-left: 40px;
   }
 
   @media (max-width: 1024px) {
-    .masthead { margin-bottom: 16px; }
     .hamburger { display: flex; }
+    .masthead { margin-bottom: 24px; }
+    .masthead-title { font-size: 32px; }
+    .masthead-subtitle { font-size: 16px; }
     .sidebar-col {
       position: fixed;
       top: 0;
       left: 0;
       bottom: 0;
-      width: 300px;
+      width: 280px;
       max-width: 85vw;
       background: var(--bg);
       z-index: 100;
       transform: translateX(-100%);
       transition: transform 0.25s ease;
       overflow-y: auto;
-      padding: 16px;
-      border-right: 1px solid var(--rule);
+      padding: 24px 20px;
+      border-right: 1px solid var(--hairline);
     }
     .sidebar-col.open {
       transform: translateX(0);
+    }
+    .canvas {
+      border-left: none;
+      border-right: none;
+      padding: 0;
+    }
+    .table-col {
+      width: 100%;
+      padding: 0;
     }
   }
 </style>

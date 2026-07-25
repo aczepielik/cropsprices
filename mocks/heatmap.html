@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Notowania Rolne — mock: Mapa Cieplna</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fdfdfb;
+    --ink: #18171a;
+    --muted: #6f6d6a;
+    --hairline: #e2ded6;
+    --hairline-strong: #cfcabf;
+    --accent: #b8461f;
+    --active: #18171a;
+    --missing: #f0ece3;
+
+    --font-display: 'Archivo Black', 'Arial Black', sans-serif;
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 48px 56px 72px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Masthead ── */
+  .masthead { margin-bottom: 40px; }
+  .masthead-title { font-family: var(--font-display); font-size: 52px; line-height: 1; letter-spacing: -0.005em; text-transform: uppercase; margin-bottom: 8px; }
+  .masthead-subtitle { font-size: 19px; font-weight: 400; letter-spacing: 0.01em; color: var(--ink); margin-bottom: 10px; }
+  .masthead-meta { font-size: 13px; color: var(--muted); }
+  .masthead-meta .product { color: var(--ink); font-weight: 500; }
+
+  /* ── Layout ── */
+  .layout-container { display: flex; max-width: 1560px; margin: 0 auto; }
+  .sidebar-col { width: 240px; flex-shrink: 0; padding-right: 40px; }
+  .canvas { flex-grow: 1; min-width: 0; padding-left: 40px; border-left: 1px solid var(--hairline-strong); }
+
+  .meta-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); display: block; margin-bottom: 10px; }
+
+  /* ── Sidebar nav ── */
+  .workspace-nav { display: flex; flex-direction: column; margin-bottom: 32px; gap: 6px; }
+  .tab-item { display: block; width: 100%; text-align: left; padding: 12px 14px; background: none; border: none; border-radius: 6px; color: var(--ink); font-family: var(--font-sans); font-weight: 500; font-size: 13px; cursor: pointer; }
+  .tab-item.active { background-color: var(--active); color: #fdfdfb; font-weight: 600; }
+
+  /* ── Filter zone ── */
+  .selectors-row { display: flex; flex-direction: column; gap: 16px; margin-bottom: 28px; }
+  .select-container { position: relative; display: flex; align-items: center; }
+  .select { width: 100%; padding: 8px 30px 8px 10px; border: 1px solid var(--hairline-strong); border-radius: 6px; background-color: var(--bg); font-family: inherit; font-size: 13px; font-weight: 400; color: var(--ink); outline: none; -webkit-appearance: none; appearance: none; cursor: pointer; }
+  .select:hover { border-color: var(--muted); }
+  .select-arrow { position: absolute; right: 10px; pointer-events: none; color: var(--muted); display: flex; }
+
+  .markets-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .markets-header .meta-label { margin-bottom: 0; }
+  .market-actions { display: flex; gap: 10px; }
+  .action-btn { font-size: 11px; font-weight: 500; padding: 0; border: none; background: none; color: var(--muted); cursor: pointer; }
+  .action-btn:hover { color: var(--ink); }
+
+  .checkbox-group { display: flex; flex-direction: column; gap: 5px; max-height: 220px; overflow-y: auto; }
+  .checkbox-item { display: flex; align-items: center; gap: 9px; cursor: pointer; font-size: 13px; font-weight: 400; }
+  .checkbox-item input { accent-color: var(--ink); cursor: pointer; width: 14px; height: 14px; }
+
+  /* ── Chart box ── */
+  .chart-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+  .chart-title { font-size: 13px; font-weight: 500; color: var(--ink); }
+
+  .heatmap-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+  .heatmap-scroll svg { width: 100%; height: auto; display: block; }
+
+  /* ── Legend row ── */
+  .legend-row { display: flex; gap: 26px; align-items: center; margin-top: 20px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .legend-swatch { width: 12px; height: 12px; flex-shrink: 0; border-radius: 2px; }
+  .legend-gradient { width: 100px; height: 8px; border-radius: 4px; background: linear-gradient(to right, #f6ecd9, #eab676, #d1732f, #a8461f, #5c2311); }
+  .legend-missing { background: var(--missing); }
+  .legend-current { background: none; border: 2px solid var(--ink); }
+  .legend-past { background: var(--muted); opacity: 0.35; }
+</style>
+</head>
+<body>
+
+  <div class="masthead">
+    <h1 class="masthead-title">Notowania Rolne</h1>
+    <div class="masthead-subtitle">Biuletyn Rynkowy</div>
+    <div class="masthead-meta">
+      Aktualizacja: 19 czerwca 2026 · Owoce · Krajowe · <span class="product">Gruszki (kg)</span>
+    </div>
+  </div>
+
+  <div class="layout-container">
+    <div class="sidebar-col">
+      <span class="meta-label">Tryb Analizy</span>
+      <nav class="workspace-nav">
+        <button class="tab-item">Widok Aktualny (Snapshot)</button>
+        <button class="tab-item active">Mapa Cieplna (Heatmap)</button>
+      </nav>
+
+      <div class="filter-zone">
+        <div class="selectors-row">
+          <div class="filter-group">
+            <span class="meta-label">Kategoria</span>
+            <div class="select-container">
+              <select class="select"><option selected>Owoce</option><option>Warzywa</option></select>
+              <div class="select-arrow"><svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+            </div>
+          </div>
+          <div class="filter-group">
+            <span class="meta-label">Pochodzenie</span>
+            <div class="select-container">
+              <select class="select"><option selected>Krajowe</option><option>Importowane</option></select>
+              <div class="select-arrow"><svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+            </div>
+          </div>
+          <div class="filter-group">
+            <span class="meta-label">Produkt</span>
+            <div class="select-container">
+              <select class="select"><option selected>Gruszki (kg)</option><option>Jabłka (kg)</option></select>
+              <div class="select-arrow"><svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="filter-group-markets">
+          <div class="markets-header">
+            <span class="meta-label">Rynki Hurtowe</span>
+            <div class="market-actions">
+              <button class="action-btn">Wszystkie</button>
+              <button class="action-btn">Żadne</button>
+            </div>
+          </div>
+          <div class="checkbox-group">
+            <label class="checkbox-item"><input type="checkbox">Białystok</label>
+            <label class="checkbox-item"><input type="checkbox" checked>Bronisze</label>
+            <label class="checkbox-item"><input type="checkbox">Bydgoszcz</label>
+            <label class="checkbox-item"><input type="checkbox">Gdańsk</label>
+            <label class="checkbox-item"><input type="checkbox">Gorzów Wlkp.</label>
+            <label class="checkbox-item"><input type="checkbox" checked>Kalisz</label>
+            <label class="checkbox-item"><input type="checkbox">Kielce</label>
+            <label class="checkbox-item"><input type="checkbox">Kraków</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="canvas">
+      <div class="chart-header">
+        <div class="chart-title">Mapa Cieplna Sezonowa (Tydzień × Rok)</div>
+      </div>
+
+      <div class="heatmap-scroll" id="heatmap-target"></div>
+
+      <div class="legend-row">
+        <div class="legend-item"><div class="legend-swatch legend-gradient"></div>Śr. cena tyg. (niska → wysoka)</div>
+        <div class="legend-item"><div class="legend-swatch legend-missing"></div>Brak danych</div>
+        <div class="legend-item"><div class="legend-swatch legend-current"></div>Rok bieżący (zakres)</div>
+        <div class="legend-item"><div class="legend-swatch legend-past"></div>Lata ubiegłe (zakres)</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Procedurally generates a representative heatmap grid + marginal charts,
+  // mirroring HeatmapView.svelte's layout/geometry, restyled with thin
+  // hairline rules and a warm amber → rust sequential ramp.
+
+  const years = [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
+  const MAX_WEEKS = 53;
+  const monthNames = ['Sty','Lut','Mar','Kwi','Maj','Cze','Lip','Sie','Wrz','Paź','Lis','Gru'];
+  const monthStarts = [1, 5, 9, 14, 18, 23, 27, 32, 36, 41, 45, 49];
+
+  function seasonValue(week) {
+    const peak = 34, spread = 11;
+    return Math.exp(-0.5 * Math.pow((week - peak) / spread, 2));
+  }
+
+  function hasData(year, week) {
+    const t = seasonValue(week);
+    if (t < 0.06) return false;
+    const noise = Math.sin(year * 12.9898 + week * 78.233) * 43758.5453;
+    return (noise - Math.floor(noise)) > 0.08;
+  }
+
+  function priceFor(year, week) {
+    const base = 3.2 + seasonValue(week) * 4.3;
+    const yearDrift = (year - 2019) * 0.12;
+    const noise = Math.sin(year * 3.1 + week * 0.7) * 0.25;
+    return Math.max(1.2, base + yearDrift + noise);
+  }
+
+  function heatColor(t) {
+    const stops = [
+      [246, 236, 217],
+      [234, 182, 118],
+      [209, 115, 47],
+      [168, 70, 31],
+      [92, 35, 17],
+    ];
+    t = Math.max(0, Math.min(1, t));
+    const seg = t * (stops.length - 1);
+    const i = Math.min(stops.length - 2, Math.floor(seg));
+    const f = seg - i;
+    const c0 = stops[i], c1 = stops[i + 1];
+    const r = Math.round(c0[0] + (c1[0] - c0[0]) * f);
+    const g = Math.round(c0[1] + (c1[1] - c0[1]) * f);
+    const b = Math.round(c0[2] + (c1[2] - c0[2]) * f);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function niceTicks(min, max, count) {
+    const range = max - min || 1;
+    const step = Math.pow(10, Math.floor(Math.log10(range / count)));
+    const err = (range / count) / step;
+    const niceStep = err >= 7.5 ? step * 10 : err >= 3 ? step * 5 : err >= 1.5 ? step * 2 : step;
+    const ticks = [];
+    let v = Math.ceil(min / niceStep) * niceStep;
+    while (v <= max + 1e-9) { ticks.push(Math.round(v * 100) / 100); v += niceStep; }
+    return ticks.length ? ticks : [min, max];
+  }
+
+  const cells = [];
+  let pMin = Infinity, pMax = -Infinity;
+  for (const yr of years) {
+    for (let w = 1; w <= MAX_WEEKS; w++) {
+      if (!hasData(yr, w)) continue;
+      const v = priceFor(yr, w);
+      const ribbonMin = v - 0.5 - Math.random() * 0.3;
+      const ribbonMax = v + 0.5 + Math.random() * 0.3;
+      cells.push({ year: yr, week: w, value: v, ribbonMin, ribbonMax });
+      pMin = Math.min(pMin, ribbonMin);
+      pMax = Math.max(pMax, ribbonMax);
+    }
+  }
+
+  const currentYear = years[years.length - 1];
+  const cellMap = new Map();
+  cells.forEach(c => cellMap.set(`${c.year}-${c.week}`, c));
+
+  const yearAgg = new Map();
+  years.forEach(yr => yearAgg.set(yr, { min: Infinity, max: -Infinity }));
+  cells.forEach(c => {
+    const a = yearAgg.get(c.year);
+    a.min = Math.min(a.min, c.ribbonMin);
+    a.max = Math.max(a.max, c.ribbonMax);
+  });
+
+  const cw = 1250;
+  const hmML = 56, hmMT = 40;
+  const cellW = Math.max(10, Math.min(18, (cw - hmML - 220) / MAX_WEEKS));
+  const cellH = 32;
+  const hmW = MAX_WEEKS * cellW;
+  const hmH = years.length * cellH;
+  const hmR = hmML + hmW;
+  const hmB = hmMT + hmH;
+  const bmT = hmB + 46, bmH = 140, bmB = bmT + bmH;
+  const gap = 32;
+  const rmL = hmR + gap, rmW = 150;
+  const svgW = rmL + rmW + 20;
+  const svgH = bmB + 16;
+
+  function weekX(wn) { return hmML + (wn - 0.5) * cellW; }
+  function yearMidY(idx) { return hmMT + (idx + 0.5) * cellH; }
+
+  const bmTicks = niceTicks(pMin, pMax, 4);
+  const bmRange = bmTicks[bmTicks.length - 1] - bmTicks[0];
+  const bmYMin = bmTicks[0] - bmRange * 0.1;
+  const bmYMax = bmTicks[bmTicks.length - 1] + bmRange * 0.1;
+  function priceY(v) { return bmB - ((v - bmYMin) / (bmYMax - bmYMin || 1)) * bmH; }
+  function priceX(v) { return rmL + ((v - pMin) / (pMax - pMin || 1)) * rmW; }
+
+  let s = '';
+
+  // Month gridlines — thin hairline, plain label
+  monthStarts.forEach((w, mi) => {
+    if (w <= MAX_WEEKS) {
+      const x = weekX(w);
+      s += `<line x1="${x}" y1="${hmMT}" x2="${x}" y2="${hmB}" stroke="#f0ece3" stroke-width="1" />`;
+      s += `<text x="${x + 2}" y="${hmMT - 10}" font-size="12" fill="#6f6d6a" text-anchor="start" font-weight="400">${monthNames[mi]}</text>`;
+    }
+  });
+
+  // Year rows + labels
+  years.forEach((yr, yi) => {
+    const y = hmMT + yi * cellH;
+    s += `<line x1="${hmML}" y1="${y}" x2="${hmR}" y2="${y}" stroke="#f0ece3" stroke-width="0.75" />`;
+    s += `<text x="${hmML - 10}" y="${yearMidY(yi) + 4}" font-size="13" font-weight="500" fill="#18171a" text-anchor="end">${yr}</text>`;
+  });
+  s += `<line x1="${hmML}" y1="${hmB}" x2="${hmR}" y2="${hmB}" stroke="#cfcabf" stroke-width="1" />`;
+
+  // Blank cells
+  years.forEach((yr, yi) => {
+    for (let w = 1; w <= MAX_WEEKS; w++) {
+      if (!cellMap.has(`${yr}-${w}`)) {
+        const x = hmML + (w - 1) * cellW;
+        const y = hmMT + yi * cellH;
+        s += `<rect x="${x + 1}" y="${y + 2}" width="${Math.max(1, cellW - 2)}" height="${cellH - 4}" fill="#f5f2ec" />`;
+      }
+    }
+  });
+
+  // Heat cells
+  cells.forEach(c => {
+    const yi = years.indexOf(c.year);
+    const t = (c.value - pMin) / (pMax - pMin || 1);
+    const x = hmML + (c.week - 1) * cellW;
+    const y = hmMT + yi * cellH;
+    s += `<rect x="${x + 1}" y="${y + 2}" width="${Math.max(1, cellW - 2)}" height="${cellH - 4}" fill="${heatColor(t)}"><title>${c.year} T${c.week}: ${c.value.toFixed(2)} zł</title></rect>`;
+  });
+
+  // Week labels
+  for (let w = 1; w <= MAX_WEEKS; w += 4) {
+    s += `<text x="${weekX(w)}" y="${hmB + 16}" font-size="11" fill="#6f6d6a" text-anchor="middle">T${w}</text>`;
+  }
+
+  // Bottom marginal: weekly ribbons
+  s += `<text x="${hmML}" y="${bmT - 12}" font-size="12" fill="#18171a">Zakres cen (min\u2013max) (z\u0142)</text>`;
+  s += `<line x1="${hmML}" y1="${bmB}" x2="${hmR}" y2="${bmB}" stroke="#cfcabf" stroke-width="1" />`;
+  bmTicks.forEach(pv => {
+    const y = priceY(pv);
+    s += `<line x1="${hmML}" y1="${y}" x2="${hmR}" y2="${y}" stroke="#f0ece3" stroke-width="0.75" />`;
+    s += `<text x="${hmML - 6}" y="${y + 4}" font-size="11" fill="#6f6d6a" text-anchor="end">${pv.toFixed(pv % 1 === 0 ? 0 : 1)}</text>`;
+  });
+
+  // past-years band
+  const pastWeeks = new Map();
+  cells.filter(c => c.year !== currentYear).forEach(c => {
+    const ex = pastWeeks.get(c.week);
+    if (ex) { ex.min = Math.min(ex.min, c.ribbonMin); ex.max = Math.max(ex.max, c.ribbonMax); }
+    else pastWeeks.set(c.week, { min: c.ribbonMin, max: c.ribbonMax });
+  });
+  const pastSorted = [...pastWeeks.entries()].sort((a, b) => a[0] - b[0]);
+  if (pastSorted.length > 1) {
+    let d = `M ${weekX(pastSorted[0][0])} ${priceY(pastSorted[0][1].max)}`;
+    pastSorted.forEach(([w, v]) => d += ` L ${weekX(w)} ${priceY(v.max)}`);
+    for (let i = pastSorted.length - 1; i >= 0; i--) d += ` L ${weekX(pastSorted[i][0])} ${priceY(pastSorted[i][1].min)}`;
+    d += ' Z';
+    s += `<path d="${d}" fill="#6f6d6a" opacity="0.12" />`;
+  }
+
+  // current-year band
+  const curWeeks = cells.filter(c => c.year === currentYear).sort((a, b) => a.week - b.week);
+  if (curWeeks.length > 1) {
+    let d = `M ${weekX(curWeeks[0].week)} ${priceY(curWeeks[0].ribbonMax)}`;
+    curWeeks.forEach(c => d += ` L ${weekX(c.week)} ${priceY(c.ribbonMax)}`);
+    for (let i = curWeeks.length - 1; i >= 0; i--) d += ` L ${weekX(curWeeks[i].week)} ${priceY(curWeeks[i].ribbonMin)}`;
+    d += ' Z';
+    s += `<path d="${d}" fill="none" stroke="#18171a" stroke-width="1.5" />`;
+  }
+
+  // Right marginal: yearly ranges
+  s += `<text x="${rmL}" y="${hmMT - 12}" font-size="12" fill="#18171a">Cena wg roku (z\u0142)</text>`;
+  s += `<line x1="${rmL}" y1="${hmB}" x2="${rmL + rmW}" y2="${hmB}" stroke="#cfcabf" stroke-width="1" />`;
+  const rmTicks = niceTicks(pMin, pMax, 3);
+  rmTicks.forEach(pv => {
+    const x = priceX(pv);
+    s += `<line x1="${x}" y1="${hmMT}" x2="${x}" y2="${hmB}" stroke="#f0ece3" stroke-width="0.75" />`;
+    s += `<text x="${x}" y="${hmB + 16}" font-size="11" fill="#6f6d6a" text-anchor="middle">${pv.toFixed(pv % 1 === 0 ? 0 : 1)}</text>`;
+  });
+
+  const bandH = Math.min(cellH * 0.5, 15);
+  years.forEach((yr, yi) => {
+    const a = yearAgg.get(yr);
+    const ya = yearMidY(yi);
+    const x1 = priceX(a.min), x2 = priceX(a.max);
+    const isCurrent = yr === currentYear;
+    const label = `${a.min.toFixed(1)}\u2013${a.max.toFixed(1)}`;
+    if (isCurrent) {
+      s += `<rect x="${x1}" y="${ya - bandH/2}" width="${Math.max(2, x2 - x1)}" height="${bandH}" rx="2" fill="#b8461f" opacity="0.16" stroke="#18171a" stroke-width="1.25" />`;
+      s += `<text x="${Math.min(x2 + 6, rmL + rmW - label.length * 5.5 - 2)}" y="${ya + 3}" font-size="10" font-weight="600" fill="#18171a" text-anchor="start">${label}</text>`;
+    } else {
+      s += `<rect x="${x1}" y="${ya - bandH/2}" width="${Math.max(2, x2 - x1)}" height="${bandH}" rx="2" fill="#6f6d6a" opacity="0.10" stroke="#6f6d6a" stroke-width="0.5" />`;
+      s += `<text x="${Math.min(x2 + 6, rmL + rmW - label.length * 5.5 - 2)}" y="${ya + 3}" font-size="10" fill="#6f6d6a" text-anchor="start">${label}</text>`;
+    }
+  });
+
+  document.getElementById('heatmap-target').innerHTML =
+    `<svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+</script>
+</body>
+</html>

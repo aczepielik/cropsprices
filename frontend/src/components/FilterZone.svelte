@@ -1,83 +1,53 @@
 <!--
   FilterZone.svelte — Category, origin, product, and marketplace filter controls.
 
-  WHAT IS THIS COMPONENT? It's a form that lets users filter the data by:
-  1. Category (Owoce/Fruits or Warzywa/Vegetables)
-  2. Origin (Krajowe/Domestic or Importowane/Imported)
-  3. Product (specific fruit/vegetable, filtered by category + origin)
-  4. Marketplaces (which wholesale markets to include)
-
-  HOW FILTERS WORK:
-  This is a "controlled component" pattern — the filter state lives in the
-  parent (App.svelte), not here. When the user changes a filter:
-  1. This component calls onFilterChange() to notify the parent
-  2. The parent updates the global filter state
-  3. The parent re-fetches/re-computes data based on new filters
-  4. The UI updates automatically via Svelte's reactivity
-
-  WHY LIFT STATE UP?
-  If filter state lived in this component, other parts of the app couldn't
-  access it. By keeping it in the parent (App.svelte), both Sidebar and
-  FilterZone can read/write the same state. This is a core pattern in
-  React/Svelte called "lifting state up."
-
-  DATA FLOW:
-  App.svelte (owns state) → passes to FilterZone → FilterZone calls onFilterChange →
-  App.svelte updates state → data reloads → UI updates
+  Plain bordered dropdowns matching the new mock design.
+  No card wrapper — just selectors and checkboxes.
 -->
 
 <script lang="ts">
   import type { Manifest, Product, Category, Origin, Filters } from '../lib/types';
   import { productsForCategory } from '../lib/filters';
 
-  // ── PROPS ─────────────────────────────────────────────────────────────
   let { manifest, filters = $bindable(), onFilterChange }: {
     manifest: Manifest;
     filters: Filters;
     onFilterChange: () => void;
   } = $props();
 
-  // ── DERIVED STATE ─────────────────────────────────────────────────────
-  // productsForCategory() returns only products matching the current category + origin
-  // $derived() recalculates automatically when filters.category or filters.origin change
   let categoryProducts = $derived(
     manifest ? productsForCategory(manifest, filters.category, filters.origin) : []
   );
 
-  // ── EVENT HANDLERS ────────────────────────────────────────────────────
-  // Each handler updates the appropriate filter and notifies the parent
-
   function onCategoryChange(e: Event) {
     filters.category = (e.target as HTMLSelectElement).value as Category;
-    filters.product = null;  // Reset product when category changes
+    filters.product = null;
     onFilterChange();
   }
 
   function onOriginChange(e: Event) {
     filters.origin = (e.target as HTMLSelectElement).value as Origin;
-    filters.product = null;  // Reset product when origin changes
+    filters.product = null;
     onFilterChange();
   }
 
   function onProductChange(e: Event) {
     const idx = Number((e.target as HTMLSelectElement).value);
-    filters.product = categoryProducts[idx] ?? null;  // ?? = nullish coalescing
+    filters.product = categoryProducts[idx] ?? null;
     onFilterChange();
   }
 
-  // Toggle a marketplace in the Set (add if missing, remove if present)
   function onMarketToggle(place: string) {
-    const next = new Set(filters.markets);  // Create copy (Sets are mutable)
+    const next = new Set(filters.markets);
     if (next.has(place)) {
       next.delete(place);
     } else {
       next.add(place);
     }
-    filters = { ...filters, markets: next };  // Trigger reactivity with spread
+    filters = { ...filters, markets: next };
     onFilterChange();
   }
 
-  // Select/deselect all marketplaces at once
   function selectAllMarkets() {
     filters = { ...filters, markets: new Set(manifest.places) };
     onFilterChange();
@@ -90,7 +60,6 @@
 </script>
 
 <div class="filter-zone">
-  <!-- Compact cascading selectors -->
   <div class="selectors-row">
     <div class="filter-group">
       <span class="meta-label">Kategoria</span>
@@ -140,7 +109,6 @@
     </div>
   </div>
 
-  <!-- Marketplace checkboxes -->
   <div class="filter-group-markets">
     <div class="markets-header">
       <span class="meta-label">Rynki Hurtowe</span>
@@ -166,42 +134,41 @@
 
 <style>
   .filter-zone {
-    background-color: var(--surface);
-    border: 1px solid var(--rule);
-    padding: 16px;
-    border-radius: 6px;
+    margin-bottom: 28px;
   }
+
   .selectors-row {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    margin-bottom: 16px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--rule);
+    gap: 16px;
+    margin-bottom: 28px;
   }
+
   .meta-label {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     color: var(--muted);
-    margin-bottom: 4px;
     display: block;
+    margin-bottom: 10px;
   }
+
   .select-container {
     position: relative;
-    width: 100%;
     display: flex;
     align-items: center;
   }
+
   .select {
     width: 100%;
-    padding: 7px 28px 7px 10px;
-    border: 1px solid var(--rule);
-    border-radius: 4px;
-    background-color: var(--surface);
+    padding: 8px 30px 8px 10px;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 6px;
+    background-color: var(--bg);
     font-family: inherit;
     font-size: 13px;
+    font-weight: 400;
     color: var(--ink);
     outline: none;
     -webkit-appearance: none;
@@ -209,80 +176,80 @@
     cursor: pointer;
     transition: border-color 0.15s ease;
   }
+
   .select:hover {
     border-color: var(--muted);
   }
-  .select:focus {
-    border-color: var(--green);
-  }
+
   .select-arrow {
     position: absolute;
-    right: 8px;
+    right: 10px;
     pointer-events: none;
     color: var(--muted);
     display: flex;
-    align-items: center;
   }
+
   .filter-group-markets {
     margin-top: 4px;
   }
+
   .markets-header {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     justify-content: space-between;
-    margin-bottom: 6px;
+    margin-bottom: 10px;
   }
-  .markets-header .meta-label { margin-bottom: 0; }
+
+  .markets-header .meta-label {
+    margin-bottom: 0;
+  }
+
+  .market-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .action-btn {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .action-btn:hover {
+    color: var(--ink);
+  }
+
   .checkbox-group {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    margin-top: 4px;
+    gap: 5px;
     max-height: 220px;
     overflow-y: auto;
   }
+
   .checkbox-item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
     cursor: pointer;
     font-size: 13px;
-    padding: 3px 4px;
-    border-radius: 3px;
-    transition: background-color 0.1s ease;
+    font-weight: 400;
   }
-  .checkbox-item:hover {
-    background-color: var(--pale);
-  }
+
   .checkbox-item input {
-    accent-color: var(--green);
+    accent-color: var(--ink);
     cursor: pointer;
     width: 14px;
     height: 14px;
   }
-  .market-actions { display: flex; gap: 6px; }
-  .action-btn {
-    font-size: 10px;
-    font-weight: 500;
-    padding: 3px 8px;
-    border: 1px solid var(--rule);
-    border-radius: 3px;
-    background: var(--surface);
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-  .action-btn:hover {
-    background: var(--green-soft);
-    border-color: var(--green);
-    color: var(--green);
-  }
 
   @media (max-width: 1024px) {
-    .filter-zone { padding: 16px; }
-    .selectors-row { gap: 12px; padding-bottom: 16px; }
-    .select { font-size: 14px; padding: 9px 28px 9px 10px; }
-    .checkbox-item { font-size: 14px; padding: 4px 6px; }
+    .select { font-size: 14px; padding: 10px 30px 10px 10px; }
+    .checkbox-item { font-size: 14px; }
     .checkbox-group { max-height: 180px; }
-    .action-btn { min-height: 32px; padding: 4px 10px; }
   }
 </style>
