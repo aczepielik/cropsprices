@@ -160,7 +160,7 @@
     await loadData();
   }
 </script>
-
+<div class="app-shell">
 <!-- Masthead: editorial newspaper-style header -->
 <div class="masthead">
   <div class="masthead-text">
@@ -220,6 +220,7 @@
 {:else}
   <p style="text-align: center; color: var(--muted); padding: 48px;">Nie załadowano manifestu.</p>
 {/if}
+</div>
 
 <style>
   /* ── Masthead ── */
@@ -308,7 +309,7 @@
     padding-left: 40px;
   }
 
-  @media (max-width: 1024px) {
+  @media (max-width: 1180px) {
     .hamburger { display: flex; }
     .masthead { margin-bottom: 24px; }
     .masthead-title { font-size: 32px; }

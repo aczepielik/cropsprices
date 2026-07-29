@@ -247,7 +247,7 @@
     height: 14px;
   }
 
-  @media (max-width: 1024px) {
+  @media (max-width: 1180px) {
     .select { font-size: 14px; padding: 10px 30px 10px 10px; }
     .checkbox-item { font-size: 14px; }
     .checkbox-group { max-height: 180px; }

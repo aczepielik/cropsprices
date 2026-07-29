@@ -427,7 +427,7 @@
           <span class="compare-range"
             >{formatPrice(wowChange.prevLow)} - {formatPrice(
               wowChange.prevUpper,
-            )} zł</span
+            )}</span
           >
           <span class="compare-sep">|</span>
           <span class="compare-pair">
@@ -438,7 +438,7 @@
               class:change-flat={wowChange.lowerChange === 0}
               >{wowChange.lowerChange > 0 ? "+" : ""}{formatPrice(
                 wowChange.lowerChange,
-              )} zł</span
+              )}</span
             >
             <span
               class="compare-change"
@@ -447,7 +447,7 @@
               class:change-flat={wowChange.upperChange === 0}
               >{wowChange.upperChange > 0 ? "+" : ""}{formatPrice(
                 wowChange.upperChange,
-              )} zł</span
+              )}</span
             >
           </span>
           <span class="compare-sep">|</span>
@@ -587,39 +587,41 @@
 <style>
   .stat-row {
     display: flex;
-    align-items: flex-start;
-    padding-bottom: 26px;
-    margin-bottom: 26px;
-    /*border-bottom: 1px solid var(--hairline);*/
+    align-items: stretch;
+    padding-bottom: 24px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--hairline);
   }
 
+  /* Date widget */
   .date-widget {
-    flex: 1 0 auto;
-    padding-right: 28px;
+    flex: 0 0 160px;
+    padding-right: 20px;
     border-right: 1px solid var(--hairline);
-    align-self: stretch;
     display: flex;
     flex-direction: column;
+    align-self: stretch;
   }
+
   .date-selector-wrapper {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    margin-top: auto;
-    margin-bottom: auto;
+    gap: 10px;
+    margin-top: 6px;
   }
+
   .date-nav-row {
     display: flex;
-    gap: 8px;
-    width: 100%;
+    gap: 6px;
   }
+
   .date-nav-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 1;
+    width: 36px;
     height: 32px;
+    flex: none;
     background: none;
     border: 1px solid var(--hairline-strong);
     border-radius: 6px;
@@ -627,31 +629,18 @@
     cursor: pointer;
     padding: 0;
   }
+
   .date-nav-btn:hover:not(:disabled) {
     border-color: var(--ink);
   }
+
   .date-nav-btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
   }
-  .date-select-wrap {
-    position: relative;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
 
-  .date-select-wrap::after {
-    content: '';
-    position: absolute;
-    right: 4px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 0;
-    height: 0;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 5px solid var(--ink);
-    pointer-events: none;
+  .date-select-wrap {
+    min-width: 0;
   }
 
   .date-select {
@@ -665,38 +654,38 @@
     border: none;
     outline: none;
     cursor: pointer;
-    -webkit-appearance: none;
-    appearance: none;
-    text-align: center;
+    text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
-    padding-right: 20px;
   }
 
+  /* Stat block */
   .stat-block {
-    flex: 1 1 auto;
-    padding-left: 28px;
+    flex: 1 1 0%;
+    padding-left: 20px;
+    min-width: 0;
   }
 
   .stat-value {
     font-size: 32px;
     font-weight: 700;
-    margin: 8px 0 14px;
+    margin: 4px 0 16px;
     line-height: 1.1;
     color: var(--ink);
   }
 
   .compare-group {
-    padding-top: 10px;
     display: flex;
-    gap: 12px;
     align-items: baseline;
+    gap: 16px;
+    padding: 6px 0;
+    flex-wrap: wrap;
   }
 
   .compare-group + .compare-group {
     border-top: 1px solid var(--hairline);
-    margin-top: 10px;
+    margin-top: 2px;
   }
 
   .compare-label {
@@ -704,12 +693,15 @@
     color: var(--muted);
     width: 110px;
     flex-shrink: 0;
+    white-space: nowrap;
   }
 
+  /* Natural flex row layout */
   .compare-row {
     display: flex;
     align-items: center;
     gap: 12px;
+    font-variant-numeric: tabular-nums;
   }
 
   .compare-range {
@@ -723,21 +715,25 @@
     color: var(--hairline-strong);
     font-weight: 300;
     user-select: none;
+    padding: 0 4px;
   }
 
+  /* Tight flex pairs without text-align: right whitespace gaps */
   .compare-pair {
-    display: inline-flex;
+    display: flex;
+    align-items: center;
     gap: 12px;
   }
 
   .compare-change,
   .compare-pct {
     font-size: 13px;
-    font-weight: 400;
-    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    white-space: nowrap;
+    text-align: left; /* Left-align so numbers sit right next to the separator */
   }
 
-  /* Direction colours */
+  /* Status Colors */
   .change-up {
     color: var(--accent);
   }
@@ -755,9 +751,10 @@
     letter-spacing: 0.06em;
     color: var(--muted);
     display: block;
-    margin-bottom: 10px;
+    margin-bottom: 4px;
   }
 
+  /* Chart Layout */
   .chart-header {
     display: flex;
     justify-content: space-between;
@@ -766,41 +763,50 @@
     flex-wrap: wrap;
     gap: 12px;
   }
+
   .chart-title {
     font-size: 13px;
     font-weight: 500;
     color: var(--ink);
   }
+
   .chart-legend {
     display: flex;
     gap: 18px;
     font-size: 12px;
     color: var(--muted);
   }
+
   .legend-item {
     display: flex;
     align-items: center;
     gap: 7px;
   }
+
   .legend-swatch {
     width: 16px;
     height: 0;
     border-top: 2px solid;
   }
+
   .past-swatch {
     border-color: var(--muted);
     border-top-style: dashed;
   }
+
   .current-swatch {
     border-color: var(--ink);
   }
+
   .svg-chart-container {
     width: 100%;
   }
+
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
 
+  /* Empty state */
   .empty-dashboard {
     display: flex;
     flex-direction: column;
@@ -810,56 +816,66 @@
     text-align: center;
     color: var(--muted);
   }
+
   .empty-title {
     font-size: 16px;
     font-weight: 600;
     color: var(--ink);
     margin-bottom: 8px;
   }
+
   .empty-desc {
     font-size: 13px;
     max-width: 400px;
     line-height: 1.5;
   }
 
-  @media (max-width: 1200px) {
-    .stat-row {
-      flex-wrap: wrap;
-    }
-    .date-widget {
-      flex: 1 1 100%;
-      border-left: none;
-      padding-left: 0;
-      border-top: 1px solid var(--hairline);
-      padding-top: 16px;
-      margin-top: 16px;
-    }
-  }
-  @media (max-width: 768px) {
+  /* Responsive breakpoints */
+  @media (max-width: 1350px) {
     .stat-row {
       flex-direction: column;
-      gap: 16px;
+      gap: 0;
+      align-items: stretch;
     }
-    .stat-block {
+
+    .date-widget {
+      flex: none;
+      width: 100%;
+      border-right: none;
       padding-right: 0;
+      padding-bottom: 16px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--hairline);
     }
+
+    .stat-block {
+      padding-left: 0;
+    }
+  }
+
+  @media (max-width: 600px) {
     .stat-value {
       font-size: 26px;
     }
-    .compare-row {
-      flex-wrap: wrap;
-      gap: 8px;
-    }
+
     .compare-group {
       flex-direction: column;
+      align-items: flex-start;
       gap: 4px;
     }
-    .date-widget {
-      flex: 1 1 100%;
-      border-left: none;
-      padding-left: 0;
-      border-top: 1px solid var(--hairline);
-      padding-top: 16px;
+
+    .compare-label {
+      width: auto;
+    }
+
+    .compare-row {
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .date-nav-btn {
+      width: 44px;
+      height: 36px;
     }
   }
 </style>
