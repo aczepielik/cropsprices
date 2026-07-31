@@ -82,7 +82,7 @@
     font-weight: 600;
   }
 
-  @media (max-width: 1180px) {
+  @media (max-width: 850px) {
     .tab-item { font-size: 14px; padding: 14px 16px; }
     .workspace-nav { margin-bottom: 24px; }
   }

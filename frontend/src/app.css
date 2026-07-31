@@ -46,27 +46,3 @@ body {
 .sidebar-overlay {
   display: none;
 }
-
-/* ── Responsive breakpoints ── */
-@media (max-width: 1180px) {
-  body { padding: 24px 28px 48px; }
-  .layout-container { flex-direction: column; gap: 0; }
-  .sidebar-overlay {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.3);
-    z-index: 90;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s;
-  }
-  .sidebar-overlay.open {
-    opacity: 1;
-    pointer-events: auto;
-  }
-}
-
-@media (max-width: 768px) {
-  body { padding: 16px 18px 36px; }
-}
