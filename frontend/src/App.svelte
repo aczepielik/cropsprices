@@ -210,7 +210,7 @@
       </div>
     {:else}
       <!-- Heatmap: 2-column layout (sidebar | canvas) -->
-      <div class="canvas" style="border-left: 1px solid var(--hairline-strong);">
+      <div class="canvas">
         <HeatmapView {records} markets={filters.markets} />
       </div>
     {/if}
@@ -309,7 +309,7 @@
     padding-left: 40px;
   }
 
-  /* ── Breakpoint: columns → rows ── */
+  /* ── Breakpoint: table wraps below ── */
   @media (max-width: 1180px) {
     :global(body) { padding: 24px 28px 48px; }
     .layout-container {
@@ -339,12 +339,13 @@
     }
   }
 
-  /* ── Breakpoint: menu hides ── */
+  /* ── Breakpoint: mobile overlay ── */
   @media (max-width: 850px) {
     :global(body) { padding: 16px 18px 36px; }
     .hamburger { display: flex; }
     .layout-container {
-      display: block;
+      display: flex;
+      flex-direction: column;
     }
     .sidebar-col {
       position: fixed;
@@ -377,6 +378,12 @@
     .sidebar-overlay.open {
       opacity: 1;
       pointer-events: auto;
+    }
+    .canvas {
+      padding: 0;
+    }
+    .table-col {
+      padding: 0 18px;
     }
   }
 </style>

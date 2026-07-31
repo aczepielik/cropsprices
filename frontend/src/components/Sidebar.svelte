@@ -40,12 +40,6 @@
 
 <style>
   .meta-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--muted);
-    display: block;
     margin-bottom: 10px;
   }
 

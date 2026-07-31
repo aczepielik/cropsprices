@@ -94,7 +94,7 @@
 
 <style>
   .table-header-bar { margin-bottom: 18px; }
-  .meta-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); display: block; margin-bottom: 0; }
+  .meta-label { margin-bottom: 0; }
 
   .data-table { width: 100%; border-collapse: collapse; }
   .data-table th {

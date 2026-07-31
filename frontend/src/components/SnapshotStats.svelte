@@ -575,7 +575,7 @@
     {/if}
   </div>
 {:else}
-  <div class="empty-dashboard">
+  <div class="empty-state">
     <p class="empty-title">Brak danych</p>
     <p class="empty-desc">
       Dla wybranego produktu i rynków nie ma danych w archiwum. Wybierz inny
@@ -745,44 +745,10 @@
   }
 
   .meta-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--muted);
-    display: block;
     margin-bottom: 4px;
   }
 
   /* Chart Layout */
-  .chart-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .chart-title {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--ink);
-  }
-
-  .chart-legend {
-    display: flex;
-    gap: 18px;
-    font-size: 12px;
-    color: var(--muted);
-  }
-
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
-
   .legend-swatch {
     width: 16px;
     height: 0;
@@ -800,34 +766,6 @@
 
   .svg-chart-container {
     width: 100%;
-  }
-
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Empty state */
-  .empty-dashboard {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 64px 24px;
-    text-align: center;
-    color: var(--muted);
-  }
-
-  .empty-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--ink);
-    margin-bottom: 8px;
-  }
-
-  .empty-desc {
-    font-size: 13px;
-    max-width: 400px;
-    line-height: 1.5;
   }
 
   /* Responsive breakpoints */
