@@ -373,8 +373,8 @@
       >
         <svg
           viewBox="0 0 24 24"
-          width="15"
-          height="15"
+          width="17"
+          height="17"
           stroke="currentColor"
           stroke-width="2.2"
           fill="none"
@@ -393,6 +393,11 @@
             <option value={idx}>{label}</option>
           {/each}
         </select>
+        <div class="date-select-arrow">
+          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
       </div>
       <button
         class="date-nav-btn date-nav-next"
@@ -402,8 +407,8 @@
       >
         <svg
           viewBox="0 0 24 24"
-          width="15"
-          height="15"
+          width="17"
+          height="17"
           stroke="currentColor"
           stroke-width="2.2"
           fill="none"
@@ -616,8 +621,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 32px;
+    width: 40px;
+    height: 36px;
     flex: none;
     background: none;
     border: 1px solid var(--hairline-strong);
@@ -625,6 +630,7 @@
     color: var(--ink);
     cursor: pointer;
     padding: 0;
+    transition: border-color 0.15s ease;
   }
 
   .date-nav-btn:hover:not(:disabled) {
@@ -639,23 +645,39 @@
   .date-select-wrap {
     flex: 1 0 100%;
     min-width: 0;
+    position: relative;
   }
 
   .date-select {
     width: 100%;
     min-width: 0;
+    padding: 8px 30px 8px 10px;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 6px;
+    background-color: var(--bg);
     font-family: inherit;
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 500;
     color: var(--ink);
-    background: none;
-    border: none;
     outline: none;
+    -webkit-appearance: none;
+    appearance: none;
     cursor: pointer;
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    overflow: hidden;
+    transition: border-color 0.15s ease;
+  }
+
+  .date-select:hover {
+    border-color: var(--muted);
+  }
+
+  .date-select-arrow {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: var(--muted);
+    display: flex;
   }
 
   /* Stat block */
@@ -797,8 +819,8 @@
     }
 
     .date-select-wrap {
-      flex: 1 1 0%;
-      min-width: 0;
+      flex: 0 1 auto;
+      max-width: 220px;
     }
 
     .stat-block {
@@ -828,7 +850,7 @@
 
     .date-nav-btn {
       width: 44px;
-      height: 36px;
+      height: 40px;
     }
   }
 </style>
