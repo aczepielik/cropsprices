@@ -14,7 +14,8 @@
     markets: Set<string>;
   } = $props();
 
-  let allWeekList = $derived(allWeeks(records));
+  let filteredRecords = $derived(records.filter(r => markets.has(r.place)));
+  let allWeekList = $derived(allWeeks(filteredRecords));
   let weekLabels = $derived(allWeekList.map(w => wednesdayOfWeek(w.year, w.week)));
 
   let selectedWeek = $derived.by(() => {

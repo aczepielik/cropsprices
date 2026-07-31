@@ -28,7 +28,8 @@
     weekRanges?: WeekRanges | null;
   } = $props();
 
-  let allWeekList = $derived(allWeeks(records));
+  let filteredRecords = $derived(records.filter((r) => markets.has(r.place)));
+  let allWeekList = $derived(allWeeks(filteredRecords));
   let weekLabels = $derived(
     allWeekList.map((w) => wednesdayOfWeek(w.year, w.week)),
   );
@@ -82,13 +83,10 @@
 
   let weekRecords = $derived.by(() => {
     if (!selectedWeek) return [];
-    return filterByWeek(records, selectedWeek.year, selectedWeek.week);
+    return filterByWeek(filteredRecords, selectedWeek.year, selectedWeek.week);
   });
 
-  let filteredWeekRecords = $derived.by(() => {
-    if (markets.size === 0) return weekRecords;
-    return weekRecords.filter((r) => markets.has(r.place));
-  });
+  let filteredWeekRecords = $derived(weekRecords);
 
   let kpis = $derived.by(() => {
     const k = computeKpis(filteredWeekRecords);
@@ -98,21 +96,21 @@
   });
 
   let ytyChange: ComparisonChange | null = $derived.by(() => {
-    if (!selectedWeek || records.length === 0) return null;
+    if (!selectedWeek || filteredRecords.length === 0) return null;
 
     const targetYear = selectedWeek.year - 1;
 
     const curRecs = filterByWeek(
-      records,
+      filteredRecords,
       selectedWeek.year,
       selectedWeek.week,
-    ).filter((r) => markets.size === 0 || markets.has(r.place));
+    );
 
     const prevRecs = filterByWeek(
-      records,
+      filteredRecords,
       targetYear,
       selectedWeek.week,
-    ).filter((r) => markets.size === 0 || markets.has(r.place));
+    );
 
     if (curRecs.length === 0 || prevRecs.length === 0) return null;
 
@@ -140,14 +138,12 @@
     if (!prevWeek) return null;
 
     const curRecs = filterByWeek(
-      records,
+      filteredRecords,
       selectedWeek.year,
       selectedWeek.week,
-    ).filter((r) => markets.size === 0 || markets.has(r.place));
-
-    const prevRecs = filterByWeek(records, prevWeek.year, prevWeek.week).filter(
-      (r) => markets.size === 0 || markets.has(r.place),
     );
+
+    const prevRecs = filterByWeek(filteredRecords, prevWeek.year, prevWeek.week);
 
     if (curRecs.length === 0 || prevRecs.length === 0) return null;
 
@@ -172,7 +168,7 @@
     if (weekRanges) {
       const map = new Map<string, { min: number; max: number }>();
       for (const [market, years] of Object.entries(weekRanges)) {
-        if (markets.size > 0 && !markets.has(market)) continue;
+        if (!markets.has(market)) continue;
         for (const [year, weeks] of Object.entries(years)) {
           for (const [week, range] of Object.entries(weeks)) {
             const key = `${year}-${week}`;
@@ -189,8 +185,7 @@
       return map;
     }
     const map = new Map<string, { min: number; max: number }>();
-    for (const r of records) {
-      if (markets.size > 0 && !markets.has(r.place)) continue;
+    for (const r of filteredRecords) {
       const d = r.date;
       const yearStart = new Date(d.getFullYear(), 0, 1);
       const weekNum = Math.ceil(
