@@ -365,6 +365,24 @@
   <div class="date-widget">
     <span class="meta-label">Tydzień</span>
     <div class="date-selector-wrapper">
+      <button
+        class="date-nav-btn date-nav-prev"
+        onclick={goPrevWeek}
+        disabled={sliderValue <= 0}
+        aria-label="Poprzedni tydzień"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="15"
+          height="15"
+          stroke="currentColor"
+          stroke-width="2.2"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          ><polyline points="15 18 9 12 15 6"></polyline></svg
+        >
+      </button>
       <div class="date-select-wrap">
         <select
           class="date-select tabular-nums"
@@ -376,44 +394,24 @@
           {/each}
         </select>
       </div>
-      <div class="date-nav-row">
-        <button
-          class="date-nav-btn"
-          onclick={goPrevWeek}
-          disabled={sliderValue <= 0}
-          aria-label="Poprzedni tydzień"
+      <button
+        class="date-nav-btn date-nav-next"
+        onclick={goNextWeek}
+        disabled={sliderValue >= allWeekList.length - 1}
+        aria-label="Następny tydzień"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="15"
+          height="15"
+          stroke="currentColor"
+          stroke-width="2.2"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          ><polyline points="9 18 15 12 9 6"></polyline></svg
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="15"
-            height="15"
-            stroke="currentColor"
-            stroke-width="2.2"
-            fill="none"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            ><polyline points="15 18 9 12 15 6"></polyline></svg
-          >
-        </button>
-        <button
-          class="date-nav-btn"
-          onclick={goNextWeek}
-          disabled={sliderValue >= allWeekList.length - 1}
-          aria-label="Następny tydzień"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="15"
-            height="15"
-            stroke="currentColor"
-            stroke-width="2.2"
-            fill="none"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            ><polyline points="9 18 15 12 9 6"></polyline></svg
-          >
-        </button>
-      </div>
+      </button>
     </div>
   </div>
 
@@ -605,15 +603,14 @@
 
   .date-selector-wrapper {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     gap: 10px;
     margin-top: 6px;
   }
 
-  .date-nav-row {
-    display: flex;
-    gap: 6px;
-  }
+  /* In wide screen: select on top row, both buttons on bottom row */
+  .date-nav-prev { order: 1; }
+  .date-nav-next { order: 2; }
 
   .date-nav-btn {
     display: flex;
@@ -640,6 +637,7 @@
   }
 
   .date-select-wrap {
+    flex: 1 0 100%;
     min-width: 0;
   }
 
@@ -784,6 +782,23 @@
       padding-bottom: 16px;
       margin-bottom: 16px;
       border-bottom: 1px solid var(--hairline);
+    }
+
+    .date-selector-wrapper {
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* In row mode (narrow screen): natural DOM order [prev | select | next] */
+    .date-nav-prev,
+    .date-nav-next {
+      order: 0;
+    }
+
+    .date-select-wrap {
+      flex: 1 1 0%;
+      min-width: 0;
     }
 
     .stat-block {
