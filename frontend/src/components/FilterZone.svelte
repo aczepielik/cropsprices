@@ -9,10 +9,11 @@
   import type { Manifest, Product, Category, Origin, Filters } from '../lib/types';
   import { productsForCategory } from '../lib/filters';
 
-  let { manifest, filters = $bindable(), onFilterChange }: {
+  let { manifest, filters = $bindable(), onFilterChange, onMarketsChange }: {
     manifest: Manifest;
     filters: Filters;
     onFilterChange: () => void;
+    onMarketsChange: () => void;
   } = $props();
 
   let categoryProducts = $derived(
@@ -45,17 +46,17 @@
       next.add(place);
     }
     filters = { ...filters, markets: next };
-    onFilterChange();
+    onMarketsChange();
   }
 
   function selectAllMarkets() {
     filters = { ...filters, markets: new Set(manifest.places) };
-    onFilterChange();
+    onMarketsChange();
   }
 
   function deselectAllMarkets() {
     filters = { ...filters, markets: new Set<string>() };
-    onFilterChange();
+    onMarketsChange();
   }
 </script>
 

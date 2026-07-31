@@ -4,9 +4,9 @@
 -->
 
 <script lang="ts">
-  import type { PriceRecord, MarketRow } from '../lib/types';
+  import type { PriceRecord } from '../lib/types';
   import { filterByWeek, allWeeks } from '../lib/filters';
-  import { formatPrice, wednesdayOfWeek, sortMarketRows } from '../lib/helpers';
+  import { formatPrice, wednesdayOfWeek } from '../lib/helpers';
 
   let { records, selectedDate, markets }: {
     records: PriceRecord[];
@@ -30,73 +30,86 @@
     return { year: date.getUTCFullYear(), week: weekNo };
   });
 
-  let weekRecords = $derived.by(() => {
-    if (!selectedWeek) return [];
-    return filterByWeek(records, selectedWeek.year, selectedWeek.week);
-  });
+  function range(recs: PriceRecord[]): string | null {
+    if (recs.length === 0) return null;
+    const min = Math.min(...recs.map(r => r.price_min));
+    const max = Math.max(...recs.map(r => r.price_max));
+    return `${formatPrice(min)} – ${formatPrice(max)}`;
+  }
+
+  interface MarketRow {
+    place: string;
+    current: string | null;
+    wow: string | null;
+    yoy: string | null;
+  }
 
   let marketRows = $derived.by(() => {
-    const byPlace = new Map<string, PriceRecord[]>();
-    for (const r of weekRecords) {
-      if (!byPlace.has(r.place)) byPlace.set(r.place, []);
-      byPlace.get(r.place)!.push(r);
-    }
+    if (!selectedWeek) return [];
+
     const rows: MarketRow[] = [];
-    let globalMin = Infinity;
     for (const place of markets) {
-      const recs = byPlace.get(place);
-      if (recs && recs.length > 0) {
-        const min = Math.min(...recs.map(r => r.price_min));
-        const max = Math.max(...recs.map(r => r.price_max));
-        globalMin = Math.min(globalMin, min);
-        rows.push({ place, priceMin: min, priceMax: max, spread: max - min, deviation: 0 });
-      } else {
-        rows.push({ place, priceMin: null, priceMax: null, spread: null, deviation: null });
+      const curRecs = filterByWeek(filteredRecords, selectedWeek.year, selectedWeek.week)
+        .filter(r => r.place === place);
+
+      if (curRecs.length === 0) {
+        rows.push({ place, current: null, wow: null, yoy: null });
+        continue;
       }
+
+      const current = range(curRecs);
+
+      const prevWeek = allWeekList.find(
+        w => w.year === selectedWeek!.year && w.week === selectedWeek!.week - 1,
+      );
+      const wowRecs = prevWeek
+        ? filterByWeek(filteredRecords, prevWeek.year, prevWeek.week).filter(r => r.place === place)
+        : [];
+      const wow = range(wowRecs);
+
+      const yoyRecs = filterByWeek(
+        filteredRecords, selectedWeek.year - 1, selectedWeek.week,
+      ).filter(r => r.place === place);
+      const yoy = range(yoyRecs);
+
+      rows.push({ place, current, wow, yoy });
     }
-    for (const row of rows) {
-      if (row.priceMin !== null && globalMin < Infinity) {
-        row.deviation = row.priceMin - globalMin;
-      }
-    }
-    sortMarketRows(rows);
+
+    rows.sort((a, b) => {
+      if (a.current !== null && b.current === null) return -1;
+      if (a.current === null && b.current !== null) return 1;
+      return a.place.localeCompare(b.place);
+    });
+
     return rows;
   });
 </script>
 
-<!-- <div class="table-header-bar">
-  <span class="meta-label">Przegląd Rynków</span>
-</div> -->
 <table class="data-table">
   <thead>
     <tr>
-      <th>Rynek Hurtowy</th>
-      <th class="text-right">Min (zł)</th>
-      <th class="text-right">Max (zł)</th>
-      <th class="text-right">Spread</th>
-      <th class="text-right">Odch.</th>
+      <th>Rynek<br>Hurtowy</th>
+      <th class="text-right">Bieżący<br>Tydzień</th>
+      <th class="text-right">Tydzień<br>Wcześniej</th>
+      <th class="text-right">Rok<br>Wcześniej</th>
     </tr>
   </thead>
   <tbody>
     {#each marketRows as row}
       <tr>
         <td>{row.place}</td>
-        <td class="text-right tabular-nums">{row.priceMin !== null ? formatPrice(row.priceMin) : '–'}</td>
-        <td class="text-right tabular-nums">{row.priceMax !== null ? formatPrice(row.priceMax) : '–'}</td>
-        <td class="text-right tabular-nums">{row.spread !== null ? formatPrice(row.spread) : '–'}</td>
-        <td class="text-right tabular-nums">{row.deviation !== null ? (row.deviation === 0 ? '0.00' : `${row.deviation > 0 ? '+' : ''}${formatPrice(row.deviation)}`) : '–'}</td>
+        <td class="text-right tabular-nums">{row.current ?? '–'}</td>
+        <td class="text-right tabular-nums">{row.wow ?? '–'}</td>
+        <td class="text-right tabular-nums">{row.yoy ?? '–'}</td>
       </tr>
     {/each}
     {#if marketRows.length === 0}
-      <tr><td colspan="5" style="text-align: center; color: var(--muted); padding: 24px;">Brak danych</td></tr>
+      <tr><td colspan="4" class="empty-cell">Brak danych</td></tr>
     {/if}
   </tbody>
 </table>
 
 <style>
-  .table-header-bar { margin-bottom: 18px; }
-  .meta-label { margin-bottom: 0; }
-
   .data-table { width: 100%; border-collapse: collapse; }
   .data-table th {
     font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
@@ -110,4 +123,10 @@
   .data-table tr:last-child td { border-bottom: none; }
   .text-right { text-align: right !important; }
   .tabular-nums { font-variant-numeric: tabular-nums; }
+  .empty-cell { text-align: center; color: var(--muted); padding: 24px; }
+
+  @media (max-width: 450px) {
+    .data-table th { font-size: 10px; }
+    .data-table td { font-size: 11px; padding: 8px 6px 8px 0; }
+  }
 </style>
