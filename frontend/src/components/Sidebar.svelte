@@ -15,8 +15,8 @@
   } = $props();
 
   const tabs: { id: ViewMode; label: string }[] = [
-    { id: 'snapshot', label: 'Widok Aktualny (Snapshot)' },
-    { id: 'heatmap', label: 'Mapa Cieplna (Heatmap)' },
+    { id: 'snapshot', label: 'Ceny Aktualne' },
+    { id: 'heatmap', label: 'Ceny Historyczne' },
   ];
 
   function selectTab(id: ViewMode) {

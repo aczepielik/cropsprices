@@ -63,9 +63,9 @@
   });
 </script>
 
-<div class="table-header-bar">
+<!-- <div class="table-header-bar">
   <span class="meta-label">Przegląd Rynków</span>
-</div>
+</div> -->
 <table class="data-table">
   <thead>
     <tr>
