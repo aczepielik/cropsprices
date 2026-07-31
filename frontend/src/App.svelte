@@ -350,17 +350,17 @@
     .sidebar-col {
       position: fixed;
       top: 0;
-      left: 0;
+      right: 0;
       bottom: 0;
       width: 280px;
       max-width: 85vw;
       background: var(--bg);
       z-index: 100;
-      transform: translateX(-100%);
+      transform: translateX(100%);
       transition: transform 0.25s ease;
       overflow-y: auto;
       padding: 24px 20px;
-      border-right: 1px solid var(--hairline);
+      border-left: 1px solid var(--hairline);
     }
     .sidebar-col.open {
       transform: translateX(0);
