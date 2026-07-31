@@ -316,17 +316,6 @@
 </div>
 
 <style>
-  .chart-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .chart-title { font-size: 13px; font-weight: 500; color: var(--ink); }
-
   .heatmap-scroll {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -338,27 +327,10 @@
     height: auto;
   }
 
-  .legend-row {
-    display: flex;
-    gap: 26px;
-    align-items: center;
-    margin-top: 20px;
-    flex-wrap: wrap;
-  }
-
   .legend-item {
-    display: flex;
-    align-items: center;
     gap: 8px;
     font-size: 12px;
     color: var(--muted);
-  }
-
-  .legend-swatch {
-    width: 12px;
-    height: 12px;
-    flex-shrink: 0;
-    border-radius: 2px;
   }
 
   .legend-gradient {
@@ -368,18 +340,6 @@
   .legend-missing { background: var(--missing); }
   .legend-current { background: none; border: 2px solid var(--ink); }
   .legend-past { background: var(--muted); opacity: 0.35; }
-
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 64px 24px;
-    text-align: center;
-    color: var(--muted);
-  }
-  .empty-title { font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
-  .empty-desc { font-size: 13px; max-width: 400px; line-height: 1.5; }
 
   @media (max-width: 768px) {
     .legend-row { gap: 16px; }
