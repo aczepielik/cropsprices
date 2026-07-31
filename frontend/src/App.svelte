@@ -197,7 +197,7 @@
     <!-- Sidebar column -->
     <div class="sidebar-col" class:open={sidebarOpen}>
       <Sidebar bind:activeView {onFilterChange} {closeSidebar} />
-      <FilterZone {manifest} bind:filters {onFilterChange} />
+      <FilterZone {manifest} bind:filters {onFilterChange} onMarketsChange={() => {}} />
     </div>
 
     {#if activeView === 'snapshot'}

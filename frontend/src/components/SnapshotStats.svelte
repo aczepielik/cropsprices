@@ -848,4 +848,11 @@
       height: 40px;
     }
   }
+
+  @media (max-width: 400px) {
+    .stat-value { font-size: 22px; }
+    .compare-range { font-size: 11px; }
+    .compare-change, .compare-pct { font-size: 11px; }
+    .compare-label { font-size: 10px; }
+  }
 </style>
