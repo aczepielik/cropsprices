@@ -52,11 +52,6 @@
       const curRecs = filterByWeek(filteredRecords, selectedWeek.year, selectedWeek.week)
         .filter(r => r.place === place);
 
-      if (curRecs.length === 0) {
-        rows.push({ place, current: null, wow: null, yoy: null });
-        continue;
-      }
-
       const current = range(curRecs);
 
       const prevWeek = allWeekList.find(

@@ -244,3 +244,16 @@ export function parseWeekKey(key: string): { year: number; week: number } {
   const [y, w] = key.split('-W');
   return { year: Number(y), week: Number(w) };
 }
+
+/**
+ * Add N weeks to an ISO year/week pair, handling year boundaries.
+ *
+ * Uses wednesdayOfWeek to convert to a date, adds 7*delta days,
+ * then converts back via isoWeekOf.
+ */
+export function addWeeksToISO(isoYear: number, week: number, delta: number): { year: number; week: number } {
+  const wed = wednesdayOfWeek(isoYear, week);
+  const d = new Date(wed + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + delta * 7);
+  return isoWeekOf(d);
+}

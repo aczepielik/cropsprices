@@ -14,6 +14,7 @@
     niceTicks,
     mergeEnvelope,
     computeKpis,
+    addWeeksToISO,
   } from "../lib/helpers";
 
   let {
@@ -210,51 +211,28 @@
 
   let chartData = $derived.by(() => {
     if (!selectedWeek) return null;
-    const curIdx = allWeekList.findIndex(
-      (w) => w.year === selectedWeek!.year && w.week === selectedWeek!.week,
-    );
-    if (curIdx < 0) return null;
-    const win = contextWindow;
-    const listLen = allWeekList.length;
-    let startIdx = curIdx - win;
-    let endIdx = curIdx + win;
-    if (startIdx < 0) {
-      startIdx = 0;
-      endIdx = Math.min(win * 2, listLen - 1);
-    }
-    if (endIdx >= listLen) {
-      endIdx = listLen - 1;
-      startIdx = Math.max(0, endIdx - win * 2);
-    }
+    const win = contextWindow; // 3
     const labels: string[] = [];
     const currentData: ({ min: number; max: number } | null)[] = [];
     const yr1Data: ({ min: number; max: number } | null)[] = [];
     const yr2Data: ({ min: number; max: number } | null)[] = [];
-    for (let i = startIdx; i <= endIdx; i++) {
-      if (i < 0 || i >= allWeekList.length) {
-        labels.push("");
-        currentData.push(null);
-        yr1Data.push(null);
-        yr2Data.push(null);
-        continue;
-      }
-      const baseWeek = allWeekList[i];
-      labels.push(wednesdayOfWeek(baseWeek.year, baseWeek.week).slice(5));
-      currentData.push(getWeekSpread(baseWeek.year, baseWeek.week));
-      const yr1Idx = i - 52;
-      yr1Data.push(
-        yr1Idx >= 0 && yr1Idx < allWeekList.length
-          ? getWeekSpread(allWeekList[yr1Idx].year, allWeekList[yr1Idx].week)
-          : null,
-      );
-      const yr2Idx = i - 104;
-      yr2Data.push(
-        yr2Idx >= 0 && yr2Idx < allWeekList.length
-          ? getWeekSpread(allWeekList[yr2Idx].year, allWeekList[yr2Idx].week)
-          : null,
-      );
+
+    // Center the window on the selected week's ISO week
+    for (let delta = -win; delta <= win; delta++) {
+      const { year: cy, week: cw } = addWeeksToISO(selectedWeek.year, selectedWeek.week, delta);
+      labels.push(wednesdayOfWeek(cy, cw).slice(5));
+      currentData.push(getWeekSpread(cy, cw));
+
+      // Year-1: same ISO week number, previous calendar year
+      const { year: y1y, week: y1w } = addWeeksToISO(selectedWeek.year - 1, selectedWeek.week, delta);
+      yr1Data.push(getWeekSpread(y1y, y1w));
+
+      // Year-2: same ISO week number, two years back
+      const { year: y2y, week: y2w } = addWeeksToISO(selectedWeek.year - 2, selectedWeek.week, delta);
+      yr2Data.push(getWeekSpread(y2y, y2w));
     }
-    return { labels, currentData, yr1Data, yr2Data, startIdx };
+
+    return { labels, currentData, yr1Data, yr2Data };
   });
 
   let globalYRange = $derived.by(() => {
@@ -279,7 +257,7 @@
 
   let chartSvg = $derived.by(() => {
     if (!chartData || !globalYRange) return "";
-    const { labels, currentData, yr1Data, yr2Data, startIdx } = chartData;
+    const { labels, currentData, yr1Data, yr2Data } = chartData;
     const n = labels.length;
     if (n === 0) return "";
     const w = 800,
@@ -294,48 +272,64 @@
         pad.t + (1 - (val - yMin) / (yMax - yMin || 1)) * (h - pad.t - pad.b)
       );
     }
-    function buildLinePath(
-      dataset: ({ min: number; max: number } | null)[],
-      type: "min" | "max",
-    ) {
-      const pts: string[] = [];
-      dataset.forEach((pt, i) => {
-        if (pt)
-          pts.push(
-            `${pts.length === 0 ? "M" : "L"} ${getX(i)} ${getY(pt[type])}`,
-          );
-      });
-      return pts.join(" ");
-    }
-    let crosshairIdx = -1;
-    if (selectedWeek) {
-      const curIdx = allWeekList.findIndex(
-        (w) => w.year === selectedWeek!.year && w.week === selectedWeek!.week,
-      );
-      crosshairIdx = curIdx - startIdx;
-      if (crosshairIdx < 0 || crosshairIdx >= n) crosshairIdx = -1;
-    }
+
+    // Merge yr1Data + yr2Data into a single past-years envelope
+    const pastData = mergeEnvelope(yr1Data, yr2Data);
+
     let s = "";
     for (const v of ticks) {
       const y = getY(v);
       s += `<line x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}" stroke="var(--hairline)" stroke-width="1" />`;
       s += `<text x="${pad.l - 8}" y="${y + 4}" text-anchor="end" font-size="12" fill="var(--muted)">${v.toFixed(v % 1 === 0 ? 0 : 1)}</text>`;
     }
-    // Past years: dashed
-    const pastTopPath = buildLinePath(yr1Data, "max");
-    const pastBotPath = buildLinePath(yr1Data, "min");
-    if (pastTopPath)
-      s += `<path d="${pastTopPath}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4,4" stroke-linejoin="round" />`;
-    if (pastBotPath)
-      s += `<path d="${pastBotPath}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4,4" stroke-linejoin="round" />`;
-    // Current year: solid
-    const curTopPath = buildLinePath(currentData, "max");
-    const curBotPath = buildLinePath(currentData, "min");
-    if (curTopPath)
-      s += `<path d="${curTopPath}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />`;
-    if (curBotPath)
-      s += `<path d="${curBotPath}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />`;
-    // Crosshair dots
+
+    // Past years: gray polygon with gap segments
+    const pastSegs: { idx: number; pt: { min: number; max: number } }[][] = [];
+    let curSeg: { idx: number; pt: { min: number; max: number } }[] = [];
+    pastData.forEach((pt, i) => {
+      if (pt) {
+        curSeg.push({ idx: i, pt });
+      } else {
+        if (curSeg.length) { pastSegs.push(curSeg); curSeg = []; }
+      }
+    });
+    if (curSeg.length) pastSegs.push(curSeg);
+
+    for (const seg of pastSegs) {
+      if (seg.length < 2) continue;
+      let d = `M ${getX(seg[0].idx)} ${getY(seg[0].pt.max)}`;
+      for (let i = 1; i < seg.length; i++) d += ` L ${getX(seg[i].idx)} ${getY(seg[i].pt.max)}`;
+      for (let i = seg.length - 1; i >= 0; i--) d += ` L ${getX(seg[i].idx)} ${getY(seg[i].pt.min)}`;
+      d += ' Z';
+      s += `<path d="${d}" fill="var(--muted)" opacity="0.12" />`;
+    }
+
+    // Current year: pair of lines with gap segments
+    const curSegs: { idx: number; pt: { min: number; max: number } }[][] = [];
+    let cSeg: { idx: number; pt: { min: number; max: number } }[] = [];
+    currentData.forEach((pt, i) => {
+      if (pt) {
+        cSeg.push({ idx: i, pt });
+      } else {
+        if (cSeg.length) { curSegs.push(cSeg); cSeg = []; }
+      }
+    });
+    if (cSeg.length) curSegs.push(cSeg);
+
+    for (const seg of curSegs) {
+      if (seg.length < 2) continue;
+      let dMax = `M ${getX(seg[0].idx)} ${getY(seg[0].pt.max)}`;
+      let dMin = `M ${getX(seg[0].idx)} ${getY(seg[0].pt.min)}`;
+      for (let i = 1; i < seg.length; i++) {
+        dMax += ` L ${getX(seg[i].idx)} ${getY(seg[i].pt.max)}`;
+        dMin += ` L ${getX(seg[i].idx)} ${getY(seg[i].pt.min)}`;
+      }
+      s += `<path d="${dMax}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />`;
+      s += `<path d="${dMin}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />`;
+    }
+
+    // Crosshair dots at center (always index = contextWindow)
+    const crosshairIdx = contextWindow;
     if (crosshairIdx >= 0 && crosshairIdx < n) {
       const cx = getX(crosshairIdx);
       const curPt = currentData[crosshairIdx];
@@ -344,6 +338,7 @@
         s += `<circle cx="${cx}" cy="${getY(curPt.min)}" r="4.5" fill="var(--bg)" stroke="var(--accent)" stroke-width="2.5" />`;
       }
     }
+
     // X-axis labels
     labels.forEach((label, i) => {
       if (label) {
@@ -434,7 +429,7 @@
               class:change-up={wowChange.lowerChange > 0}
               class:change-down={wowChange.lowerChange < 0}
               class:change-flat={wowChange.lowerChange === 0}
-              >{wowChange.lowerChange > 0 ? "+" : ""}{formatPrice(
+              >{wowChange.lowerChange > 0 ? "+" : ""}{wowChange.lowerChange === 0 ? "\u00a0" : ""}{formatPrice(
                 wowChange.lowerChange,
               )}</span
             >
@@ -443,7 +438,7 @@
               class:change-up={wowChange.upperChange > 0}
               class:change-down={wowChange.upperChange < 0}
               class:change-flat={wowChange.upperChange === 0}
-              >{wowChange.upperChange > 0 ? "+" : ""}{formatPrice(
+              >{wowChange.upperChange > 0 ? "+" : ""}{wowChange.upperChange === 0 ? "\u00a0" : ""}{formatPrice(
                 wowChange.upperChange,
               )}</span
             >
@@ -455,7 +450,7 @@
               class:change-up={wowChange.lowerPct > 0}
               class:change-down={wowChange.lowerPct < 0}
               class:change-flat={wowChange.lowerPct === 0}
-              >{wowChange.lowerPct > 0 ? "+" : ""}{wowChange.lowerPct.toFixed(
+              >{wowChange.lowerPct > 0 ? "+" : ""}{wowChange.lowerPct === 0 ? "\u00a0" : ""}{wowChange.lowerPct.toFixed(
                 1,
               )}%
               </span>
@@ -464,7 +459,7 @@
               class:change-up={wowChange.upperPct > 0}
               class:change-down={wowChange.upperPct < 0}
               class:change-flat={wowChange.upperPct === 0}
-              >{wowChange.upperPct > 0 ? "+" : ""}{wowChange.upperPct.toFixed(
+              >{wowChange.upperPct > 0 ? "+" : ""}{wowChange.upperPct === 0 ? "\u00a0" : ""}{wowChange.upperPct.toFixed(
                 1,
               )}%
               </span>
@@ -493,7 +488,7 @@
               class:change-down={ytyChange.lowerChange < 0}
               class:change-flat={ytyChange.lowerChange === 0}
             >
-              {ytyChange.lowerChange > 0 ? "+" : ""}{formatPrice(
+              {ytyChange.lowerChange > 0 ? "+" : ""}{ytyChange.lowerChange === 0 ? "\u00a0" : ""}{formatPrice(
                 ytyChange.lowerChange,
               )}
             </span>
@@ -502,7 +497,7 @@
               class:change-up={ytyChange.upperChange > 0}
               class:change-down={ytyChange.upperChange < 0}
               class:change-flat={ytyChange.upperChange === 0}
-              >{ytyChange.upperChange > 0 ? "+" : ""}{formatPrice(
+              >{ytyChange.upperChange > 0 ? "+" : ""}{ytyChange.upperChange === 0 ? "\u00a0" : ""}{formatPrice(
                 ytyChange.upperChange,
               )}
             </span>
@@ -514,7 +509,7 @@
               class:change-up={ytyChange.lowerPct > 0}
               class:change-down={ytyChange.lowerPct < 0}
               class:change-flat={ytyChange.lowerPct === 0}
-              >{ytyChange.lowerPct > 0 ? "+" : ""}{ytyChange.lowerPct.toFixed(
+              >{ytyChange.lowerPct > 0 ? "+" : ""}{ytyChange.lowerPct === 0 ? "\u00a0" : ""}{ytyChange.lowerPct.toFixed(
                 1,
               )}%</span
             >
@@ -523,7 +518,7 @@
               class:change-up={ytyChange.upperPct > 0}
               class:change-down={ytyChange.upperPct < 0}
               class:change-flat={ytyChange.upperPct === 0}
-              >{ytyChange.upperPct > 0 ? "+" : ""}{ytyChange.upperPct.toFixed(
+              >{ytyChange.upperPct > 0 ? "+" : ""}{ytyChange.upperPct === 0 ? "\u00a0" : ""}{ytyChange.upperPct.toFixed(
                 1,
               )}%</span
             >
@@ -766,17 +761,17 @@
   /* Chart Layout */
   .legend-swatch {
     width: 16px;
-    height: 0;
-    border-top: 2px solid;
+    height: 12px;
   }
 
   .past-swatch {
-    border-color: var(--muted);
-    border-top-style: dashed;
+    background: var(--muted);
+    opacity: 0.35;
   }
 
   .current-swatch {
-    border-color: var(--ink);
+    background: none;
+    border: 2px solid var(--ink);
   }
 
   .svg-chart-container {
