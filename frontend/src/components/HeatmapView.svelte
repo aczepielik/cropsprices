@@ -253,11 +253,14 @@
     if (seg.length) curSegs.push(seg);
     for (const s2 of curSegs) {
       if (s2.length < 2) continue;
-      let d = `M ${weekX(s2[0].week)} ${priceY(s2[0].ribbonMax)}`;
-      for (let i = 1; i < s2.length; i++) d += ` L ${weekX(s2[i].week)} ${priceY(s2[i].ribbonMax)}`;
-      for (let i = s2.length - 1; i >= 0; i--) d += ` L ${weekX(s2[i].week)} ${priceY(s2[i].ribbonMin)}`;
-      d += ' Z';
-      s += `<path d="${d}" fill="none" stroke="var(--ink)" stroke-width="1.5" />`;
+      let dMax = `M ${weekX(s2[0].week)} ${priceY(s2[0].ribbonMax)}`;
+      let dMin = `M ${weekX(s2[0].week)} ${priceY(s2[0].ribbonMin)}`;
+      for (let i = 1; i < s2.length; i++) {
+        dMax += ` L ${weekX(s2[i].week)} ${priceY(s2[i].ribbonMax)}`;
+        dMin += ` L ${weekX(s2[i].week)} ${priceY(s2[i].ribbonMin)}`;
+      }
+      s += `<path d="${dMax}" fill="none" stroke="var(--ink)" stroke-width="1.5" />`;
+      s += `<path d="${dMin}" fill="none" stroke="var(--ink)" stroke-width="1.5" />`;
     }
 
     // ── RIGHT MARGINAL ──
