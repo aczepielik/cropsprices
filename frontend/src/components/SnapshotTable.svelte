@@ -70,11 +70,7 @@
       rows.push({ place, current, wow, yoy });
     }
 
-    rows.sort((a, b) => {
-      if (a.current !== null && b.current === null) return -1;
-      if (a.current === null && b.current !== null) return 1;
-      return a.place.localeCompare(b.place);
-    });
+    rows.sort((a, b) => a.place.localeCompare(b.place));
 
     return rows;
   });
@@ -112,8 +108,8 @@
     white-space: nowrap; text-align: left;
   }
   .data-table td {
-    padding: 10px 8px 10px 0; border-bottom: 1px solid var(--hairline);
-    font-size: 13px; font-weight: 400; white-space: nowrap; color: var(--ink);
+    padding: 10px 10px 10px 0; border-bottom: 1px solid var(--hairline);
+    font-size: 12px; font-weight: 400; white-space: nowrap; color: var(--ink);
   }
   .data-table tr:last-child td { border-bottom: none; }
   .text-right { text-align: right !important; }
@@ -122,6 +118,6 @@
 
   @media (max-width: 450px) {
     .data-table th { font-size: 10px; }
-    .data-table td { font-size: 11px; padding: 8px 6px 8px 0; }
+    .data-table td { font-size: 10px; padding: 8px 6px 8px 0; }
   }
 </style>

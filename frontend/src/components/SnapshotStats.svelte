@@ -12,7 +12,6 @@
     wednesdayOfWeek,
     weekKey,
     niceTicks,
-    mergeEnvelope,
     computeKpis,
     addWeeksToISO,
   } from "../lib/helpers";
@@ -215,7 +214,6 @@
     const labels: string[] = [];
     const currentData: ({ min: number; max: number } | null)[] = [];
     const yr1Data: ({ min: number; max: number } | null)[] = [];
-    const yr2Data: ({ min: number; max: number } | null)[] = [];
 
     // Center the window on the selected week's ISO week
     for (let delta = -win; delta <= win; delta++) {
@@ -226,13 +224,9 @@
       // Year-1: same ISO week number, previous calendar year
       const { year: y1y, week: y1w } = addWeeksToISO(selectedWeek.year - 1, selectedWeek.week, delta);
       yr1Data.push(getWeekSpread(y1y, y1w));
-
-      // Year-2: same ISO week number, two years back
-      const { year: y2y, week: y2w } = addWeeksToISO(selectedWeek.year - 2, selectedWeek.week, delta);
-      yr2Data.push(getWeekSpread(y2y, y2w));
     }
 
-    return { labels, currentData, yr1Data, yr2Data };
+    return { labels, currentData, yr1Data };
   });
 
   let globalYRange = $derived.by(() => {
@@ -257,7 +251,7 @@
 
   let chartSvg = $derived.by(() => {
     if (!chartData || !globalYRange) return "";
-    const { labels, currentData, yr1Data, yr2Data } = chartData;
+    const { labels, currentData, yr1Data } = chartData;
     const n = labels.length;
     if (n === 0) return "";
     const w = 800,
@@ -273,9 +267,6 @@
       );
     }
 
-    // Merge yr1Data + yr2Data into a single past-years envelope
-    const pastData = mergeEnvelope(yr1Data, yr2Data);
-
     let s = "";
     for (const v of ticks) {
       const y = getY(v);
@@ -283,10 +274,10 @@
       s += `<text x="${pad.l - 8}" y="${y + 4}" text-anchor="end" font-size="12" fill="var(--muted)">${v.toFixed(v % 1 === 0 ? 0 : 1)}</text>`;
     }
 
-    // Past years: gray polygon with gap segments
+    // Past year: gray polygon with gap segments
     const pastSegs: { idx: number; pt: { min: number; max: number } }[][] = [];
     let curSeg: { idx: number; pt: { min: number; max: number } }[] = [];
-    pastData.forEach((pt, i) => {
+    yr1Data.forEach((pt, i) => {
       if (pt) {
         curSeg.push({ idx: i, pt });
       } else {
@@ -542,7 +533,7 @@
     <div class="chart-legend">
       <div class="legend-item">
         <div class="legend-swatch past-swatch"></div>
-        Lata ubiegłe
+        Rok wcześniej
       </div>
       <div class="legend-item">
         <div class="legend-swatch current-swatch"></div>
@@ -778,6 +769,10 @@
     width: 100%;
   }
 
+  .svg-chart-container :global(text) {
+    font-family: inherit;
+  }
+
   /* Responsive breakpoints */
   @media (max-width: 1350px) {
     .stat-row {
@@ -842,6 +837,10 @@
       width: 44px;
       height: 40px;
     }
+
+    .svg-chart-container :global(text) {
+      font-size: 14px;
+    }
   }
 
   @media (max-width: 400px) {
@@ -849,5 +848,9 @@
     .compare-range { font-size: 11px; }
     .compare-change, .compare-pct { font-size: 11px; }
     .compare-label { font-size: 10px; }
+
+    .svg-chart-container :global(text) {
+      font-size: 14px;
+    }
   }
 </style>
