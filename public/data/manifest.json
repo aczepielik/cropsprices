@@ -55,12 +55,6 @@
       "category": "warzywa"
     },
     {
-      "name": "Borówka amerykańska",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
       "name": "Borówki amerykańskie",
       "unit": "kg",
       "origin": "IMPORTOWANE",
@@ -104,12 +98,6 @@
     },
     {
       "name": "Cebula",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "warzywa"
-    },
-    {
-      "name": "Cebula ",
       "unit": "kg",
       "origin": "KRAJOWE",
       "category": "warzywa"
@@ -205,55 +193,7 @@
       "category": "owoce"
     },
     {
-      "name": "Jabłka Alwa",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Antonówka",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
       "name": "Jabłka Antonówki",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Boiken",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Boskoop",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Celesta",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Cortland",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Delikates",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Early Geneva",
       "unit": "kg",
       "origin": "KRAJOWE",
       "category": "owoce"
@@ -265,79 +205,13 @@
       "category": "owoce"
     },
     {
-      "name": "Jabłka Elstar",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Empire",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Gala",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
       "name": "Jabłka Gala",
       "unit": "kk",
       "origin": "KRAJOWE",
       "category": "owoce"
     },
     {
-      "name": "Jabłka Gloster",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Golden",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Idared",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Jerseymac",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Jonagold",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Jonagored",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
       "name": "Jabłka Katja",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Ligol",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Lobo",
       "unit": "kg",
       "origin": "KRAJOWE",
       "category": "owoce"
@@ -355,43 +229,7 @@
       "category": "owoce"
     },
     {
-      "name": "Jabłka Papierówki",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Paula Red",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Paulared",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Piros",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Rubin",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
       "name": "Jabłka Szampion",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Szara Reneta",
       "unit": "kg",
       "origin": "KRAJOWE",
       "category": "owoce"
@@ -464,12 +302,6 @@
     },
     {
       "name": "Jabłka: Gala",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka: Genewa",
       "unit": "kg",
       "origin": "KRAJOWE",
       "category": "owoce"
@@ -553,12 +385,6 @@
       "category": "owoce"
     },
     {
-      "name": "Jabłka: Shampion",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
       "name": "Jabłka: Szampion",
       "unit": "kg",
       "origin": "KRAJOWE",
@@ -613,7 +439,7 @@
       "category": "warzywa"
     },
     {
-      "name": "Kapusta ",
+      "name": "Kapusta",
       "unit": "szt.",
       "origin": "KRAJOWE",
       "category": "warzywa"
@@ -626,12 +452,6 @@
     },
     {
       "name": "Kapusta biała",
-      "unit": "szt.",
-      "origin": "KRAJOWE",
-      "category": "warzywa"
-    },
-    {
-      "name": "Kapusta biała ",
       "unit": "szt.",
       "origin": "KRAJOWE",
       "category": "warzywa"
@@ -651,12 +471,6 @@
     {
       "name": "Kapusta młoda",
       "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "warzywa"
-    },
-    {
-      "name": "Kapusta młoda",
-      "unit": "szt",
       "origin": "KRAJOWE",
       "category": "warzywa"
     },
@@ -722,12 +536,6 @@
     },
     {
       "name": "Marchew młoda",
-      "unit": "pęczek",
-      "origin": "KRAJOWE",
-      "category": "warzywa"
-    },
-    {
-      "name": "Marchew młoda ",
       "unit": "pęczek",
       "origin": "KRAJOWE",
       "category": "warzywa"
@@ -914,18 +722,6 @@
     },
     {
       "name": "Pory",
-      "unit": "szt",
-      "origin": "KRAJOWE",
-      "category": "warzywa"
-    },
-    {
-      "name": "Pory",
-      "unit": "szt.",
-      "origin": "KRAJOWE",
-      "category": "warzywa"
-    },
-    {
-      "name": "Pory ",
       "unit": "szt.",
       "origin": "KRAJOWE",
       "category": "warzywa"
@@ -1015,12 +811,6 @@
       "category": "warzywa"
     },
     {
-      "name": "Sałata ",
-      "unit": "szt.",
-      "origin": "KRAJOWE",
-      "category": "warzywa"
-    },
-    {
       "name": "Selery",
       "unit": "kg",
       "origin": "KRAJOWE",
@@ -1029,12 +819,6 @@
     {
       "name": "Selery",
       "unit": "szt.",
-      "origin": "KRAJOWE",
-      "category": "warzywa"
-    },
-    {
-      "name": "Selery ",
-      "unit": "kg",
       "origin": "KRAJOWE",
       "category": "warzywa"
     },
@@ -1047,12 +831,6 @@
     {
       "name": "Selery młode",
       "unit": "pęczek",
-      "origin": "KRAJOWE",
-      "category": "warzywa"
-    },
-    {
-      "name": "Selery młode",
-      "unit": "szt",
       "origin": "KRAJOWE",
       "category": "warzywa"
     },
@@ -1148,5 +926,5 @@
     "Wrocław",
     "Łódź"
   ],
-  "lastUpdate": "2026-06-19T13:31:13.691231+00:00"
+  "lastUpdate": "2026-08-05T08:53:27.593416+00:00"
 }
