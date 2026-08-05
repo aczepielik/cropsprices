@@ -98,7 +98,7 @@ class TestMakeTable:
     def test_correct_columns(self, sample_df):
         pivoted = pivot_min_max(sample_df)
         table = make_table(pivoted)
-        expected_cols = {"date", "product", "place", "origin", "price_min", "price_max", "unit"}
+        expected_cols = {"date", "product", "place", "origin", "price_min", "price_max", "unit", "category"}
         assert set(table.column_names) == expected_cols
 
     def test_dictionary_encoded_strings(self, sample_df):
