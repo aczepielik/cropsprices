@@ -151,7 +151,18 @@ def write_weeks_file(week_ranges: dict, filepath: Path) -> None:
     filepath.write_text(json.dumps(week_ranges, separators=(",", ":")))
 
 
-def write_archive_files(df: pd.DataFrame, output_dir: Path, current_year: int) -> list[str]:
+def write_archive_files(df: pd.DataFrame, output_dir: Path, current_year: int,
+                        archive_year: int | None = None) -> list[str]:
+    """Write archive arrow files for all years before current_year.
+
+    Archive directory is named archive-{archive_year}/ where archive_year
+    defaults to current_year - 1.  Each archive version is immutable —
+    on year roll a new directory is created so the URL changes and
+    browsers fetch fresh data.
+    """
+    if archive_year is None:
+        archive_year = current_year - 1
+
     past_df = df[df["year"] < current_year]
 
     group_keys = ["Product"]
@@ -160,7 +171,7 @@ def write_archive_files(df: pd.DataFrame, output_dir: Path, current_year: int) -
     group_keys.append("Origin")
 
     has_unit = "Unit" in group_keys
-    archive_dir = output_dir / "archive"
+    archive_dir = output_dir / f"archive-{archive_year}"
     archive_dir.mkdir(parents=True, exist_ok=True)
 
     files_written = []
@@ -178,14 +189,14 @@ def write_archive_files(df: pd.DataFrame, output_dir: Path, current_year: int) -
         filename = f"{product_key}-{unit_key}-{origin_key}.arrow"
         filepath = archive_dir / filename
         write_arrow_file(table, filepath)
-        files_written.append(f"archive/{filename}")
+        files_written.append(f"archive-{archive_year}/{filename}")
 
         # Write pre-aggregated week ranges alongside the arrow file
         week_ranges = compute_week_ranges(group)
         weeks_filepath = archive_dir / f"{product_key}-{unit_key}-{origin_key}.weeks.json"
         write_weeks_file(week_ranges, weeks_filepath)
 
-    logger.info(f"Wrote {len(files_written)} archive files (all past years concatenated)")
+    logger.info(f"Wrote {len(files_written)} archive files to archive-{archive_year}/ (years < {current_year})")
     return files_written
 
 
@@ -227,7 +238,11 @@ def write_current_year_files(df: pd.DataFrame, output_dir: Path, current_year: i
     return files_written
 
 
-def build_manifest(df: pd.DataFrame, archive_files: list[str], current_files: list[str], current_year: int) -> dict:
+def build_manifest(df: pd.DataFrame, archive_files: list[str], current_files: list[str],
+                    current_year: int, archive_year: int | None = None) -> dict:
+    if archive_year is None:
+        archive_year = current_year - 1
+
     years = sorted(df["year"].unique().tolist())
 
     product_cols = ["Product"]
@@ -248,6 +263,7 @@ def build_manifest(df: pd.DataFrame, archive_files: list[str], current_files: li
     manifest = {
         "years": [int(y) for y in years],
         "currentYear": current_year,
+        "archiveYear": archive_year,
         "products": products_list,
         "places": sorted(df["Place"].unique().tolist()),
         "lastUpdate": datetime.now(timezone.utc).isoformat(),

@@ -47,7 +47,7 @@ describe('loadProductData', () => {
   it('returns empty array when both archive and current are missing', async () => {
     mockFetch.mockResolvedValue({ ok: false, status: 404 });
 
-    const result = await loadProductData('Nonexistent', 'kg', 'KRAJOWE', 2026);
+    const result = await loadProductData('Nonexistent', 'kg', 'KRAJOWE', 2026, 2025);
     expect(result).toEqual([]);
   });
 
@@ -67,7 +67,7 @@ describe('loadProductData', () => {
       return Promise.resolve({ ok: false, status: 404 });
     });
 
-    const result = await loadProductData('Corrupt', 'kg', 'KRAJOWE', 2026);
+    const result = await loadProductData('Corrupt', 'kg', 'KRAJOWE', 2026, 2025);
     expect(result).toEqual([]);
   });
 });
