@@ -23,9 +23,9 @@ import { debug } from './logger';
 
 const log = debug('arrow-loader');
 
-// Base URL for data files. In dev, Vite serves these from /public/data/.
-// In production, they're served from the same domain root.
-const DATA_BASE = '/data';
+// Base URL for data files. Uses Vite's configured base path so data is
+// found correctly in both dev (localhost:5173/) and production (/cropsprices/).
+const DATA_BASE = `${import.meta.env.BASE_URL}data`;
 
 // Cache the manifest so we only fetch it once per page load.
 // Using `undefined` instead of `null` so the `if (manifestCache)` check works.
