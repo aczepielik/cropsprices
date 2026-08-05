@@ -106,12 +106,14 @@
           filters.product.unit,
           filters.product.origin,
           manifest.currentYear,
+          manifest.archiveYear,
         ),
         loadWeekRanges(
           filters.product.name,
           filters.product.unit,
           filters.product.origin,
           manifest.currentYear,
+          manifest.archiveYear,
         ),
       ]);
     } catch (e) {

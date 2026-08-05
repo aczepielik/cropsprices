@@ -26,6 +26,7 @@ export interface Product {
 export interface Manifest {
   years: number[];
   currentYear: number;
+  archiveYear: number;
   products: Product[];
   places: string[];
   lastUpdate: string;

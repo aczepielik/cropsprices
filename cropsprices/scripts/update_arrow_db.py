@@ -21,6 +21,7 @@ from cropsprices.arrow_db import (
     write_archive_files,
     write_current_year_files,
 )
+from cropsprices.scripts.build_arrow_db import detect_archive_year
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -75,8 +76,9 @@ def main():
     all_df["year"] = pd.to_datetime(all_df["Date"]).dt.year
     current_year = int(all_df["year"].max())
 
-    archive_files = write_archive_files(all_df, output_dir, current_year)
-    manifest = build_manifest(all_df, archive_files, current_files, current_year)
+    archive_year = detect_archive_year(output_dir) or (current_year - 1)
+    archive_files = write_archive_files(all_df, output_dir, current_year, archive_year)
+    manifest = build_manifest(all_df, archive_files, current_files, current_year, archive_year)
     manifest_path = output_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
     logger.info(f"Wrote manifest to {manifest_path}")

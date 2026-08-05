@@ -11,7 +11,7 @@
 //
 // DATA LAYOUT on disk:
 //   /data/manifest.json          — metadata (product list, years, markets)
-//   /data/archive/               — all historical data (one file per product)
+//   /data/archive-2025/          — historical data up to 2025 (immutable until year roll)
 //   /data/2026/                  — current year data (one file per product)
 //
 // Each Arrow file is named like: "Truskawki-kg-KRAJOWE.arrow"
@@ -57,16 +57,18 @@ function productNameForFile(name: string): string {
  * Build the URL path to an Arrow file for a specific product.
  *
  * Examples:
- *   arrowFilePath("Truskawki", "kg", "KRAJOWE")       → "/data/archive/Truskawki-kg-KRAJOWE.arrow"
- *   arrowFilePath("Truskawki", "kg", "KRAJOWE", 2026)  → "/data/2026/Truskawki-kg-KRAJOWE.arrow"
+ *   arrowFilePath("Truskawki", "kg", "KRAJOWE", undefined, 2025)
+ *     → "/data/archive-2025/Truskawki-kg-KRAJOWE.arrow"
+ *   arrowFilePath("Truskawki", "kg", "KRAJOWE", 2026)
+ *     → "/data/2026/Truskawki-kg-KRAJOWE.arrow"
  */
-function arrowFilePath(name: string, unit: string, origin: string, year?: number): string {
+function arrowFilePath(name: string, unit: string, origin: string, year?: number, archiveYear?: number): string {
   const productSlug = productNameForFile(name);
   const fileSlug = `${productSlug}-${unit}-${origin}.arrow`;
   if (year) {
     return `${DATA_BASE}/${year}/${fileSlug}`;
   }
-  return `${DATA_BASE}/archive/${fileSlug}`;
+  return `${DATA_BASE}/archive-${archiveYear}/${fileSlug}`;
 }
 
 /**
@@ -130,10 +132,11 @@ export async function loadProductData(
   unit: string,
   origin: string,
   currentYear: number,
+  archiveYear: number,
 ): Promise<PriceRecord[]> {
   const [archive, current] = await Promise.all([
-    loadArrowFile(arrowFilePath(name, unit, origin)),        // historical data
-    loadArrowFile(arrowFilePath(name, unit, origin, currentYear)),  // current year
+    loadArrowFile(arrowFilePath(name, unit, origin, undefined, archiveYear)),  // historical data
+    loadArrowFile(arrowFilePath(name, unit, origin, currentYear)),             // current year
   ]);
   return [...archive, ...current];  // Spread operator: combines both arrays
 }
@@ -150,13 +153,13 @@ export type WeekRanges = Record<string, Record<string, Record<string, { min: num
 
 let weekRangesCache = new Map<string, WeekRanges>();
 
-function weekRangesFilePath(name: string, unit: string, origin: string, year?: number): string {
+function weekRangesFilePath(name: string, unit: string, origin: string, year?: number, archiveYear?: number): string {
   const slug = productNameForFile(name);
   const fileSlug = `${slug}-${unit}-${origin}.weeks.json`;
   if (year) {
     return `${DATA_BASE}/${year}/${fileSlug}`;
   }
-  return `${DATA_BASE}/archive/${fileSlug}`;
+  return `${DATA_BASE}/archive-${archiveYear}/${fileSlug}`;
 }
 
 /**
@@ -172,13 +175,14 @@ export async function loadWeekRanges(
   unit: string,
   origin: string,
   currentYear: number,
+  archiveYear: number,
 ): Promise<WeekRanges | null> {
   const cacheKey = `${name}-${unit}-${origin}`;
   const cached = weekRangesCache.get(cacheKey);
   if (cached) return cached;
 
   const [archiveRes, currentRes] = await Promise.all([
-    fetch(weekRangesFilePath(name, unit, origin)).then(r => r.ok ? r.json() : null),
+    fetch(weekRangesFilePath(name, unit, origin, undefined, archiveYear)).then(r => r.ok ? r.json() : null),
     fetch(weekRangesFilePath(name, unit, origin, currentYear)).then(r => r.ok ? r.json() : null),
   ]);
 
