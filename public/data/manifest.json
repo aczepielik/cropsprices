@@ -11,6 +11,7 @@
     2026
   ],
   "currentYear": 2026,
+  "archiveYear": 2025,
   "products": [
     {
       "name": "Agrest",
@@ -926,5 +927,5 @@
     "Wrocław",
     "Łódź"
   ],
-  "lastUpdate": "2026-08-05T08:53:27.593416+00:00"
+  "lastUpdate": "2026-08-05T09:54:05.483031+00:00"
 }
