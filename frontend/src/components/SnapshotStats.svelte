@@ -259,7 +259,7 @@
     for (const v of ticks) {
       const y = getY(v);
       s += `<line x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}" stroke="var(--hairline)" stroke-width="1" />`;
-      s += `<text x="${pad.l - 8}" y="${y + 4}" text-anchor="end" font-size="12" fill="var(--muted)">${v.toFixed(v % 1 === 0 ? 0 : 1)}</text>`;
+      s += `<text x="${pad.l - 8}" y="${y + 4}" text-anchor="end" font-size="13" fill="var(--muted)">${v.toFixed(v % 1 === 0 ? 0 : 1)}</text>`;
     }
 
     // Past year: gray polygon with gap segments
@@ -322,7 +322,7 @@
     labels.forEach((label, i) => {
       if (label) {
         const isCenter = i === crosshairIdx;
-        s += `<text x="${getX(i)}" y="${h - 12}" font-size="11" fill="${isCenter ? "var(--accent)" : "var(--muted)"}" font-weight="${isCenter ? "600" : "400"}" text-anchor="middle">${label}</text>`;
+        s += `<text x="${getX(i)}" y="${h - 12}" font-size="12" fill="${isCenter ? "var(--accent)" : "var(--muted)"}" font-weight="${isCenter ? "600" : "400"}" text-anchor="middle">${label}</text>`;
       }
     });
     return s;
@@ -833,9 +833,9 @@
 
   @media (max-width: 400px) {
     .stat-value { font-size: 22px; }
-    .compare-range { font-size: 11px; }
-    .compare-change, .compare-pct { font-size: 11px; }
-    .compare-label { font-size: 10px; }
+    .compare-range { font-size: 12px; }
+    .compare-change, .compare-pct { font-size: 12px; }
+    .compare-label { font-size: 11px; }
 
     .svg-chart-container :global(text) {
       font-size: 14px;

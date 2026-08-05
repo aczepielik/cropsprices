@@ -103,13 +103,13 @@
 <style>
   .data-table { width: 100%; border-collapse: collapse; }
   .data-table th {
-    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
     color: var(--muted); padding: 0 8px 10px 0; border-bottom: 1px solid var(--hairline-strong);
     white-space: nowrap; text-align: left;
   }
   .data-table td {
     padding: 10px 10px 10px 0; border-bottom: 1px solid var(--hairline);
-    font-size: 12px; font-weight: 400; white-space: nowrap; color: var(--ink);
+    font-size: 13px; font-weight: 400; white-space: nowrap; color: var(--ink);
   }
   .data-table tr:last-child td { border-bottom: none; }
   .text-right { text-align: right !important; }

@@ -168,7 +168,7 @@
 <div class="masthead">
   <div class="masthead-text">
     <h1 class="masthead-title">Notowania Rolne</h1>
-    <div class="masthead-subtitle">Biuletyn Rynkowy</div>
+    <div class="masthead-subtitle">Ceny hurtowe Warzyw i Owoców</div>
     {#if manifest}
       <div class="masthead-meta">
         Aktualizacja: {new Date(manifest.lastUpdate).toLocaleDateString('pl-PL', { year: 'numeric', month: 'long', day: 'numeric' })}
@@ -283,6 +283,8 @@
     border-radius: 6px;
     cursor: pointer;
     flex-shrink: 0;
+    margin-left: 16px;
+    margin-top: 4px;
   }
   .hamburger-line {
     display: block;

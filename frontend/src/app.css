@@ -24,6 +24,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Type scale:
+   52px — masthead title
+   19px — masthead subtitle
+   14px — body
+   13px — stat value, compare range, compare text
+   12px — meta labels, chart labels, table cells, compare labels, chart legend
+*/
+
 .tabular-nums { font-variant-numeric: tabular-nums; }
 
 /* ── Layout ── */
@@ -49,7 +57,7 @@ body {
 
 /* ── Shared utilities ── */
 .meta-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -67,8 +75,8 @@ body {
 }
 
 .chart-title {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--ink);
 }
 
