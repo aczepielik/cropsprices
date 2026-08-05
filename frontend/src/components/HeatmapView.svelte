@@ -18,7 +18,7 @@
     markets: Set<string>;
   } = $props();
 
-  let containerEl: HTMLDivElement;
+  let containerEl: HTMLDivElement | undefined = $state();
   let containerWidth = $state(960);
 
   // Warm amber → rust sequential color ramp (matching the mock)
