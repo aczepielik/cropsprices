@@ -11,11 +11,10 @@
 
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
-import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   base: '/cropsprices/',
-  plugins: [tailwindcss(), svelte()],
+  plugins: [svelte()],
   // Vite serves static files from publicDir. The ETL pipeline writes Arrow
   // files to the project root's public/data/, not frontend/public/.
   // This path is relative to vite.config.ts (i.e. relative to frontend/).
