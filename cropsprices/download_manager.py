@@ -103,7 +103,7 @@ class DownloadManager:
 
     def process_resources(self, url: str, params: Dict[str, str]):
         all_responses = query_paged_api(url, params)
-        all_resources = self.extract_data(all_resources)
+        all_resources = self.extract_data(all_responses)
         filtered_resources = self.filter_and_validate_resources(all_resources)
 
         logger.info(f"Validated {len(filtered_resources)} resources")
