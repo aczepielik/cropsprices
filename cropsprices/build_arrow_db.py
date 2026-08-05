@@ -7,11 +7,30 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.ipc as ipc
 
+from cropsprices.product_normalize import normalize_product
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("build_arrow_db")
 
 DEFAULT_PARSED_DIR = Path("data/parsed")
 DEFAULT_OUTPUT_DIR = Path("public/data")
+
+
+def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Apply normalize_product to Product and Unit columns."""
+    if "Unit" in df.columns:
+        normalized = df.apply(
+            lambda row: normalize_product(row["Product"], row.get("Unit", "")),
+            axis=1,
+            result_type="expand",
+        )
+        df = df.copy()
+        df["Product"] = normalized[0]
+        df["Unit"] = normalized[1]
+    else:
+        df = df.copy()
+        df["Product"] = df["Product"].str.strip()
+    return df
 
 
 def load_all_csvs(parsed_dir: Path) -> pd.DataFrame:
@@ -241,6 +260,7 @@ def main(parsed_dir: Path = DEFAULT_PARSED_DIR, output_dir: Path = DEFAULT_OUTPU
     output_dir.mkdir(parents=True, exist_ok=True)
 
     df = load_all_csvs(parsed_dir)
+    df = normalize_dataframe(df)
     df = pivot_min_max(df)
     df["year"] = pd.to_datetime(df["Date"]).dt.year
 

@@ -8,10 +8,15 @@ Cell = "X" if data exists, empty otherwise.
 
 import json
 import os
+import sys
 from datetime import date, timedelta
 from pathlib import Path
 
 import pyarrow.ipc as ipc
+
+# Allow importing from project root
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from cropsprices.product_normalize import normalize_product
 
 DATA_DIR = Path("public/data")
 OUT_DIR = Path("data/availability")
@@ -115,8 +120,7 @@ def main():
         print(f"{'='*60}")
 
         for product in sorted(products, key=lambda p: p["name"]):
-            name = product["name"]
-            unit = product["unit"]
+            name, unit = normalize_product(product["name"], product["unit"])
 
             # Load archive data
             archive_path = DATA_DIR / "archive" / f"{name}-{unit}-{origin}.arrow"
