@@ -70,6 +70,10 @@ async function main() {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
 
+    // Throttle CPU to 4x slowdown (simulates mid-range mobile like Pixel 7)
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+
     // ── Phase 1: Initial Load ──
     console.log('=== Initial Load ===');
     const t0 = Date.now();
@@ -78,7 +82,7 @@ async function main() {
 
     try {
       await page.waitForFunction(() => {
-        const k = document.querySelector('.kpi-value');
+        const k = document.querySelector('.stat-value');
         return k && k.textContent.includes('zł') && !k.textContent.startsWith('-');
       }, { timeout: 10000 });
       console.log('KPI data ready: ' + (Date.now() - t0) + ' ms');
@@ -120,7 +124,7 @@ async function main() {
       for (let i = 0; i < 50; i++) {
         await page.waitForTimeout(200);
         const snap = await page.evaluate(() => {
-          const kpis = [...document.querySelectorAll('.kpi-value')].map(e => e.textContent);
+          const kpis = [...document.querySelectorAll('.stat-value')].map(e => e.textContent);
           const hasBanner = !!document.querySelector('.empty-banner');
           return { kpis, hasBanner };
         });
@@ -152,24 +156,58 @@ async function main() {
       }
     }
 
-    // ── Phase 3: JS-only benchmarks (no network) ──
+    // ── Phase 3: Week navigation latency ──
+    console.log('\n=== Week Navigation Latency ===');
+    // Navigate to a mid-range week so both prev/next buttons are enabled
+    const selectEl = await page.$('.date-select');
+    if (selectEl) {
+      const optCount = await selectEl.evaluate(el => el.options.length);
+      if (optCount > 2) {
+        const midIdx = Math.floor(optCount / 2);
+        await selectEl.selectOption({ index: midIdx });
+        await page.waitForTimeout(200);
+      }
+    }
+
+    const nextBtn = await page.$('.date-nav-next:not([disabled])');
+    const prevBtn = await page.$('.date-nav-prev:not([disabled])');
+    const navBtn = nextBtn || prevBtn;
+
+    if (navBtn) {
+      await page.evaluate(() => performance.clearMarks());
+
+      const navTimes = [];
+      for (let i = 0; i < 20; i++) {
+        await navBtn.click();
+        await page.waitForTimeout(50);
+        const duration = await page.evaluate(() => {
+          const entries = performance.getEntriesByName("nav-update");
+          return entries.length > 0 ? entries[entries.length - 1].duration : null;
+        });
+        if (duration !== null) navTimes.push(Math.round(duration));
+      }
+      const sorted = [...navTimes].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)] || 0;
+      const p95 = sorted[Math.floor(sorted.length * 0.95)] || 0;
+      const max = sorted.length > 0 ? sorted[sorted.length - 1] : 0;
+      console.log(`Nav clicks (20 runs): ${navTimes.join(', ')} ms`);
+      console.log(`Median: ${median} ms, P95: ${p95} ms, Max: ${max} ms`);
+    } else {
+      console.log('No enabled nav button found — skipping');
+    }
+
+    // ── Phase 4: JS-only benchmarks (no network) ──
     console.log('\n=== JS Derived Cascade (in-browser) ===');
     const jsTimings = await page.evaluate(() => {
-      // Access Svelte's internal state via the DOM
-      // We can't directly time deriveds, but we can time a full re-render cycle
-      // by measuring the time from a state change to DOM update
       const results = {};
 
-      // Measure how long it takes to re-render the chart SVG
       const svgContainer = document.querySelector('.svg-chart-container');
       if (svgContainer) {
         const t0 = performance.now();
-        // Force layout recalc
         svgContainer.getBoundingClientRect();
         results.layoutRecalc = Math.round(performance.now() - t0);
       }
 
-      // Count DOM elements in the chart
       const svgEl = document.querySelector('.svg-chart-container svg');
       if (svgEl) {
         results.svgElementCount = svgEl.querySelectorAll('*').length;
