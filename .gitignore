@@ -16,3 +16,5 @@ mocks/*.png
 # ETL intermediates — never committed
 data/raw/
 data/parsed/
+.tmp/Trace-20260805T125413.json.gz
+.tmp/Trace-20260805T125413.json

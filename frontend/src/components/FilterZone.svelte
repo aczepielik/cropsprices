@@ -8,6 +8,7 @@
 <script lang="ts">
   import type { Manifest, Product, Category, Origin, Filters } from '../lib/types';
   import { productsForCategory } from '../lib/filters';
+  import { WHITELISTED_PRODUCTS, WHITELISTED_MARKETS } from '../lib/whitelist';
 
   let { manifest, filters = $bindable(), onFilterChange, onMarketsChange }: {
     manifest: Manifest;
@@ -18,6 +19,18 @@
 
   let categoryProducts = $derived(
     manifest ? productsForCategory(manifest, filters.category, filters.origin) : []
+  );
+
+  let visibleProducts = $derived(
+    filters.showSparse
+      ? categoryProducts
+      : categoryProducts.filter(p => WHITELISTED_PRODUCTS.has(`${p.name}|${p.unit}|${p.origin}`))
+  );
+
+  let visiblePlaces = $derived(
+    filters.showSparse
+      ? manifest.places
+      : manifest.places.filter(p => WHITELISTED_MARKETS.has(p))
   );
 
   function onCategoryChange(e: Event) {
@@ -34,7 +47,7 @@
 
   function onProductChange(e: Event) {
     const idx = Number((e.target as HTMLSelectElement).value);
-    filters.product = categoryProducts[idx] ?? null;
+    filters.product = visibleProducts[idx] ?? null;
     onFilterChange();
   }
 
@@ -50,13 +63,25 @@
   }
 
   function selectAllMarkets() {
-    filters = { ...filters, markets: new Set(manifest.places) };
+    filters = { ...filters, markets: new Set(visiblePlaces) };
     onMarketsChange();
   }
 
   function deselectAllMarkets() {
     filters = { ...filters, markets: new Set<string>() };
     onMarketsChange();
+  }
+
+  function toggleShowSparse() {
+    filters.showSparse = !filters.showSparse;
+    // If turning off sparse and current product is not whitelisted, reset selection
+    if (!filters.showSparse && filters.product) {
+      const key = `${filters.product.name}|${filters.product.unit}|${filters.product.origin}`;
+      if (!WHITELISTED_PRODUCTS.has(key)) {
+        filters.product = null;
+      }
+    }
+    onFilterChange();
   }
 </script>
 
@@ -95,7 +120,7 @@
       <div class="select-container">
         <select class="select" onchange={onProductChange}>
           <option value="-1" selected={filters.product === null}>Wybierz produkt...</option>
-          {#each categoryProducts as product, i}
+          {#each visibleProducts as product, i}
             <option value={i} selected={filters.product?.name === product.name && filters.product?.unit === product.unit}>
               {product.name} ({product.unit})
             </option>
@@ -110,6 +135,17 @@
     </div>
   </div>
 
+  <div class="filter-group-sparse">
+    <label class="checkbox-item sparse-toggle">
+      <input
+        type="checkbox"
+        checked={filters.showSparse}
+        onchange={toggleShowSparse}
+      />
+      Pokaż produkty i rynki z małą ilością danych
+    </label>
+  </div>
+
   <div class="filter-group-markets">
     <div class="markets-header">
       <span class="meta-label">Rynki Hurtowe</span>
@@ -119,7 +155,7 @@
       </div>
     </div>
     <div class="checkbox-group">
-      {#each manifest.places as place}
+      {#each visiblePlaces as place}
         <label class="checkbox-item">
           <input
             type="checkbox"
@@ -136,6 +172,18 @@
 <style>
   .filter-zone {
     margin-bottom: 28px;
+  }
+
+  .filter-group-sparse {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .sparse-toggle {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
   }
 
   .selectors-row {

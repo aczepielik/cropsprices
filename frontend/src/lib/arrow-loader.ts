@@ -182,8 +182,8 @@ export async function loadWeekRanges(
   if (cached) return cached;
 
   const [archiveRes, currentRes] = await Promise.all([
-    fetch(weekRangesFilePath(name, unit, origin, undefined, archiveYear)).then(r => r.ok ? r.json() : null),
-    fetch(weekRangesFilePath(name, unit, origin, currentYear)).then(r => r.ok ? r.json() : null),
+    fetch(weekRangesFilePath(name, unit, origin, undefined, archiveYear)).then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch(weekRangesFilePath(name, unit, origin, currentYear)).then(r => r.ok ? r.json() : null).catch(() => null),
   ]);
 
   if (!archiveRes && !currentRes) return null;

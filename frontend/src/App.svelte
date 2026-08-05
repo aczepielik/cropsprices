@@ -48,6 +48,7 @@
     markets: new Set<string>(),
     date: '',
     windowWeeks: 3,
+    showSparse: false,
   });
 
   function toggleSidebar() {

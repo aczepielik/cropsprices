@@ -52,6 +52,7 @@ export interface Filters {
   markets: Set<string>;  // Set = unique values, fast .has() lookups
   date: string;          // ISO date string like "2026-01-15"
   windowWeeks: number;   // How many weeks ± around the selected date to show in context chart
+  showSparse: boolean;   // Show products/markets with sparse data
 }
 
 // Two views the user can switch between via the sidebar tabs.
