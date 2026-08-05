@@ -23,9 +23,14 @@ dev = [
 ]
 
 [project.scripts]
-build-arrow-db = "cropsprices.build_arrow_db:main"
-bulk-get-resources = "cropsprices.bulk_get_resources:main"
-bulk-process-resources = "cropsprices.bulk_process_resources:main"
+bulk-get-resources = "cropsprices.scripts.bulk_get_resources:main"
+get-resources = "cropsprices.scripts.get_resources:main"
+bulk-process-resources = "cropsprices.scripts.bulk_process_resources:main"
+process-resources = "cropsprices.scripts.process_resources:main"
+build-arrow-db = "cropsprices.scripts.build_arrow_db:main"
+update-arrow-db = "cropsprices.scripts.update_arrow_db:main"
+generate-availability = "cropsprices.scripts.generate_availability:main"
+update-availability = "cropsprices.scripts.update_availability:main"
 
 [tool.setuptools.packages.find]
 include = ["cropsprices*"]

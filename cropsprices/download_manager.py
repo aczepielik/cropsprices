@@ -2,7 +2,7 @@ import json
 import logging
 from functools import reduce
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import requests
 from pydantic import ValidationError
@@ -11,8 +11,7 @@ from tqdm import tqdm
 from cropsprices.apiquery import query_paged_api
 from cropsprices.models import Resource
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger("Bulk Data Load")
+logger = logging.getLogger(__name__)
 
 
 VALID_PREFIXES = [
@@ -21,7 +20,7 @@ VALID_PREFIXES = [
 ]
 
 
-class ResourceManager:
+class DownloadManager:
     def __init__(self, output_dir: str = "data/raw", overrides_dir: str = "data/overrides"):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -104,21 +103,8 @@ class ResourceManager:
 
     def process_resources(self, url: str, params: Dict[str, str]):
         all_responses = query_paged_api(url, params)
-        all_resources = self.extract_data(all_responses)
+        all_resources = self.extract_data(all_resources)
         filtered_resources = self.filter_and_validate_resources(all_resources)
 
         logger.info(f"Validated {len(filtered_resources)} resources")
         self.download_xlsx_files(filtered_resources)
-
-
-def main():
-    url = "https://api.dane.gov.pl/1.4/datasets/912,zintegrowany-system-rolniczej-informacji-rynkowej-biuletyny-informacyjne-rynek-owocow-i-warzyw-swiezych/resources"
-    params = {
-        "sort": "modified",
-    }
-    resource_manager = ResourceManager()
-    resource_manager.process_resources(url, params)
-
-
-if __name__ == "__main__":
-    main()

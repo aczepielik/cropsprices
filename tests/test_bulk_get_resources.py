@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from cropsprices.bulk_get_resources import VALID_PREFIXES, ResourceManager
+from cropsprices.download_manager import VALID_PREFIXES, DownloadManager as ResourceManager
 
 
 @pytest.fixture

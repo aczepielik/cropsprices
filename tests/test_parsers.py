@@ -158,14 +158,14 @@ class TestBulkProcessSheetDetection:
     """Test that bulk_process_resources.py detects both old and new sheet names."""
 
     def test_detects_old_sheet_names(self):
-        from cropsprices.bulk_process_resources import DataManager
+        from cropsprices.processing_manager import ProcessingManager as DataManager
 
         dm = DataManager()
         assert "ceny hurt_warz" in dm.VEG_SHEET_NAMES
         assert "ceny hurt_owoc" in dm.FRUIT_SHEET_NAMES
 
     def test_detects_new_sheet_names(self):
-        from cropsprices.bulk_process_resources import DataManager
+        from cropsprices.processing_manager import ProcessingManager as DataManager
 
         dm = DataManager()
         assert "HURT WARZ" in dm.VEG_SHEET_NAMES

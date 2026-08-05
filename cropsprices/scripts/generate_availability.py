@@ -7,16 +7,16 @@ Cell = "X" if data exists, empty otherwise.
 """
 
 import json
-import os
-import sys
+import logging
 from datetime import date, timedelta
 from pathlib import Path
 
 import pyarrow.ipc as ipc
 
-# Allow importing from project root
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from cropsprices.product_normalize import normalize_product
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 DATA_DIR = Path("public/data")
 OUT_DIR = Path("data/availability")
@@ -101,7 +101,7 @@ def write_csv(product_name: str, unit: str, origin: str, category: str,
     return filepath
 
 
-def main():
+def main(product_filter: str = None):
     manifest = json.load(open(DATA_DIR / "manifest.json"))
     all_markets = sorted(manifest["places"])
 
@@ -121,6 +121,10 @@ def main():
 
         for product in sorted(products, key=lambda p: p["name"]):
             name, unit = normalize_product(product["name"], product["unit"])
+
+            # Apply product filter if specified
+            if product_filter and product_filter.lower() not in name.lower():
+                continue
 
             # Load archive data
             archive_path = DATA_DIR / "archive" / f"{name}-{unit}-{origin}.arrow"

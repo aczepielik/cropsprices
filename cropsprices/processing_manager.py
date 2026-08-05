@@ -10,11 +10,10 @@ from tqdm import tqdm
 
 from cropsprices.parsers import parse_excel
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger("Bulk Data Load")
+logger = logging.getLogger(__name__)
 
 
-class DataManager:
+class ProcessingManager:
     def __init__(self, raw_dir: str = "data/raw", parsed_dir: str = "data/parsed"):
         self.raw_dir = Path(raw_dir)
         self.parsed_dir = Path(parsed_dir)
@@ -113,12 +112,3 @@ class DataManager:
             f"Failed to parse {sheet_name} data from {file_stem} after trying all skiprows values"
         )
         return None
-
-
-def main():
-    data_manager = DataManager()
-    data_manager.process_xlsx_files()
-
-
-if __name__ == "__main__":
-    main()

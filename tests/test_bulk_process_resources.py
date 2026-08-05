@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from cropsprices.bulk_process_resources import DataManager
+from cropsprices.processing_manager import ProcessingManager as DataManager
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
