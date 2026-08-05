@@ -237,6 +237,12 @@ cd frontend && npm test
 
 ---
 
+## AI usage
+
+This project was developed with the assistance of AI coding agents (MiMo 2.5 @ MiMoCode, DeepSeek V4, Gemini). AI was used for UI desing, code generation, debugging, architecture design, and documentation.
+
+---
+
 ## License
 
 See [LICENSE](LICENSE).
