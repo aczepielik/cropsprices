@@ -47,6 +47,9 @@ PRODUCT_ALIASES: dict[tuple[str, str], tuple[str, str]] = {
     ("Jabłka Piros", "kg"): ("Jabłka: Piros", "kg"),
     ("Jabłka Rubin", "kg"): ("Jabłka: Rubin", "kg"),
     ("Jabłka Szara Reneta", "kg"): ("Jabłka: Szara Reneta", "kg"),
+    ("Jabłka Szampion", "kg"): ("Jabłka: Champion", "kg"),
+    ("Jabłka Champion", "kg"): ("Jabłka: Champion", "kg"),
+    ("Jabłka Shampion", "kg"): ("Jabłka: Champion", "kg"),
 
     # Jabłka only in colon form (no space-form duplicate) — keep as-is but
     # listed here so the alias table is the single source of truth.
@@ -57,7 +60,7 @@ PRODUCT_ALIASES: dict[tuple[str, str], tuple[str, str]] = {
     ("Jabłka: Katja", "kg"): ("Jabłka: Katja", "kg"),
     ("Jabłka: Malinówki", "kg"): ("Jabłka: Malinówki", "kg"),
     ("Jabłka: Shampion", "kg"): ("Jabłka: Champion", "kg"),
-    ("Jabłka: Szampion", "kg"): ("Jabłka: Szampion", "kg"),
+    ("Jabłka: Szampion", "kg"): ("Jabłka: Champion", "kg"),
 
     # Data error: Jabłka Ogórki długie → should be removed, not aliased.
     # Kept commented so it's visible:

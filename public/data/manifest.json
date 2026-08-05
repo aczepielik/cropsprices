@@ -230,12 +230,6 @@
       "category": "owoce"
     },
     {
-      "name": "Jabłka Szampion",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
       "name": "Jabłka: Alwa",
       "unit": "kg",
       "origin": "KRAJOWE",
@@ -381,12 +375,6 @@
     },
     {
       "name": "Jabłka: Rubin",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka: Szampion",
       "unit": "kg",
       "origin": "KRAJOWE",
       "category": "owoce"
@@ -927,5 +915,5 @@
     "Wrocław",
     "Łódź"
   ],
-  "lastUpdate": "2026-08-05T09:54:05.483031+00:00"
+  "lastUpdate": "2026-08-05T13:43:19.512249+00:00"
 }

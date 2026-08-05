@@ -127,8 +127,10 @@ def main(product_filter: str = None):
                 continue
 
             # Load archive data
-            archive_path = DATA_DIR / "archive" / f"{name}-{unit}-{origin}.arrow"
-            current_path = DATA_DIR / "2026" / f"{name}-{unit}-{origin}.arrow"
+            archive_year = manifest.get("archiveYear", 2025)
+            archive_path = DATA_DIR / f"archive-{archive_year}" / f"{name}-{unit}-{origin}.arrow"
+            current_year = manifest.get("currentYear", 2026)
+            current_path = DATA_DIR / str(current_year) / f"{name}-{unit}-{origin}.arrow"
 
             all_rows = []
             if archive_path.exists():

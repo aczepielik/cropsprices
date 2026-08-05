@@ -15,6 +15,7 @@ export const WHITELISTED_PRODUCTS = new Set([
   "Gruszki|kg|KRAJOWE",
   "Jabłka: Alwa|kg|KRAJOWE",
   "Jabłka: Boskoop|kg|KRAJOWE",
+  "Jabłka: Champion|kg|KRAJOWE",
   "Jabłka: Cortland|kg|KRAJOWE",
   "Jabłka: Delikates|kg|KRAJOWE",
   "Jabłka: Gala|kg|KRAJOWE",
