@@ -8,13 +8,12 @@ import pyarrow as pa
 import pyarrow.ipc as ipc
 import pytest
 
-from cropsprices.build_arrow_db import (
+from cropsprices.arrow_db import (
     build_manifest,
     load_all_csvs,
     make_table,
     pivot_min_max,
     sanitize_filename,
-    write_monthly_files,
 )
 
 
@@ -120,57 +119,11 @@ class TestSanitizeFilename:
         assert sanitize_filename("hello") == "hello"
 
 
-class TestWriteMonthlyFiles:
-    def test_creates_arrow_files(self, sample_df, tmp_output_dir):
-        pivoted = pivot_min_max(sample_df)
-        pivoted["year"] = pd.to_datetime(pivoted["Date"]).dt.year
-        pivoted["month"] = pd.to_datetime(pivoted["Date"]).dt.month
-        files = write_monthly_files(pivoted, tmp_output_dir)
-        assert len(files) > 0
-        for f in files:
-            assert (tmp_output_dir / f).exists()
-
-    def test_arrow_files_are_readable(self, sample_df, tmp_output_dir):
-        pivoted = pivot_min_max(sample_df)
-        pivoted["year"] = pd.to_datetime(pivoted["Date"]).dt.year
-        pivoted["month"] = pd.to_datetime(pivoted["Date"]).dt.month
-        files = write_monthly_files(pivoted, tmp_output_dir)
-        for f in files:
-            table = ipc.open_file(tmp_output_dir / f).read_all()
-            assert len(table) > 0
-
-    def test_different_origins_in_separate_files(self, tmp_output_dir):
-        """Fix 2: Products with KRAJOWE and IMPORTOWANE origins must not be
-        mixed into the same Arrow file. Each origin should produce a
-        separate file (e.g., prices_2024_01_Gruszki_KRAJOWE.arrow)."""
-        df = pd.DataFrame({
-            "Product": ["Gruszki", "Gruszki", "Gruszki", "Gruszki"],
-            "Place": ["Bronisze", "Bronisze", "Bronisze", "Bronisze"],
-            "Date": ["2024-01-15", "2024-01-15", "2024-01-15", "2024-01-15"],
-            "Origin": ["KRAJOWE", "KRAJOWE", "IMPORTOWANE", "IMPORTOWANE"],
-            "Statistic": ["Max", "Min", "Max", "Min"],
-            "Price": [5.0, 3.0, 8.0, 6.0],
-            "Unit": ["kg", "kg", "kg", "kg"],
-        })
-        pivoted = pivot_min_max(df)
-        pivoted["year"] = pd.to_datetime(pivoted["Date"]).dt.year
-        pivoted["month"] = pd.to_datetime(pivoted["Date"]).dt.month
-        files = write_monthly_files(pivoted, tmp_output_dir)
-
-        # Each file should contain only one origin
-        for f in files:
-            table = ipc.open_file(tmp_output_dir / f).read_all()
-            origins_in_file = set(table.column("origin").to_pylist())
-            assert len(origins_in_file) == 1, (
-                f"File {f} contains mixed origins: {origins_in_file}"
-            )
-
-
 class TestBuildManifest:
     def test_manifest_structure(self, sample_df):
         pivoted = pivot_min_max(sample_df)
         pivoted["year"] = pd.to_datetime(pivoted["Date"]).dt.year
-        manifest = build_manifest(pivoted, ["file1.arrow"])
+        manifest = build_manifest(pivoted, ["archive/file1.arrow"], ["2024/file2.arrow"], 2024)
         assert "years" in manifest
         assert "products" in manifest
         assert "lastUpdate" in manifest
@@ -180,7 +133,7 @@ class TestBuildManifest:
     def test_manifest_years(self, sample_df):
         pivoted = pivot_min_max(sample_df)
         pivoted["year"] = pd.to_datetime(pivoted["Date"]).dt.year
-        manifest = build_manifest(pivoted, [])
+        manifest = build_manifest(pivoted, [], [], 2024)
         assert 2024 in manifest["years"]
 
 
