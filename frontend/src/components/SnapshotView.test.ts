@@ -80,7 +80,7 @@ describe('SnapshotStats', () => {
     render(SnapshotStats, {
       props: { records: [], selectedDate: '', markets: new Set(['Warszawa']) },
     });
-    expect(screen.getByText('Brak danych')).toBeInTheDocument();
+    expect(screen.getByText('Dla wybranego produktu i rynków nie ma danych w archiwum. Wybierz inny produkt lub zmień filtrowanie rynków.')).toBeInTheDocument();
   });
 
   it('renders the context chart', () => {
