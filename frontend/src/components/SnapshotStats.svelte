@@ -100,22 +100,16 @@
 
     const targetYear = selectedWeek.year - 1;
 
-    const curRecs = filterByWeek(
-      filteredRecords,
-      selectedWeek.year,
-      selectedWeek.week,
-    );
-
     const prevRecs = filterByWeek(
       filteredRecords,
       targetYear,
       selectedWeek.week,
     );
 
-    if (curRecs.length === 0 || prevRecs.length === 0) return null;
+    if (weekRecords.length === 0 || prevRecs.length === 0) return null;
 
-    const curLower = Math.min(...curRecs.map((r) => r.price_min));
-    const curUpper = Math.max(...curRecs.map((r) => r.price_max));
+    const curLower = Math.min(...weekRecords.map((r) => r.price_min));
+    const curUpper = Math.max(...weekRecords.map((r) => r.price_max));
     const prevLower = Math.min(...prevRecs.map((r) => r.price_min));
     const prevUpper = Math.max(...prevRecs.map((r) => r.price_max));
 
@@ -137,18 +131,12 @@
     );
     if (!prevWeek) return null;
 
-    const curRecs = filterByWeek(
-      filteredRecords,
-      selectedWeek.year,
-      selectedWeek.week,
-    );
-
     const prevRecs = filterByWeek(filteredRecords, prevWeek.year, prevWeek.week);
 
-    if (curRecs.length === 0 || prevRecs.length === 0) return null;
+    if (weekRecords.length === 0 || prevRecs.length === 0) return null;
 
-    const curLower = Math.min(...curRecs.map((r) => r.price_min));
-    const curUpper = Math.max(...curRecs.map((r) => r.price_max));
+    const curLower = Math.min(...weekRecords.map((r) => r.price_min));
+    const curUpper = Math.max(...weekRecords.map((r) => r.price_max));
     const prevLower = Math.min(...prevRecs.map((r) => r.price_min));
     const prevUpper = Math.max(...prevRecs.map((r) => r.price_max));
 
