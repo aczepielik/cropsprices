@@ -93,13 +93,13 @@ def make_table(df: pd.DataFrame) -> pa.Table:
         "price_max": price_max_array,
     }
 
-    if "Unit" in df.columns:
-        unit_array = pa.array(df["Unit"], type=pa.dictionary(pa.int8(), pa.utf8()))
-        arrays["unit"] = unit_array
+    unit_values = df["Unit"] if "Unit" in df.columns else pd.Series([""] * len(df))
+    unit_array = pa.array(unit_values, type=pa.dictionary(pa.int8(), pa.utf8()))
+    arrays["unit"] = unit_array
 
-    if "category" in df.columns:
-        cat_array = pa.array(df["category"], type=pa.dictionary(pa.int8(), pa.utf8()))
-        arrays["category"] = cat_array
+    cat_values = df["category"] if "category" in df.columns else pd.Series([""] * len(df))
+    cat_array = pa.array(cat_values, type=pa.dictionary(pa.int8(), pa.utf8()))
+    arrays["category"] = cat_array
 
     table = pa.table(arrays)
     return table
@@ -236,6 +236,38 @@ def write_current_year_files(df: pd.DataFrame, output_dir: Path, current_year: i
 
     logger.info(f"Wrote {len(files_written)} current-year files ({current_year})")
     return files_written
+
+
+def load_all_arrow(output_dir: Path) -> pd.DataFrame:
+    """Read all Arrow files from archive and current-year directories into one DataFrame."""
+    frames = []
+    for subdir in sorted(output_dir.iterdir()):
+        if not subdir.is_dir():
+            continue
+        for arrow_file in sorted(subdir.glob("*.arrow")):
+            table = pa.ipc.open_file(arrow_file).read_all()
+            df = table.to_pandas()
+            # Ensure required columns exist (archive files may lack unit/category)
+            if "unit" not in df.columns:
+                df["unit"] = ""
+            if "category" not in df.columns:
+                df["category"] = ""
+            # Normalize column names to match CSV convention
+            df = df.rename(columns={"date": "Date", "product": "Product",
+                                     "place": "Place", "origin": "Origin",
+                                     "unit": "Unit"})
+            frames.append(df)
+    if not frames:
+        return pd.DataFrame()
+    combined = pd.concat(frames, ignore_index=True)
+    logger.info(f"Loaded {len(combined)} rows from {len(frames)} Arrow files")
+    return combined
+
+
+def write_manifest(manifest: dict, output_dir: Path) -> None:
+    manifest_path = output_dir / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
+    logger.info(f"Wrote manifest to {manifest_path}")
 
 
 def build_manifest(df: pd.DataFrame, archive_files: list[str], current_files: list[str],

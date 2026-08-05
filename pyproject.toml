@@ -32,6 +32,7 @@ update-arrow-db = "cropsprices.scripts.update_arrow_db:main"
 generate-availability = "cropsprices.scripts.generate_availability:main"
 update-availability = "cropsprices.scripts.update_availability:main"
 roll-year = "cropsprices.scripts.roll_year:main"
+ci-pipeline = "cropsprices.ci_pipeline:main"
 
 [tool.setuptools.packages.find]
 include = ["cropsprices*"]
