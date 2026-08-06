@@ -176,11 +176,11 @@ def main() -> None:
 
             xlsx_files = [
                 f for f in res["attributes"]["files"]
-                if f.format.lower() == "xlsx"
+                if f["format"].lower() == "xlsx"
             ]
             for f in xlsx_files:
                 dest = tmp / f"{res_id}.xlsx"
-                if download_xlsx(str(f.download_url), dest):
+                if download_xlsx(str(f["download_url"]), dest):
                     new_count += 1
 
         if new_count == 0:
