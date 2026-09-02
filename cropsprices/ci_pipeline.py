@@ -7,12 +7,14 @@ Uses a temp directory for XLSX processing and a marker file for state tracking.
 import io
 import json
 import logging
+import re
 import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
+import requests
 
 from cropsprices.apiquery import PagedAPIQuery
 from cropsprices.arrow_db import (
@@ -53,6 +55,11 @@ def read_marker() -> dict | None:
 
 
 def write_marker(resource_id: str, title: str, modified: str) -> None:
+    """Write marker file to track the last processed bulletin.
+
+    ``resource_id`` is stored as-is and compared on the next run to decide
+    whether new data is available.
+    """
     MARKER_PATH.parent.mkdir(parents=True, exist_ok=True)
     MARKER_PATH.write_text(json.dumps({
         "id": resource_id,
@@ -62,25 +69,46 @@ def write_marker(resource_id: str, title: str, modified: str) -> None:
 
 
 def fetch_latest_bulletins() -> list[dict]:
-    """Fetch the most recent page of resources from the API."""
-    query = PagedAPIQuery(API_URL, params={"sort": "-modified", "per_page": 20})
-    page = query.get_page(1)
-    return page.get("data", [])
+    """Fetch the most recent resources from the zsrir.minrol.gov.pl API."""
+    REPORT_FILE_LIST_URL = "https://zsrir.minrol.gov.pl/api/ZsrirData/GetReportFileList"
+    REPORT_DOWNLOAD_URL = "https://zsrir.minrol.gov.pl/api/ZsrirData/DownloadReportFile"
+    # Report ID 11 (fruit) and 12 (vegetable) share identical XLSX files.
+    resp = requests.get(REPORT_FILE_LIST_URL, params={"id": 11}, timeout=30,
+                        headers={"Accept": "application/json"})
+    resp.raise_for_status()
+    data = resp.json()
+
+    bulletins = []
+    for f in data.get("reportFiles", []):
+        if not f.get("filename", "").lower().endswith(".xlsx"):
+            continue
+        # Extract bulletin number from filename like "owoce i warzywa 34_2026.xlsx"
+        m = re.search(r"(\d+)_(\d{4})\.xlsx", f["filename"])
+        bulletin_number = int(m.group(1)) if m else 0
+        bulletins.append({
+            "id": str(bulletin_number),
+            "attributes": {
+                "title": f["filename"],
+                "modified": f["publishedDateTime"],
+                "files": [{
+                    "format": "xlsx",
+                    "download_url": f"{REPORT_DOWNLOAD_URL}?id={f['id']}",
+                }],
+            },
+            "_date_from": f["dateFrom"],
+        })
+    # Sort by bulletin number descending (newest first)
+    bulletins.sort(key=lambda b: int(b["id"]), reverse=True)
+    return bulletins
 
 
 def filter_bulletins(resources: list[dict]) -> list[dict]:
-    """Keep only fruit/vegetable wholesale bulletins, validated by Pydantic."""
-    filtered = []
-    for r in resources:
-        title = r.get("attributes", {}).get("title", "")
-        if not any(title.startswith(p) for p in VALID_PREFIXES):
-            continue
-        try:
-            Resource(**r)
-            filtered.append(r)
-        except Exception:
-            logger.warning(f"Validation failed for resource {r.get('id')}: {title}")
-    return filtered
+    """Keep only fruit/vegetable wholesale bulletins.
+
+    The zsrir.minrol.gov.pl API returns only relevant XLSX files for the
+    requested report category, so no additional filtering is needed.
+    """
+    return resources
 
 
 def download_xlsx(url: str, dest: Path) -> bool:
@@ -170,8 +198,13 @@ def main() -> None:
 
         for res in bulletins:
             res_id = res["id"]
-            # Skip if already processed (marker covers the latest; also check older)
-            if marker and int(res_id) <= int(marker.get("id", 0)):
+            # Skip if already processed (marker covers the latest; also check older).
+            # Old markers use dane.gov.pl resource IDs (hundreds of thousands);
+            # new markers use bulletin numbers (1-100).  On first run the old id
+            # is larger than any bulletin number so nothing would match — detect
+            # this by checking whether the marker id looks like the old format.
+            marker_id = int(marker.get("id", 0)) if marker else 0
+            if marker and marker_id < 100_000 and int(res_id) <= marker_id:
                 continue
 
             xlsx_files = [
