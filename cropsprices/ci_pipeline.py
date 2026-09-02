@@ -68,47 +68,48 @@ def write_marker(resource_id: str, title: str, modified: str) -> None:
     }, indent=2, ensure_ascii=False))
 
 
-def fetch_latest_bulletins() -> list[dict]:
-    """Fetch the most recent resources from the zsrir.minrol.gov.pl API."""
-    REPORT_FILE_LIST_URL = "https://zsrir.minrol.gov.pl/api/ZsrirData/GetReportFileList"
-    REPORT_DOWNLOAD_URL = "https://zsrir.minrol.gov.pl/api/ZsrirData/DownloadReportFile"
-    # Report ID 11 (fruit) and 12 (vegetable) share identical XLSX files.
-    resp = requests.get(REPORT_FILE_LIST_URL, params={"id": 11}, timeout=30,
-                        headers={"Accept": "application/json"})
-    resp.raise_for_status()
-    data = resp.json()
+REPORT_FILE_LIST_URL = "https://zsrir.minrol.gov.pl/api/ZsrirData/GetReportFileList"
+REPORT_DOWNLOAD_URL = "https://zsrir.minrol.gov.pl/api/ZsrirData/DownloadReportFile"
+# Report ID 11 (fruit) and 12 (vegetable) share identical XLSX files.
+ZSRIR_REPORT_ID = 11
 
-    bulletins = []
-    for f in data.get("reportFiles", []):
-        if not f.get("filename", "").lower().endswith(".xlsx"):
-            continue
-        # Extract bulletin number from filename like "owoce i warzywa 34_2026.xlsx"
-        m = re.search(r"(\d+)_(\d{4})\.xlsx", f["filename"])
-        bulletin_number = int(m.group(1)) if m else 0
-        bulletins.append({
-            "id": str(bulletin_number),
-            "attributes": {
-                "title": f["filename"],
-                "modified": f["publishedDateTime"],
-                "files": [{
-                    "format": "xlsx",
-                    "download_url": f"{REPORT_DOWNLOAD_URL}?id={f['id']}",
-                }],
-            },
-            "_date_from": f["dateFrom"],
-        })
-    # Sort by bulletin number descending (newest first)
+
+def _fetch_report_files() -> list[dict]:
+    """Fetch the raw file list from zsrir.minrol.gov.pl."""
+    resp = requests.get(REPORT_FILE_LIST_URL, params={"id": ZSRIR_REPORT_ID},
+                        timeout=30, headers={"Accept": "application/json"})
+    resp.raise_for_status()
+    return resp.json().get("reportFiles", [])
+
+
+def _bulletin_from_file(file_info: dict) -> dict:
+    """Transform a single API file entry into the dict shape main() expects."""
+    bulletin_number_match = re.search(
+        r"(\d+)_(\d{4})\.xlsx", file_info["filename"],
+    )
+    bulletin_number = int(bulletin_number_match.group(1)) if bulletin_number_match else 0
+    return {
+        "id": str(bulletin_number),
+        "attributes": {
+            "title": file_info["filename"],
+            "modified": file_info["publishedDateTime"],
+            "files": [{
+                "format": "xlsx",
+                "download_url": f"{REPORT_DOWNLOAD_URL}?id={file_info['id']}",
+            }],
+        },
+    }
+
+
+def fetch_latest_bulletins() -> list[dict]:
+    """Fetch the most recent bulletin resources from zsrir.minrol.gov.pl."""
+    files = _fetch_report_files()
+    bulletins = [
+        _bulletin_from_file(f) for f in files
+        if f.get("filename", "").lower().endswith(".xlsx")
+    ]
     bulletins.sort(key=lambda b: int(b["id"]), reverse=True)
     return bulletins
-
-
-def filter_bulletins(resources: list[dict]) -> list[dict]:
-    """Keep only fruit/vegetable wholesale bulletins.
-
-    The zsrir.minrol.gov.pl API returns only relevant XLSX files for the
-    requested report category, so no additional filtering is needed.
-    """
-    return resources
 
 
 def download_xlsx(url: str, dest: Path) -> bool:
@@ -172,8 +173,7 @@ def main() -> None:
     logger.info("CI pipeline: checking for new bulletins")
 
     # 1. Query API
-    resources = fetch_latest_bulletins()
-    bulletins = filter_bulletins(resources)
+    bulletins = fetch_latest_bulletins()
     if not bulletins:
         logger.info("No relevant bulletins found in API response")
         sys.exit(0)
