@@ -1,10 +1,10 @@
 name: Deploy
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'frontend/**'
-      - 'public/data/**'
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'frontend/**'
+  #     - 'public/data/**'  — DISABLED: waiting for parser fix
   workflow_dispatch:
 
 permissions:
