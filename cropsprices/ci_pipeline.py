@@ -15,6 +15,9 @@ from pathlib import Path
 
 import pandas as pd
 import requests
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from cropsprices.apiquery import PagedAPIQuery
 from cropsprices.arrow_db import (
@@ -77,7 +80,8 @@ ZSRIR_REPORT_ID = 11
 def _fetch_report_files() -> list[dict]:
     """Fetch the raw file list from zsrir.minrol.gov.pl."""
     resp = requests.get(REPORT_FILE_LIST_URL, params={"id": ZSRIR_REPORT_ID},
-                        timeout=30, headers={"Accept": "application/json"})
+                        timeout=30, headers={"Accept": "application/json"},
+                        verify=False)
     resp.raise_for_status()
     return resp.json().get("reportFiles", [])
 
@@ -116,7 +120,7 @@ def download_xlsx(url: str, dest: Path) -> bool:
     """Download a single XLSX file. Returns True on success."""
     import requests
     try:
-        resp = requests.get(url, timeout=60)
+        resp = requests.get(url, timeout=60, verify=False)
         resp.raise_for_status()
         dest.write_bytes(resp.content)
         return True
