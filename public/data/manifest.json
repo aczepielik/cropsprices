@@ -26,21 +26,9 @@
       "category": "owoce"
     },
     {
-      "name": "Ananasy",
-      "unit": "szt.",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
       "name": "Arbuzy",
       "unit": "kg",
       "origin": "IMPORTOWANE",
-      "category": "owoce"
-    },
-    {
-      "name": "Arbuzy",
-      "unit": "kg",
-      "origin": "KRAJOWE",
       "category": "owoce"
     },
     {
@@ -53,12 +41,6 @@
       "name": "Banany",
       "unit": "kg",
       "origin": "IMPORTOWANE",
-      "category": "owoce"
-    },
-    {
-      "name": "Banany",
-      "unit": "kg",
-      "origin": "KRAJOWE",
       "category": "owoce"
     },
     {
@@ -146,12 +128,6 @@
       "category": "owoce"
     },
     {
-      "name": "Cytryny",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
       "name": "Czereśnie",
       "unit": "kg",
       "origin": "IMPORTOWANE",
@@ -194,12 +170,6 @@
       "category": "owoce"
     },
     {
-      "name": "Grejpfruty",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
       "name": "Gruszki",
       "unit": "kg",
       "origin": "IMPORTOWANE",
@@ -208,18 +178,6 @@
     {
       "name": "Gruszki",
       "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka",
-      "unit": "Piros",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka",
-      "unit": "Szampion",
       "origin": "KRAJOWE",
       "category": "owoce"
     },
@@ -267,12 +225,6 @@
     },
     {
       "name": "Jabłka Ogórki długie",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Paula-Red",
       "unit": "kg",
       "origin": "KRAJOWE",
       "category": "owoce"
@@ -542,12 +494,6 @@
       "category": "owoce"
     },
     {
-      "name": "Mandarynki",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
       "name": "Marchew",
       "unit": "kg",
       "origin": "IMPORTOWANE",
@@ -713,12 +659,6 @@
       "name": "Pomarańcze",
       "unit": "kg",
       "origin": "IMPORTOWANE",
-      "category": "owoce"
-    },
-    {
-      "name": "Pomarańcze",
-      "unit": "kg",
-      "origin": "KRAJOWE",
       "category": "owoce"
     },
     {
@@ -975,5 +915,5 @@
     "Wrocław",
     "Łódź"
   ],
-  "lastUpdate": "2026-09-03T21:01:41.684699+00:00"
+  "lastUpdate": "2026-08-12T02:46:37.676475+00:00"
 }
