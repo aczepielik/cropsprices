@@ -22,6 +22,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from cropsprices.apiquery import PagedAPIQuery
 from cropsprices.arrow_db import (
     build_manifest,
+    compute_archive_version,
     load_all_arrow,
     normalize_dataframe,
     pivot_min_max,
@@ -297,12 +298,14 @@ def main() -> None:
         all_df["Date"] = pd.to_datetime(all_df["Date"])
 
         archive_year = current_year - 1
+        archive_version = compute_archive_version(PUBLIC_DATA_DIR, archive_year)
         manifest = build_manifest(
             all_df,
             archive_files=[],
             current_files=[],
             current_year=current_year,
             archive_year=archive_year,
+            archive_version=archive_version,
         )
         write_manifest(manifest, PUBLIC_DATA_DIR)
 

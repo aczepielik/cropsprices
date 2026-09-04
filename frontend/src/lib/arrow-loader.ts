@@ -30,6 +30,15 @@ const DATA_BASE = `${import.meta.env.BASE_URL}data`;
 // Cache the manifest so we only fetch it once per page load.
 // Using `undefined` instead of `null` so the `if (manifestCache)` check works.
 let manifestCache: Manifest | undefined;
+let archiveVersion: string | undefined;
+let currentVersion: string | undefined;
+
+/** Reset module state for testing. Not used in production. */
+export function resetForTesting() {
+  manifestCache = undefined;
+  archiveVersion = undefined;
+  currentVersion = undefined;
+}
 
 /**
  * Load the manifest.json — our "table of contents" for all available data.
@@ -40,6 +49,8 @@ export async function loadManifest(): Promise<Manifest> {
   const res = await fetch(`${DATA_BASE}/manifest.json`);
   const data: Manifest = await res.json();
   manifestCache = data;
+  archiveVersion = data.archiveVersion;
+  currentVersion = data.lastUpdate;
   return data;
 }
 
@@ -80,7 +91,9 @@ function arrowFilePath(name: string, unit: string, origin: string, year?: number
  * Returns [] if the file doesn't exist (some products don't have data for all years).
  */
 export async function loadArrowFile(path: string): Promise<PriceRecord[]> {
-  const res = await fetch(path);
+  const version = path.includes('/archive-') ? archiveVersion : currentVersion;
+  const url = version ? `${path}?v=${version}` : path;
+  const res = await fetch(url);
   if (!res.ok) return [];  // File not found is normal — not all products have data every year
 
   // Convert the response to raw bytes (ArrayBuffer)

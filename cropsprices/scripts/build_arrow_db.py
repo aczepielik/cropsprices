@@ -11,6 +11,7 @@ from cropsprices.arrow_db import (
     DEFAULT_OUTPUT_DIR,
     DEFAULT_PARSED_DIR,
     build_manifest,
+    compute_archive_version,
     load_all_csvs,
     normalize_dataframe,
     pivot_min_max,
@@ -48,7 +49,9 @@ def main(parsed_dir: Path = DEFAULT_PARSED_DIR, output_dir: Path = DEFAULT_OUTPU
     archive_files = write_archive_files(df, output_dir, current_year, archive_year)
     current_files = write_current_year_files(df, output_dir, current_year)
 
-    manifest = build_manifest(df, archive_files, current_files, current_year, archive_year)
+    archive_version = compute_archive_version(output_dir, archive_year)
+    manifest = build_manifest(df, archive_files, current_files, current_year, archive_year,
+                              archive_version=archive_version)
     manifest_path = output_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
     logger.info(f"Wrote manifest to {manifest_path}")
