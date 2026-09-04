@@ -333,8 +333,9 @@ class ExcelParser:
 
     def _set_origin(self, data_rows: pd.DataFrame) -> pd.DataFrame:
         data_rows["Origin"] = ""
-        domestic_indices = data_rows[data_rows["Product"] == "KRAJOWE"].index
-        imported_indices = data_rows[data_rows["Product"] == "IMPORTOWANE"].index
+        stripped = data_rows["Product"].str.strip()
+        domestic_indices = data_rows[stripped == "KRAJOWE"].index
+        imported_indices = data_rows[stripped == "IMPORTOWANE"].index
 
         if len(domestic_indices) > 0 and len(imported_indices) > 0:
             domestic_start = domestic_indices[0]

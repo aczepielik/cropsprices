@@ -24,6 +24,7 @@ PRODUCT_ALIASES: dict[tuple[str, str], tuple[str, str]] = {
     # Jabłka space → colon format (26 overlapping varieties)
     ("Jabłka Alwa", "kg"): ("Jabłka: Alwa", "kg"),
     ("Jabłka Antonówka", "kg"): ("Jabłka: Antonówki", "kg"),
+    ("Jabłka Antonówki", "kg"): ("Jabłka: Antonówki", "kg"),
     ("Jabłka Boiken", "kg"): ("Jabłka: Boiken", "kg"),
     ("Jabłka Boskoop", "kg"): ("Jabłka: Boskoop", "kg"),
     ("Jabłka Celesta", "kg"): ("Jabłka: Celesta", "kg"),
@@ -43,6 +44,7 @@ PRODUCT_ALIASES: dict[tuple[str, str], tuple[str, str]] = {
     ("Jabłka Lobo", "kg"): ("Jabłka: Lobo", "kg"),
     ("Jabłka Papierówki", "kg"): ("Jabłka: Papierówki", "kg"),
     ("Jabłka Paula Red", "kg"): ("Jabłka: Paula Red", "kg"),
+    ("Jabłka Paula-Red", "kg"): ("Jabłka: Paula-Red", "kg"),
     ("Jabłka Paulared", "kg"): ("Jabłka: Paulared", "kg"),
     ("Jabłka Piros", "kg"): ("Jabłka: Piros", "kg"),
     ("Jabłka Rubin", "kg"): ("Jabłka: Rubin", "kg"),
