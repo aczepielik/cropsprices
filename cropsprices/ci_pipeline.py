@@ -273,6 +273,7 @@ def main() -> None:
 
         if existing_frames:
             existing_df = pd.concat(existing_frames, ignore_index=True)
+            existing_df = normalize_dataframe(existing_df)
             logger.info(f"Loaded {len(existing_df)} existing rows for {current_year}")
         else:
             existing_df = pd.DataFrame()
