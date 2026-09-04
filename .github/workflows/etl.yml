@@ -1,7 +1,7 @@
 name: ETL
 on:
-  # schedule:
-  #   - cron: '17 */12 * * *'  # Every 12 hours (00:17, 12:17 UTC) — DISABLED: new API format needs parser fix
+  schedule:
+    - cron: '17 */12 * * *'  # Every 12 hours (00:17, 12:17 UTC)
   workflow_dispatch:
 
 permissions:
