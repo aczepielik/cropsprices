@@ -46,6 +46,7 @@ VALID_PREFIXES = [
 ]
 PUBLIC_DATA_DIR = Path("public/data")
 MARKER_PATH = Path("data/.last-bulletin-id")
+OVERRIDES_DIR = Path("data/overrides")
 
 VEG_SHEET_NAMES = ["ceny hurt_warz", "HURT WARZ", "WK"]
 FRUIT_SHEET_NAMES = ["ceny hurt_owoc", "HURT OWOC", "OK"]
@@ -87,16 +88,19 @@ def _fetch_report_files() -> list[dict]:
 
 
 def _bulletin_from_file(file_info: dict) -> dict:
-    """Transform a single API file entry into the dict shape main() expects."""
-    bulletin_number_match = re.search(
-        r"(\d+)_(\d{4})\.xlsx", file_info["filename"],
-    )
-    bulletin_number = int(bulletin_number_match.group(1)) if bulletin_number_match else 0
+    """Transform a single API file entry into the dict shape main() expects.
+
+    Uses the API's unique ``id`` (sequential, monotonically increasing)
+    rather than the bulletin week number extracted from the filename,
+    because week numbers repeat every year.
+    """
     return {
-        "id": str(bulletin_number),
+        "id": str(file_info["id"]),
         "attributes": {
             "title": file_info["filename"],
             "modified": file_info["publishedDateTime"],
+            "dateFrom": file_info.get("dateFrom", ""),
+            "dateTo": file_info.get("dateTo", ""),
             "files": [{
                 "format": "xlsx",
                 "download_url": f"{REPORT_DOWNLOAD_URL}?id={file_info['id']}",
@@ -204,9 +208,10 @@ def main() -> None:
             res_id = res["id"]
             # Skip if already processed (marker covers the latest; also check older).
             # Old markers use dane.gov.pl resource IDs (hundreds of thousands);
-            # new markers use bulletin numbers (1-100).  On first run the old id
-            # is larger than any bulletin number so nothing would match — detect
-            # this by checking whether the marker id looks like the old format.
+            # new markers use zsrir.minrol.gov.pl API file IDs (low thousands).
+            # On first run the old id is larger than any new API id so nothing
+            # would match — detect this by checking whether the marker id looks
+            # like the old format.
             marker_id = int(marker.get("id", 0)) if marker else 0
             if marker and marker_id < 100_000 and int(res_id) <= marker_id:
                 continue
@@ -217,7 +222,13 @@ def main() -> None:
             ]
             for f in xlsx_files:
                 dest = tmp / f"{res_id}.xlsx"
-                if download_xlsx(str(f["download_url"]), dest):
+                override = OVERRIDES_DIR / f"{res_id}.xlsx"
+                if override.exists():
+                    import shutil
+                    shutil.copy2(override, dest)
+                    logger.info(f"Applied override for bulletin {res_id}")
+                    new_count += 1
+                elif download_xlsx(str(f["download_url"]), dest):
                     new_count += 1
 
         if new_count == 0:

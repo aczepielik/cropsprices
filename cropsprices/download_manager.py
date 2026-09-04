@@ -1,5 +1,6 @@
 import json
 import logging
+import urllib3
 from functools import reduce
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -11,6 +12,8 @@ from tqdm import tqdm
 from cropsprices.apiquery import query_paged_api
 from cropsprices.models import Resource
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,6 +21,11 @@ VALID_PREFIXES = [
     "ceny hurtowe i targowiskowe",
     "Rynek owoców i warzyw",
 ]
+
+# New API (zsrir.minrol.gov.pl) constants
+ZSRIR_REPORT_ID = 11
+ZSRIR_FILE_LIST_URL = "https://zsrir.minrol.gov.pl/api/ZsrirData/GetReportFileList"
+ZSRIR_DOWNLOAD_URL = "https://zsrir.minrol.gov.pl/api/ZsrirData/DownloadReportFile"
 
 
 class DownloadManager:
@@ -49,7 +57,7 @@ class DownloadManager:
 
     def download_xlsx_files(self, resources: List[Resource]):
         xlsx_files = [
-            file
+            (resource.id, file)
             for resource in resources
             for file in resource.attributes.files
             if file.format.lower() == "xlsx"
@@ -57,17 +65,21 @@ class DownloadManager:
 
         manifest = []
         with tqdm(total=len(xlsx_files), desc="Downloading XLSX files") as pbar:
-            for file in xlsx_files:
-                self._download_and_save(file, manifest, pbar)
+            for resource_id, file in xlsx_files:
+                self._download_and_save(file, manifest, pbar, resource_id=resource_id)
 
         manifest_path = self.output_dir / "manifest.json"
         with open(manifest_path, "w") as f:
             json.dump(manifest, f, indent=2, default=str)
         logger.info(f"Saved manifest with {len(manifest)} files to {manifest_path}")
 
-    def _download_and_save(self, file, manifest: list, pbar):
+    def _download_and_save(self, file, manifest: list, pbar, resource_id: str | None = None):
         try:
-            file_id = str(file.download_url).split("/")[-2]
+            # Use provided resource_id (from API) or extract from URL (old API)
+            if resource_id is None:
+                file_id = str(file.download_url).split("/")[-2]
+            else:
+                file_id = resource_id
             filename = f"{file_id}.xlsx"
             filepath = self.output_dir / filename
 
@@ -108,3 +120,40 @@ class DownloadManager:
 
         logger.info(f"Validated {len(filtered_resources)} resources")
         self.download_xlsx_files(filtered_resources)
+
+    def process_new_api(self, report_id: int = ZSRIR_REPORT_ID):
+        """Download all XLSX files from the new zsrir.minrol.gov.pl API.
+
+        Transforms the new API response into Resource objects and reuses
+        the existing download infrastructure (overrides, dedup, manifest).
+        """
+        resp = requests.get(
+            ZSRIR_FILE_LIST_URL,
+            params={"id": report_id},
+            timeout=30,
+            headers={"Accept": "application/json"},
+            verify=False,
+        )
+        resp.raise_for_status()
+        files = resp.json().get("reportFiles", [])
+
+        resources = []
+        for f in files:
+            filename = f.get("filename", "")
+            if not filename.lower().endswith(".xlsx"):
+                continue
+            resource = Resource(
+                id=str(f["id"]),
+                attributes={
+                    "title": filename,
+                    "modified": f.get("publishedDateTime", ""),
+                    "files": [{
+                        "format": "xlsx",
+                        "download_url": f"{ZSRIR_DOWNLOAD_URL}?id={f['id']}",
+                    }],
+                },
+            )
+            resources.append(resource)
+
+        logger.info(f"New API: found {len(resources)} XLSX files")
+        self.download_xlsx_files(resources)

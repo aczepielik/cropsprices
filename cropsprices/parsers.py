@@ -11,6 +11,11 @@ from pydantic import BaseModel, ValidationInfo, field_validator
 # Get a logger for this module
 logger = logging.getLogger(__name__)
 
+# Canonical set of unit values that appear in the source spreadsheets.
+# Used by column-shift detection, structural-shift heuristic, and tests.
+# If the source publishes a new unit, add it here.
+VALID_UNITS = {"kg", "szt.", "szt", "pęczek", "l"}
+
 
 class ExcelHeader(BaseModel):
     df: pd.DataFrame
@@ -91,14 +96,17 @@ class ExcelData(BaseModel):
                     f"Product name at row {index} is not a string: {product_name}"
                 )
             price_stats = row.iloc[start_col:]
-            for col, value in price_stats.items():
+            for col_idx in price_stats.index:
+                value = price_stats[col_idx]
                 if pd.notna(value):
                     try:
                         float(value)
-                    except ValueError:
-                        raise ValueError(
-                            f"Price-statistic at row {index}, column {col} is not a valid float: {value}"
+                    except (ValueError, TypeError):
+                        logger.warning(
+                            f"Coercing non-numeric price at row {index}, "
+                            f"column {col_idx} to NaN: {value!r}"
                         )
+                        v.at[index, col_idx] = np.nan
         return v
 
     class Config:
@@ -247,8 +255,6 @@ class ExcelParser:
         if product_col is None:
             product_col = 0
 
-        valid_units = {"kg", "szt.", "szt", "pęczek", "l"}
-
         if self.is_fruit:
             id_prefix = [""] * product_col if product_col > 0 else []
             id_cols = id_prefix + ["Product", "Variety", "Unit"]
@@ -260,14 +266,14 @@ class ExcelParser:
                 unit_vals = set(
                     data_rows.iloc[:, unit_col_pos].dropna().astype(str).unique()
                 )
-                if unit_vals and not unit_vals.issubset(valid_units):
+                if unit_vals and not unit_vals.issubset(VALID_UNITS):
                     for candidate in range(unit_col_pos + 1, self.start_col):
                         if candidate < data_rows.shape[1]:
                             cand_vals = set(
                                 data_rows.iloc[:, candidate]
                                 .dropna().astype(str).unique()
                             )
-                            if cand_vals and cand_vals.issubset(valid_units):
+                            if cand_vals and cand_vals.issubset(VALID_UNITS):
                                 # Insert blank cols to shift Unit to the right
                                 for _ in range(candidate - unit_col_pos):
                                     id_cols.insert(-1, "")
@@ -432,13 +438,39 @@ class ExcelParser:
                 )
         return df
 
+    def _validate_units(self, data_rows: pd.DataFrame) -> None:
+        """Reject parses where most Unit values are not real units.
+
+        When the table structure is shifted (e.g. extra column inserted),
+        variety names or garbage end up in the Unit column.  A healthy
+        sheet has nearly all Unit values in the known set; a broken one
+        has mostly non-unit strings.
+        """
+        unit_col = data_rows["Unit"]
+        non_empty = unit_col[unit_col.notna() & (unit_col != "")]
+        if len(non_empty) == 0:
+            return
+        valid_count = sum(1 for v in non_empty if str(v).strip() in VALID_UNITS)
+        ratio = valid_count / len(non_empty)
+        if ratio < 0.5:
+            bad_samples = sorted(set(str(v) for v in non_empty if v not in VALID_UNITS))[:5]
+            raise ValueError(
+                f"Structural shift detected: {valid_count}/{len(non_empty)} "
+                f"units are valid ({ratio:.0%}).  "
+                f"Sample invalid units: {bad_samples}"
+            )
+
     def convert_excel(self) -> List[dict]:
         try:
             dates, places = self.extract_dates_and_places()
             data_rows = self.prepare_data_rows(places)
+            self._validate_units(data_rows)
             melted_df = self.melt_dataframe(data_rows)
             result_df = self.process_melted_df(melted_df, places, dates)
             result_df = self.clean_result_df(result_df)
+            dedup_cols = ["Product", "Unit", "Place", "Date", "Statistic", "Origin"]
+            existing = [c for c in dedup_cols if c in result_df.columns]
+            result_df = result_df.drop_duplicates(subset=existing, keep="first")
             result_df = self._ensure_proper_types(result_df)
 
             # Convert DataFrame to list of dictionaries
