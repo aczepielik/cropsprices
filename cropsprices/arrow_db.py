@@ -15,6 +15,24 @@ DEFAULT_PARSED_DIR = Path("data/parsed")
 DEFAULT_OUTPUT_DIR = Path("public/data")
 
 
+def compute_archive_version(output_dir: Path, archive_year: int) -> str:
+    """Hash all archive file contents to detect content changes.
+
+    Returns a short hex string that changes when any archive file's
+    content changes, but stays stable across weekly ingestion (which
+    only touches current-year files).
+    """
+    import hashlib
+    archive_dir = output_dir / f"archive-{archive_year}"
+    if not archive_dir.exists():
+        return "none"
+    h = hashlib.md5()
+    for f in sorted(archive_dir.iterdir()):
+        if f.is_file():
+            h.update(f.read_bytes())
+    return h.hexdigest()[:12]
+
+
 def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """Apply normalize_product to Product and Unit columns."""
     if "Unit" in df.columns:
@@ -271,7 +289,8 @@ def write_manifest(manifest: dict, output_dir: Path) -> None:
 
 
 def build_manifest(df: pd.DataFrame, archive_files: list[str], current_files: list[str],
-                    current_year: int, archive_year: int | None = None) -> dict:
+                    current_year: int, archive_year: int | None = None,
+                    archive_version: str | None = None) -> dict:
     if archive_year is None:
         archive_year = current_year - 1
 
@@ -299,5 +318,6 @@ def build_manifest(df: pd.DataFrame, archive_files: list[str], current_files: li
         "products": products_list,
         "places": sorted(df["Place"].unique().tolist()),
         "lastUpdate": datetime.now(timezone.utc).isoformat(),
+        "archiveVersion": archive_version or "none",
     }
     return manifest

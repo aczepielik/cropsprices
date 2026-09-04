@@ -218,3 +218,87 @@ class TestPivotMinMaxOriginPreserved:
         import_row = result[result["Origin"] == "IMPORTOWANE"].iloc[0]
         assert krajowe_row["price_max"] == 4.0, "KRAJOWE price_max must not be mixed with IMPORTOWANE"
         assert import_row["price_max"] == 6.0, "IMPORTOWANE price_max must not be mixed with KRAJOWE"
+
+
+class TestArchiveVersion:
+    """Tests for archive cache versioning.
+
+    archiveVersion is an MD5 hash of all archive file contents. It changes
+    when archive data changes (rebuild, override fix, year roll) but stays
+    stable during weekly ingestion (which only touches current-year files).
+    """
+
+    def test_build_manifest_includes_archive_version(self, sample_df):
+        """build_manifest output must include archiveVersion key."""
+        sample_df["year"] = 2024
+        manifest = build_manifest(sample_df, [], [], 2026, 2025)
+        assert "archiveVersion" in manifest
+
+    def test_build_manifest_archive_version_default(self, sample_df):
+        """archiveVersion defaults to 'none' when not provided."""
+        sample_df["year"] = 2024
+        manifest = build_manifest(sample_df, [], [], 2026, 2025)
+        assert manifest["archiveVersion"] == "none"
+
+    def test_build_manifest_archive_version_passthrough(self, sample_df):
+        """Explicit archive_version parameter is used as-is."""
+        sample_df["year"] = 2024
+        manifest = build_manifest(sample_df, [], [], 2026, 2025,
+                                  archive_version="abc123def456")
+        assert manifest["archiveVersion"] == "abc123def456"
+
+    def test_compute_archive_version_returns_hash(self, tmp_path):
+        """compute_archive_version returns a 12-char hex string."""
+        archive_dir = tmp_path / "archive-2025"
+        archive_dir.mkdir()
+        (archive_dir / "test.arrow").write_bytes(b"fake arrow data")
+
+        from cropsprices.arrow_db import compute_archive_version
+        version = compute_archive_version(tmp_path, 2025)
+        assert len(version) == 12
+        assert all(c in "0123456789abcdef" for c in version)
+
+    def test_compute_archive_version_stable(self, tmp_path):
+        """Same content produces same hash."""
+        archive_dir = tmp_path / "archive-2025"
+        archive_dir.mkdir()
+        (archive_dir / "A.arrow").write_bytes(b"content A")
+        (archive_dir / "B.arrow").write_bytes(b"content B")
+
+        from cropsprices.arrow_db import compute_archive_version
+        v1 = compute_archive_version(tmp_path, 2025)
+        v2 = compute_archive_version(tmp_path, 2025)
+        assert v1 == v2
+
+    def test_compute_archive_version_changes_with_content(self, tmp_path):
+        """Different content produces different hash."""
+        archive_dir = tmp_path / "archive-2025"
+        archive_dir.mkdir()
+        (archive_dir / "A.arrow").write_bytes(b"content v1")
+
+        from cropsprices.arrow_db import compute_archive_version
+        v1 = compute_archive_version(tmp_path, 2025)
+
+        # Modify content
+        (archive_dir / "A.arrow").write_bytes(b"content v2")
+        v2 = compute_archive_version(tmp_path, 2025)
+        assert v1 != v2
+
+    def test_compute_archive_version_changes_with_new_file(self, tmp_path):
+        """Adding a file changes the hash."""
+        archive_dir = tmp_path / "archive-2025"
+        archive_dir.mkdir()
+        (archive_dir / "A.arrow").write_bytes(b"content A")
+
+        from cropsprices.arrow_db import compute_archive_version
+        v1 = compute_archive_version(tmp_path, 2025)
+
+        (archive_dir / "B.arrow").write_bytes(b"content B")
+        v2 = compute_archive_version(tmp_path, 2025)
+        assert v1 != v2
+
+    def test_compute_archive_version_none_for_missing_dir(self, tmp_path):
+        """Returns 'none' if archive directory doesn't exist."""
+        from cropsprices.arrow_db import compute_archive_version
+        version = compute_archive_version(tmp_path, 2099)
+        assert version == "none"

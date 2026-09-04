@@ -30,6 +30,7 @@ export interface Manifest {
   products: Product[];
   places: string[];
   lastUpdate: string;
+  archiveVersion: string;
 }
 
 // A single row of price data from an Arrow file.
