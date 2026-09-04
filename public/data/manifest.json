@@ -21,6 +21,12 @@
     },
     {
       "name": "Ananasy",
+      "unit": "kg",
+      "origin": "IMPORTOWANE",
+      "category": "owoce"
+    },
+    {
+      "name": "Ananasy",
       "unit": "szt.",
       "origin": "IMPORTOWANE",
       "category": "owoce"
@@ -189,12 +195,6 @@
     },
     {
       "name": "Jabłka",
-      "unit": "kg",
-      "origin": "KRAJOWE",
-      "category": "owoce"
-    },
-    {
-      "name": "Jabłka Antonówki",
       "unit": "kg",
       "origin": "KRAJOWE",
       "category": "owoce"
@@ -734,6 +734,12 @@
       "category": "owoce"
     },
     {
+      "name": "Porzeczki czarne",
+      "unit": "szt.",
+      "origin": "KRAJOWE",
+      "category": "owoce"
+    },
+    {
       "name": "Porzeczki czerwone",
       "unit": "kg",
       "origin": "KRAJOWE",
@@ -915,5 +921,6 @@
     "Wrocław",
     "Łódź"
   ],
-  "lastUpdate": "2026-08-12T02:46:37.676475+00:00"
+  "lastUpdate": "2026-09-04T17:18:04.520266+00:00",
+  "archiveVersion": "ba8299e77519"
 }
