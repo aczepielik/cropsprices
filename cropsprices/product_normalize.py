@@ -44,7 +44,7 @@ PRODUCT_ALIASES: dict[tuple[str, str], tuple[str, str]] = {
     ("Jabłka Lobo", "kg"): ("Jabłka: Lobo", "kg"),
     ("Jabłka Papierówki", "kg"): ("Jabłka: Papierówki", "kg"),
     ("Jabłka Paula Red", "kg"): ("Jabłka: Paula Red", "kg"),
-    ("Jabłka Paula-Red", "kg"): ("Jabłka: Paula-Red", "kg"),
+    ("Jabłka Paula-Red", "kg"): ("Jabłka: Paula Red", "kg"),
     ("Jabłka Paulared", "kg"): ("Jabłka: Paulared", "kg"),
     ("Jabłka Piros", "kg"): ("Jabłka: Piros", "kg"),
     ("Jabłka Rubin", "kg"): ("Jabłka: Rubin", "kg"),
