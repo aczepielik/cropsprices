@@ -170,16 +170,26 @@ def write_weeks_file(week_ranges: dict, filepath: Path) -> None:
 
 
 def write_archive_files(df: pd.DataFrame, output_dir: Path, current_year: int,
-                        archive_year: int | None = None) -> list[str]:
+                        archive_year: int | None = None, clean: bool = False) -> list[str]:
     """Write archive arrow files for all years before current_year.
 
     Archive directory is named archive-{archive_year}/ where archive_year
     defaults to current_year - 1.  Each archive version is immutable —
     on year roll a new directory is created so the URL changes and
     browsers fetch fresh data.
+
+    If clean=True, removes all existing .arrow and .weeks.json files in the
+    archive directory before writing. Use this for full rebuilds to prevent
+    stale orphan files from previous builds.
     """
     if archive_year is None:
         archive_year = current_year - 1
+
+    archive_dir = output_dir / f"archive-{archive_year}"
+    if clean and archive_dir.exists():
+        for f in archive_dir.iterdir():
+            if f.is_file() and f.suffix in ('.arrow', '.json'):
+                f.unlink()
 
     past_df = df[df["year"] < current_year]
 
@@ -218,8 +228,16 @@ def write_archive_files(df: pd.DataFrame, output_dir: Path, current_year: int,
     return files_written
 
 
-def write_current_year_files(df: pd.DataFrame, output_dir: Path, current_year: int) -> list[str]:
+def write_current_year_files(df: pd.DataFrame, output_dir: Path, current_year: int,
+                             clean: bool = False) -> list[str]:
     current_df = df[df["year"] == current_year]
+
+    if clean:
+        year_dir = output_dir / str(current_year)
+        if year_dir.exists():
+            for f in year_dir.iterdir():
+                if f.is_file() and f.suffix in ('.arrow', '.json'):
+                    f.unlink()
 
     group_keys = ["Product"]
     if "Unit" in current_df.columns:

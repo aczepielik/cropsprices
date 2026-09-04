@@ -46,8 +46,8 @@ def main(parsed_dir: Path = DEFAULT_PARSED_DIR, output_dir: Path = DEFAULT_OUTPU
     archive_year = detect_archive_year(output_dir) or (current_year - 1)
     logger.info(f"Current year: {current_year}, archive year: {archive_year}")
 
-    archive_files = write_archive_files(df, output_dir, current_year, archive_year)
-    current_files = write_current_year_files(df, output_dir, current_year)
+    archive_files = write_archive_files(df, output_dir, current_year, archive_year, clean=True)
+    current_files = write_current_year_files(df, output_dir, current_year, clean=True)
 
     archive_version = compute_archive_version(output_dir, archive_year)
     manifest = build_manifest(df, archive_files, current_files, current_year, archive_year,
