@@ -16,6 +16,8 @@ from pathlib import Path
 import pandas as pd
 import requests
 import urllib3
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -79,11 +81,23 @@ REPORT_DOWNLOAD_URL = "https://zsrir.minrol.gov.pl/api/ZsrirData/DownloadReportF
 ZSRIR_REPORT_ID = 11
 
 
+def _retry_session() -> requests.Session:
+    """Create a requests.Session with automatic retries on transient errors."""
+    session = requests.Session()
+    retries = Retry(total=3, backoff_factor=2,
+                    status_forcelist=[502, 503, 504])
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
 def _fetch_report_files() -> list[dict]:
     """Fetch the raw file list from zsrir.minrol.gov.pl."""
-    resp = requests.get(REPORT_FILE_LIST_URL, params={"id": ZSRIR_REPORT_ID},
-                        timeout=30, headers={"Accept": "application/json"},
-                        verify=False)
+    session = _retry_session()
+    resp = session.get(REPORT_FILE_LIST_URL, params={"id": ZSRIR_REPORT_ID},
+                       timeout=60, headers={"Accept": "application/json"},
+                       verify=False)
     resp.raise_for_status()
     return resp.json().get("reportFiles", [])
 
@@ -123,9 +137,9 @@ def fetch_latest_bulletins() -> list[dict]:
 
 def download_xlsx(url: str, dest: Path) -> bool:
     """Download a single XLSX file. Returns True on success."""
-    import requests
     try:
-        resp = requests.get(url, timeout=60, verify=False)
+        session = _retry_session()
+        resp = session.get(url, timeout=90, verify=False)
         resp.raise_for_status()
         dest.write_bytes(resp.content)
         return True
