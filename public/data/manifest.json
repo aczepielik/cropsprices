@@ -166,6 +166,12 @@
     {
       "name": "Czosnek",
       "unit": "szt.",
+      "origin": "IMPORTOWANE",
+      "category": "warzywa"
+    },
+    {
+      "name": "Czosnek",
+      "unit": "szt.",
       "origin": "KRAJOWE",
       "category": "warzywa"
     },
@@ -933,6 +939,6 @@
     "Wrocław",
     "Łódź"
   ],
-  "lastUpdate": "2026-10-01T18:28:01.197905+00:00",
+  "lastUpdate": "2026-10-08T18:54:02.776537+00:00",
   "archiveVersion": "ba8299e77519"
 }
